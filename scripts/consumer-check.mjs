@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +9,8 @@ const vectors = JSON.parse(
   readFileSync(join(packageRoot, "conformance/v1/conformance-vectors.json"), "utf8"),
 );
 const vector = vectors.success[0];
+const esbuild = join(packageRoot, "node_modules/.bin/esbuild");
+const guardMessage = "must never be bundled for a browser";
 const workspace = mkdtempSync(join(tmpdir(), "bu-payment-node-sdk-consumer-"));
 
 try {
@@ -54,18 +56,63 @@ try {
   writeFileSync(join(workspace, "esm-check.mjs"), esmCheck(vector));
   writeFileSync(join(workspace, "cjs-check.cjs"), cjsCheck(vector));
   writeFileSync(join(workspace, "types-check.ts"), typesCheck());
+  writeFileSync(join(workspace, "browser-esm-entry.mjs"), 'import "@bu-payment/node-sdk";\n');
+  writeFileSync(join(workspace, "browser-cjs-entry.cjs"), 'require("@bu-payment/node-sdk");\n');
 
   run("bun", ["install"], workspace);
   run("node", ["esm-check.mjs"], workspace);
   run("node", ["cjs-check.cjs"], workspace);
   run("bunx", ["tsc", "--project", "tsconfig.json"], workspace);
   process.stdout.write("installed consumer: ESM, CommonJS and declarations verified\n");
+
+  expectGuard(
+    ["node", ["--conditions=browser", "browser-esm-entry.mjs"]],
+    "node browser condition",
+  );
+  bundleForBrowser("browser-esm-entry.mjs", "esm", "neutral", "browser-esm-neutral.mjs");
+  bundleForBrowser("browser-esm-entry.mjs", "esm", "browser", "browser-esm-browser.mjs");
+  bundleForBrowser("browser-cjs-entry.cjs", "cjs", "browser", "browser-cjs-browser.cjs");
+  process.stdout.write("browser guard verified: ESM and CommonJS bundles refuse to load\n");
 } finally {
   rmSync(workspace, { recursive: true, force: true });
 }
 
 function run(command, args, cwd) {
   execFileSync(command, args, { cwd, stdio: "inherit" });
+}
+
+function bundleForBrowser(entry, format, platform, outfile) {
+  run(
+    esbuild,
+    [
+      entry,
+      "--bundle",
+      "--tree-shaking=true",
+      `--format=${format}`,
+      `--platform=${platform}`,
+      "--conditions=browser",
+      `--outfile=${outfile}`,
+    ],
+    workspace,
+  );
+  expectGuard(["node", [outfile]], `${format} bundle on platform ${platform}`);
+}
+
+function expectGuard([command, args], label) {
+  const result = spawnSync(command, args, { cwd: workspace, encoding: "utf8" });
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  if (result.error !== undefined) {
+    throw new Error(`${label}: could not be run: ${result.error.message}`);
+  }
+  if (result.signal !== null) {
+    throw new Error(`${label}: killed by signal ${result.signal}`);
+  }
+  if (result.status === 0) {
+    throw new Error(`${label}: loaded the confidential SDK instead of throwing the browser guard`);
+  }
+  if (!output.includes(guardMessage)) {
+    throw new Error(`${label}: failed without the browser guard message\n${output}`);
+  }
 }
 
 function esmCheck(vector) {
