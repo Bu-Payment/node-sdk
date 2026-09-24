@@ -1,3 +1,4 @@
+export type * from "./billing/types";
 export type * from "./catalogue/types";
 export type * from "./checkout/types";
 export type { BuPaymentClient, ClientOptions } from "./client";
@@ -17,6 +18,7 @@ export type * from "./customers/types";
 export type { BuPaymentErrorOptions } from "./errors";
 export type * from "./events/types";
 export type * from "./invoices/types";
+export type * from "./payment-methods/types";
 export type * from "./payments/types";
 export type * from "./price-migrations/types";
 export type * from "./refunds/types";

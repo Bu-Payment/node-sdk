@@ -1,5 +1,6 @@
 import type { createCheckoutClient } from "../src/checkout/client";
 import type { createCustomersClient } from "../src/customers/client";
+import type { createPaymentMethodsClient } from "../src/payment-methods/client";
 import type { createPaymentsClient } from "../src/payments/client";
 import type { createPriceMigrationsClient } from "../src/price-migrations/client";
 import type { createRefundsClient } from "../src/refunds/client";
@@ -8,6 +9,7 @@ import type { createWebhooksClient } from "../src/webhooks/client";
 
 declare const customers: ReturnType<typeof createCustomersClient>;
 declare const payments: ReturnType<typeof createPaymentsClient>;
+declare const paymentMethods: ReturnType<typeof createPaymentMethodsClient>;
 declare const webhooks: ReturnType<typeof createWebhooksClient>;
 declare const checkout: ReturnType<typeof createCheckoutClient>;
 declare const refunds: ReturnType<typeof createRefundsClient>;
@@ -43,6 +45,26 @@ payments.create().priceId("price_1").currency("EUR");
 
 // @ts-expect-error allocations require a payment method
 payments.create().customerId("cus_1").priceId("price_1").allocation("line_1", 100, "EUR");
+
+// @ts-expect-error a payment method setup cannot be created before the buyer's consent
+paymentMethods.createSetup("cus_1").currency("EUR").returnUrl("https://shop.test/r").create();
+
+const setupWithoutReturnUrl = paymentMethods
+  .createSetup("cus_1")
+  .currency("EUR")
+  .consentAcceptedAt("2026-01-01T00:00:00Z");
+// @ts-expect-error a payment method setup cannot be created before its return url
+setupWithoutReturnUrl.create();
+
+const setupWithoutCurrency = paymentMethods
+  .createSetup("cus_1")
+  .returnUrl("https://shop.test/r")
+  .consentAcceptedAt("2026-01-01T00:00:00Z");
+// @ts-expect-error a payment method setup cannot be created before its currency
+setupWithoutCurrency.create();
+
+// @ts-expect-error a payment method list carries no cursor
+paymentMethods.list("cus_1").cursor("cur_2");
 
 // @ts-expect-error a webhook endpoint cannot be created before its url is set
 webhooks.createEndpoint().event("payment.succeeded").create();
@@ -145,6 +167,13 @@ export const accepted = [
     .paymentMethodId("pm_1")
     .allocation("line_1", 100, "EUR")
     .create(),
+  paymentMethods
+    .createSetup("cus_1")
+    .currency("EUR")
+    .returnUrl("https://shop.test/r")
+    .consentAcceptedAt("2026-01-01T00:00:00Z")
+    .create(),
+  paymentMethods.paymentMethod("cus_1", "pm_1").revoke(),
   webhooks.createEndpoint().url("https://shop.test/hooks").create(),
   webhooks.endpoint("whe_1").status("disabled").update(),
   checkout.coupon("WELCOME").unitAmount(1_000).currency("EUR").evaluate(),

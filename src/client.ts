@@ -1,3 +1,4 @@
+import { type BillingClient, createBillingClient } from "./billing/client";
 import { type CatalogueClient, createCatalogueClient } from "./catalogue/client";
 import { type CheckoutClient, createCheckoutClient } from "./checkout/client";
 import type { Sender } from "./core/builder";
@@ -7,6 +8,7 @@ import { generateIdempotencyKey, parseIdempotencyKey } from "./core/idempotency"
 import { type CustomersClient, createCustomersClient } from "./customers/client";
 import { createEventsClient, type EventsClient } from "./events/client";
 import { createInvoicesClient, type InvoicesClient } from "./invoices/client";
+import { createPaymentMethodsClient, type PaymentMethodsClient } from "./payment-methods/client";
 import { createPaymentsClient, type PaymentsClient } from "./payments/client";
 import { createPriceMigrationsClient, type PriceMigrationsClient } from "./price-migrations/client";
 import { createRefundsClient, type RefundsClient } from "./refunds/client";
@@ -24,6 +26,8 @@ export interface BuPaymentClient {
   readonly customers: CustomersClient;
   readonly checkout: CheckoutClient;
   readonly payments: PaymentsClient;
+  readonly paymentMethods: PaymentMethodsClient;
+  readonly billing: BillingClient;
   readonly invoices: InvoicesClient;
   readonly refunds: RefundsClient;
   readonly subscriptions: SubscriptionsClient;
@@ -47,6 +51,8 @@ export function createBuPaymentClient(
     customers: createCustomersClient(send),
     checkout: createCheckoutClient(send),
     payments: createPaymentsClient(send),
+    paymentMethods: createPaymentMethodsClient(send),
+    billing: createBillingClient(send),
     invoices: createInvoicesClient(send),
     refunds: createRefundsClient(send),
     subscriptions: createSubscriptionsClient(send),
