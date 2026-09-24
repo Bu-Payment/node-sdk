@@ -33,18 +33,31 @@ conversion, `JSON.stringify`, `util.inspect`, and thrown error metadata all rend
 ## Signed requests
 
 ```ts
-const products = await client.request<{ data: unknown[] }>({
+interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const products = await client.request<{ data: Product[]; nextCursor: string | null }>({
   method: "GET",
   path: "/v1/products",
   query: { limit: 20 },
 });
 
-const payment = await client.request({
+const payment = await client.request<Payment>({
   method: "POST",
   path: "/v1/payments",
   body: { customerId: "cus_123", priceId: "price_123" },
 });
 ```
+
+`request` is the low-level entry point and carries the response type the caller declares. The
+typed commerce clients, which ship the resource models, the request bodies, and the page envelopes
+for every route, land with the app-scoped commerce operations.
 
 Each call derives a fresh timestamp and nonce, canonicalizes the exact path and query it transmits,
 hashes the exact body bytes it sends, and signs the nine-line canonical request with HMAC-SHA256.
