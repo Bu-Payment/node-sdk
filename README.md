@@ -32,9 +32,9 @@ conversion, `JSON.stringify`, `util.inspect`, and thrown error metadata all rend
 
 ## Commerce resources
 
-The client exposes one typed resource per part of the machine API. Every model, request body,
-list query, and page envelope mirrors the contract, so no response type has to be declared by
-hand.
+The client exposes a typed resource for each commerce domain of the machine API. Every model,
+request body, list query, and page envelope mirrors the contract, so no response type has to be
+declared by hand.
 
 ```ts
 const products = await client.products.list({ active: true, limit: 20 });
@@ -53,6 +53,10 @@ for await (const event of client.events.listAll({ type: "payment.succeeded" })) 
 `subscriptionCheckouts`, `payments`, `subscriptions`, `subscriptionPriceMigrations`, `invoices`,
 `refunds`, `events`, `webhookEndpoints`, and `webhookDeliveries`. Each route needs its capability
 on the credential. See [the documentation](docs/00-index.md) for the whole surface.
+
+Two machine surfaces are not yet typed: payment methods, under
+`/v1/customers/{id}/payment-methods`, and billing capabilities. Reach them through `request`
+until they land. A `paymentMethodId` for payment allocations comes from there.
 
 A payment is priced either by a canonical `priceId` or by an ad hoc `amount` with its `currency`,
 never by both: a request can never override the price of a canonical resource.
@@ -78,9 +82,9 @@ The request carries `Bu-Payment-Signature-Version`, `Bu-Payment-App-Id`, `Bu-Pay
 `Bu-Payment-Timestamp`, `Bu-Payment-Nonce`, and `Bu-Payment-Signature`.
 
 The authenticated application, workspace, and environment come from the credential. Nothing in a
-path, query, or body can widen or replace that scope: a body carrying `workspaceId`,
-`environmentId`, `applicationId`, `appId`, `tenantId`, `provider`, `providerAccountId`, or
-`providerAccountVersion` is refused before the request is signed.
+query or body can widen or replace that scope: a scope key is refused before the request is
+signed, whatever its casing or separator, and the body is checked as it will be serialized. A
+path that smuggles a query string past the signer produces a signature the API rejects.
 
 ## Idempotency
 

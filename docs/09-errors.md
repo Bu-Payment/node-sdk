@@ -46,12 +46,21 @@ retry against another environment: Test and Live never share commerce data.
 
 ## Refusals before signing
 
-Two checks run in the SDK, before a request is signed, and both raise `request_invalid`:
+These checks run in the SDK, before a request is signed, and all raise `request_invalid`:
 
-- a body carrying a scope key (`workspaceId`, `environmentId`, `applicationId`, `appId`,
-  `tenantId`, `provider`, `providerAccountId`, `providerAccountVersion`);
-- a payment priced both by `priceId` and by `amount`, priced by neither, carrying an
-  `amount` without a `currency`, or carrying `allocations` without a `paymentMethodId`.
+- a body or query carrying a scope key: `workspace`, `environment`, `application`, `app`,
+  `tenant`, `provider`, `providerAccountId` or `providerAccountVersion`, with or without an
+  `Id` suffix, in any casing and with any separator. The body is checked as it will be
+  serialized, so a `toJSON` cannot hide a key, and nesting depth is not a way past it;
+- a payment priced both by `priceId` and by `amount` or `currency`, priced by neither,
+  carrying an `amount` without a `currency`, or carrying `allocations` without a
+  `paymentMethodId`;
+- a shipping resolution with no product identifier, or one containing a comma, which the
+  wire format would split into two.
+
+`paginate` and every `listAll` raise `response_invalid` when the API answers a cursor it
+has already served, or a page whose `nextCursor` is missing or empty. Both would otherwise
+end the walk in silence, or repeat it forever.
 
 ---
 

@@ -28,9 +28,11 @@ The environment is derived from the key identifier, not configured separately. P
 ## Scope is fixed by the credential
 
 The authenticated credential fixes the App, workspace and environment. Those values are
-never request data: a body carrying `workspaceId`, `environmentId`, `applicationId`,
-`appId`, `tenantId`, `provider`, `providerAccountId` or `providerAccountVersion` is refused
-before the request is signed.
+never request data: a body or query carrying `workspace`, `environment`, `application`,
+`app`, `tenant`, `provider`, `providerAccountId` or `providerAccountVersion`, with or
+without an `Id` suffix and whatever the casing or separator, is refused before the request
+is signed. The check runs on the body as it will be serialized, so a class with a `toJSON`
+is examined by what it actually sends.
 
 A resource owned by another App answers exactly like a resource that does not exist. Never
 read an identifier's existence out of a not-found response.
@@ -53,13 +55,17 @@ Each route requires a capability on the credential. Without it the API answers
 
 ## Idempotency
 
-Every `POST`, `PUT`, `PATCH` and `DELETE` carries an `Idempotency-Key`. The SDK generates
-one when the caller does not supply it. Pass your own as the last argument of a mutation to
-make a retry replay the original outcome instead of creating a second resource.
+Every `POST`, `PUT`, `PATCH` and `DELETE` carries an `Idempotency-Key`. The SDK generates a
+fresh one for each call the caller does not key, which means a retry of an unkeyed
+`payments.create` after a timeout is a second charge, not a replay. Pass your own key, as
+the last argument of every mutation, whenever a retry is possible:
 
 ```ts
 await client.payments.create({ customerId, priceId }, orderId);
 ```
+
+The key must be the same on the retry as on the first attempt, and derived from the
+operation rather than generated per attempt.
 
 ## The low-level escape hatch
 

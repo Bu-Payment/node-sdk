@@ -19,7 +19,8 @@ const redemption = await client.coupons.redeem(
 );
 ```
 
-`evaluate` prices the discount without consuming it. `redeem` consumes one redemption and
+Both take an optional idempotency key as their last argument. `evaluate` prices the
+discount without consuming it. `redeem` consumes one redemption and
 records it against `reference`; pass that reference as the idempotency key so a retry
 replays the same redemption instead of consuming a second one.
 

@@ -14,8 +14,12 @@ await client.payments.create({ customerId: "cus_1", amount: 5000, currency: "EUR
 ```
 
 Passing `priceId` together with `amount` or `currency` is refused before the request is
-signed, so a request can never override the price of a canonical resource. An ad hoc
-payment needs both `amount` and `currency`.
+signed, so a request can never override the price of a canonical resource.
+
+An ad hoc payment needs both `amount` and `currency`. The SDK is deliberately stricter than
+the API here: the API accepts an amount with no currency and charges in its default
+currency, and an implicit currency on a charge is not a default worth inheriting silently.
+A caller who wants it must go through `client.request`.
 
 `allocations` splits the charge across references and requires a `paymentMethodId`:
 
@@ -54,6 +58,10 @@ await client.refunds.create({ paymentId: "pay_1", amount: 2500, currency: "EUR" 
 
 Reads require `payments:read`; creation requires `refunds:write`. A partial refund needs
 its currency alongside the amount. Omitting both refunds the payment in full.
+
+`list` and `get` answer an `OwnedRefund`, which carries the `customerId` the API grafts on
+from the App provenance. `create` answers a `Refund` without it: that field is not in the
+creation response. Read the refund back if the caller needs the customer.
 
 ---
 

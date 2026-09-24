@@ -53,8 +53,13 @@ const delivery = await client.webhookDeliveries.get("whd_1");
 const retried = await client.webhookDeliveries.retry("whd_1");
 ```
 
-`list` answers a plain array capped by `limit`, with no cursor. `retry` answers the
-delivery's identifier and its new status; a delivery already in flight is left alone.
+`list` answers a plain array with no cursor and no `hasMore`, so nothing in the response
+says whether it was truncated. Omitting `limit` returns the 50 newest matching deliveries;
+the server cap is 100. Driving retries from `list({ status: "failed" })` without a limit
+silently leaves the 51st failure and everything older unretried.
+
+`retry` answers the delivery's identifier and its new status; a delivery already in flight
+is left alone.
 
 Fanout reaches an endpoint only when the event and the endpoint share the same App scope.
 
