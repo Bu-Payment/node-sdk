@@ -1,0 +1,29 @@
+export const SIGNATURE_VERSION = "1";
+
+export const Header = {
+  SIGNATURE_VERSION: "Bu-Payment-Signature-Version",
+  APP_ID: "Bu-Payment-App-Id",
+  KEY_ID: "Bu-Payment-Key-Id",
+  TIMESTAMP: "Bu-Payment-Timestamp",
+  NONCE: "Bu-Payment-Nonce",
+  SIGNATURE: "Bu-Payment-Signature",
+} as const;
+
+export const ErrorCode = {
+  CONFIGURATION_INVALID: "configuration_invalid",
+  NETWORK_UNAVAILABLE: "network_unavailable",
+  REQUEST_CANCELLED: "request_cancelled",
+  RESPONSE_INVALID: "response_invalid",
+  APPLICATION_AUTH_REQUIRED: "application_auth_required",
+  APPLICATION_AUTH_MALFORMED: "application_auth_malformed",
+  APPLICATION_AUTH_VERSION_UNSUPPORTED: "application_auth_version_unsupported",
+  APPLICATION_AUTH_EXPIRED: "application_auth_expired",
+  APPLICATION_AUTH_REPLAYED: "application_auth_replayed",
+  APPLICATION_AUTH_INVALID: "application_auth_invalid",
+  APPLICATION_CAPABILITY_DENIED: "application_capability_denied",
+  TOO_MANY_REQUESTS: "too_many_requests",
+  APPLICATION_AUTH_UNAVAILABLE: "application_auth_unavailable",
+  OPERATION_FAILED: "operation_failed",
+} as const;
+
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
