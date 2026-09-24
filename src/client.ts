@@ -1,7 +1,6 @@
 import { type ClientConfig, type ClientConfigInput, parseClientConfig } from "./core/config";
 import { SignedTransport, type TransportOptions, type TransportRequest } from "./core/http";
 import { generateIdempotencyKey, parseIdempotencyKey } from "./core/idempotency";
-import { assertNoScopeOverrides } from "./core/scope-guard";
 import { CouponsResource } from "./resources/coupons";
 import { CustomersResource } from "./resources/customers";
 import { EventsResource } from "./resources/events";
@@ -72,7 +71,6 @@ export class BuPaymentClient {
   }
 
   async request<T>(request: TransportRequest): Promise<T> {
-    assertNoScopeOverrides(request.body);
     return await this.#transport.send<T>(withIdempotencyKey(request));
   }
 }

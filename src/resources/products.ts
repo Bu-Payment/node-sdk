@@ -42,7 +42,7 @@ export class ProductsResource extends Resource {
     );
   }
 
-  entitlements(productId: string): Promise<ProductEntitlementResolution> {
+  getEntitlements(productId: string): Promise<ProductEntitlementResolution> {
     return this.send({
       method: "GET",
       path: `/v1/products/${this.segment(productId)}/entitlements`,

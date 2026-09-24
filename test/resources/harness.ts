@@ -55,6 +55,14 @@ export function json(body: unknown, status = 200): Response {
   });
 }
 
+export function callAt(calls: Call[], index: number): Call {
+  const call = calls[index];
+  if (call === undefined) {
+    throw new Error(`no request was issued at index ${index}`);
+  }
+  return call;
+}
+
 export function pathOf(call: Call): string {
   return new URL(call.url).pathname;
 }

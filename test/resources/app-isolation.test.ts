@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ErrorCode, Header } from "../../src/constants";
-import { harnessOf, harnessReturning, json } from "./harness";
+import { callAt, harnessOf, harnessReturning, json } from "./harness";
 
 describe("app-scoped isolation", () => {
   it("signs every commerce request with the confidential credential", async () => {
     const { client, calls } = harnessReturning({ data: [], nextCursor: null }, { id: "pay_1" });
     await client.products.list();
     await client.payments.create({ customerId: "cus_1", priceId: "price_1" });
+    expect(calls).toHaveLength(2);
     for (const call of calls) {
       expect(call.headers[Header.SIGNATURE]).toMatch(/^[0-9a-f]{64}$/u);
       expect(call.headers[Header.APP_ID]).toBe(client.applicationId);
@@ -72,10 +73,33 @@ describe("app-scoped isolation", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("refuses a scope override smuggled through the query string", async () => {
+    const { client, calls } = harnessReturning({ data: [], nextCursor: null, hasMore: false });
+    await expect(
+      client.subscriptions.list({ limit: 5, appId: "app_other" } as never),
+    ).rejects.toMatchObject({ code: ErrorCode.REQUEST_INVALID });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("refuses a scope override a body only reveals when it is serialized", async () => {
+    const { client, calls } = harnessReturning({ id: "cus_1" });
+    const draft = {
+      email: "buyer@example.test",
+      toJSON: () => ({ email: "buyer@example.test", appId: "app_other" }),
+    };
+    await expect(
+      client.request({ method: "POST", path: "/v1/customers", body: draft }),
+    ).rejects.toMatchObject({ code: ErrorCode.REQUEST_INVALID });
+    expect(calls).toHaveLength(0);
+  });
+
   it("never sends the environment as request data", async () => {
     const { client, calls } = harnessReturning({ data: [], nextCursor: null });
     await client.events.list({ type: "payment.succeeded" });
-    expect(calls[0]?.url).not.toContain("environment");
-    expect(calls[0]?.body).toBeUndefined();
+    expect(calls).toHaveLength(1);
+    expect(callAt(calls, 0).url).toBe(
+      "https://api.bupayment.test/v1/events?type=payment.succeeded",
+    );
+    expect(callAt(calls, 0).body).toBeUndefined();
   });
 });

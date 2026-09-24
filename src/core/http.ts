@@ -5,6 +5,7 @@ import type { ClientConfig } from "./config";
 import { generateNonce } from "./nonce";
 import { buildRequestTarget, type QueryInput } from "./request-target";
 import { readResponse } from "./response";
+import { assertNoScopeOverrides } from "./scope-guard";
 import { signCanonicalRequest } from "./signature";
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
@@ -45,6 +46,7 @@ export class SignedTransport {
   }
 
   async send<T>(request: TransportRequest): Promise<T> {
+    assertNoScopeOverrides(request.query);
     const target = buildRequestTarget(this.#config.apiBaseUrl, request.path, request.query);
     const body = request.body === undefined ? undefined : encodeBody(request.body);
     const response = await this.#fetchSigned(request, target.url, {
@@ -129,7 +131,9 @@ export class SignedTransport {
 }
 
 function encodeBody(body: unknown): Uint8Array {
-  return new Uint8Array(Buffer.from(JSON.stringify(body) ?? "null", "utf8"));
+  const json = JSON.stringify(body) ?? "null";
+  assertNoScopeOverrides(JSON.parse(json) as unknown);
+  return new Uint8Array(Buffer.from(json, "utf8"));
 }
 
 function transportFailure(

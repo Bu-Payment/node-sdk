@@ -31,6 +31,7 @@ export { EventsResource } from "./resources/events";
 export { InvoicesResource } from "./resources/invoices";
 export { PaymentsResource } from "./resources/payments";
 export { PricesResource } from "./resources/prices";
+export { assertPricingSource } from "./resources/pricing-source";
 export { ProductsResource } from "./resources/products";
 export { RefundsResource } from "./resources/refunds";
 export type { RequestSender } from "./resources/resource";

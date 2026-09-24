@@ -8,6 +8,9 @@ export interface Refund {
   providerRefundId: string | null;
   reason: string | null;
   createdAt: string;
+}
+
+export interface OwnedRefund extends Refund {
   customerId: string;
 }
 

@@ -7,8 +7,13 @@ import type {
 import { Resource } from "./resource";
 
 export class CouponsResource extends Resource {
-  evaluate(body: EvaluateCouponBody): Promise<CouponEvaluation> {
-    return this.send({ method: "POST", path: "/v1/coupons/evaluate", body });
+  evaluate(body: EvaluateCouponBody, idempotencyKey?: string): Promise<CouponEvaluation> {
+    return this.send({
+      method: "POST",
+      path: "/v1/coupons/evaluate",
+      body,
+      ...this.replay(idempotencyKey),
+    });
   }
 
   redeem(body: RedeemCouponBody, idempotencyKey?: string): Promise<CouponRedemption> {

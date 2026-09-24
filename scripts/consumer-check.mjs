@@ -44,6 +44,8 @@ try {
           module: "NodeNext",
           moduleResolution: "NodeNext",
           strict: true,
+          exactOptionalPropertyTypes: true,
+          noUncheckedIndexedAccess: true,
           noEmit: true,
           skipLibCheck: true,
         },
@@ -142,27 +144,26 @@ function commerceAssertion(vector) {
   secret: ${JSON.stringify(vector.confidentialSecret)},
   apiBaseUrl: "https://api.bupayment.test",
 });
-for (const resource of [
-  "products",
-  "prices",
-  "customers",
-  "coupons",
-  "taxRates",
-  "shippingRates",
-  "subscriptionCheckouts",
-  "payments",
-  "subscriptions",
-  "subscriptionPriceMigrations",
-  "invoices",
-  "refunds",
-  "events",
-  "webhookEndpoints",
-  "webhookDeliveries",
+for (const [resource, method] of [
+  ["products", "list"],
+  ["prices", "list"],
+  ["customers", "create"],
+  ["coupons", "evaluate"],
+  ["taxRates", "calculate"],
+  ["shippingRates", "listAll"],
+  ["subscriptionCheckouts", "create"],
+  ["payments", "create"],
+  ["subscriptions", "cancelScheduledChange"],
+  ["subscriptionPriceMigrations", "notificationPlan"],
+  ["invoices", "listAll"],
+  ["refunds", "create"],
+  ["events", "get"],
+  ["webhookEndpoints", "remove"],
+  ["webhookDeliveries", "retry"],
 ]) {
-  assert.equal(typeof commerceClient[resource], "object", resource);
+  assert.ok(commerceClient[resource], resource);
+  assert.equal(typeof commerceClient[resource][method], "function", resource + "." + method);
 }
-assert.equal(typeof commerceClient.products.list, "function");
-assert.equal(typeof commerceClient.products.listAll, "function");
 
 async function assertScopeGuards() {
   await assert.rejects(
@@ -177,12 +178,26 @@ async function assertScopeGuards() {
     }),
     (error) => error.code === "request_invalid",
   );
+  await assert.rejects(
+    commerceClient.request({
+      method: "GET",
+      path: "/v1/products",
+      query: { workspace_id: "ws_other" },
+    }),
+    (error) => error.code === "request_invalid",
+  );
 }
 
-assertScopeGuards().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});`;
+process.exitCode = 1;
+assertScopeGuards().then(
+  () => {
+    process.exitCode = 0;
+  },
+  (error) => {
+    console.error(error);
+    process.exitCode = 1;
+  },
+);`;
 }
 
 function signatureAssertion(vector) {
@@ -202,13 +217,15 @@ assert.equal(
 }
 
 function typesCheck() {
-  return `import { BuPaymentClient, ErrorCode } from "@bu-payment/node-sdk";
+  return `import { BuPaymentClient, ErrorCode, paginate } from "@bu-payment/node-sdk";
 import type {
   ClientConfigInput,
   CreatePaymentBody,
   ListProductsQuery,
+  OwnedRefund,
   Page,
   Product,
+  Refund,
   TransportRequest,
 } from "@bu-payment/node-sdk/types";
 
@@ -244,7 +261,35 @@ export async function probe(): Promise<unknown> {
   for await (const product of client.products.listAll(productQuery)) {
     void product.id;
   }
+  const created: Refund = await client.refunds.create({ paymentId: "pay_1" });
+  void created.id;
+  const owned: OwnedRefund = await client.refunds.get("ref_1");
+  void owned.customerId;
+  await manualPaging(client);
+  await genericPaging(client);
   return await client.request(request);
+}
+
+async function manualPaging(client: BuPaymentClient): Promise<void> {
+  let cursor: string | undefined;
+  do {
+    const page = await client.products.list({
+      active: true,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    void page.data.length;
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+}
+
+async function genericPaging(client: BuPaymentClient): Promise<void> {
+  const products = paginate<Product, ListProductsQuery>(
+    (query) => client.request<Page<Product>>({ method: "GET", path: "/v1/products", query }),
+    { active: true },
+  );
+  for await (const product of products) {
+    void product.id;
+  }
 }
 `;
 }
