@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BuPaymentClient } from "../src/client";
+import { type BuPaymentClient, createBuPaymentClient } from "../src/client";
 import { ErrorCode, Header } from "../src/constants";
 import type { FetchLike } from "../src/core/http";
 import { readVectors } from "./conformance/vectors";
@@ -15,7 +15,7 @@ function clientOf(): { client: BuPaymentClient; headers: Record<string, string>[
     return new Response(JSON.stringify({ id: "obj_1" }), { status: 200 });
   };
   return {
-    client: new BuPaymentClient(
+    client: createBuPaymentClient(
       {
         applicationId: vector.appId,
         keyId: vector.keyId,

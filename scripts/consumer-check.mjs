@@ -119,57 +119,62 @@ function expectGuard([command, args], label) {
 
 function esmCheck(vector) {
   return `import assert from "node:assert/strict";
-import { BuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret } from "@bu-payment/node-sdk";
+import { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret } from "@bu-payment/node-sdk";
 
 ${signatureAssertion(vector)}
-assert.equal(typeof BuPaymentClient, "function");
+assert.equal(typeof createBuPaymentClient, "function");
 ${commerceAssertion(vector)}
 `;
 }
 
 function cjsCheck(vector) {
   return `const assert = require("node:assert/strict");
-const { BuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret } = require("@bu-payment/node-sdk");
+const { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret } = require("@bu-payment/node-sdk");
 
 ${signatureAssertion(vector)}
-assert.equal(typeof BuPaymentClient, "function");
+assert.equal(typeof createBuPaymentClient, "function");
 ${commerceAssertion(vector)}
 `;
 }
 
 function commerceAssertion(vector) {
-  return `const commerceClient = new BuPaymentClient({
+  return `const commerceClient = createBuPaymentClient({
   applicationId: ${JSON.stringify(vector.appId)},
   keyId: ${JSON.stringify(vector.keyId)},
   secret: ${JSON.stringify(vector.confidentialSecret)},
   apiBaseUrl: "https://api.bupayment.test",
 });
-for (const [resource, method] of [
-  ["products", "list"],
-  ["prices", "list"],
+assert.ok(Object.isFrozen(commerceClient), "client must be frozen");
+for (const [domain, entry] of [
+  ["catalogue", "products"],
   ["customers", "create"],
-  ["coupons", "evaluate"],
-  ["taxRates", "calculate"],
-  ["shippingRates", "listAll"],
-  ["subscriptionCheckouts", "create"],
+  ["checkout", "subscriptionSession"],
   ["payments", "create"],
-  ["subscriptions", "cancelScheduledChange"],
-  ["subscriptionPriceMigrations", "notificationPlan"],
-  ["invoices", "listAll"],
+  ["invoices", "list"],
   ["refunds", "create"],
-  ["events", "get"],
-  ["webhookEndpoints", "remove"],
-  ["webhookDeliveries", "retry"],
+  ["subscriptions", "create"],
+  ["priceMigrations", "list"],
+  ["events", "list"],
+  ["webhooks", "createEndpoint"],
 ]) {
-  assert.ok(commerceClient[resource], resource);
-  assert.equal(typeof commerceClient[resource][method], "function", resource + "." + method);
+  assert.ok(commerceClient[domain], domain);
+  assert.equal(typeof commerceClient[domain][entry], "function", domain + "." + entry);
 }
 
+const productsBuilder = commerceClient.catalogue.products();
+assert.ok(Object.isFrozen(productsBuilder), "builder must be frozen");
+assert.notEqual(productsBuilder.limit(10), productsBuilder, "builder must be immutable");
+assert.equal(typeof productsBuilder.get, "function");
+
+const incompletePayment = commerceClient.payments.create().customerId("cus_1");
+assert.equal(incompletePayment.create, undefined, "terminal must be absent until priced");
+assert.equal(
+  commerceClient.payments.create().priceId("price_1").amount,
+  undefined,
+  "an ad hoc amount must be absent once priced canonically",
+);
+
 async function assertScopeGuards() {
-  await assert.rejects(
-    commerceClient.payments.create({ customerId: "cus_1", priceId: "price_1", amount: 1 }),
-    (error) => error.code === "request_invalid",
-  );
   await assert.rejects(
     commerceClient.request({
       method: "POST",
@@ -217,11 +222,9 @@ assert.equal(
 }
 
 function typesCheck() {
-  return `import { BuPaymentClient, ErrorCode, paginate } from "@bu-payment/node-sdk";
+  return `import { createBuPaymentClient, ErrorCode, paginate } from "@bu-payment/node-sdk";
 import type {
   ClientConfigInput,
-  CreatePaymentBody,
-  ListProductsQuery,
   OwnedRefund,
   Page,
   Product,
@@ -237,53 +240,56 @@ const input: ClientConfigInput = {
 };
 
 const request: TransportRequest = { method: "GET", path: "/v1/products" };
-const productQuery: ListProductsQuery = { active: true, limit: 10 };
-const canonicalPayment: CreatePaymentBody = { customerId: "cus_1", priceId: "price_1" };
-const adHocPayment: CreatePaymentBody = { customerId: "cus_1", amount: 100, currency: "EUR" };
-// @ts-expect-error an ad hoc amount must never override a canonical price
-const conflictingPayment: CreatePaymentBody = {
-  customerId: "cus_1",
-  priceId: "price_1",
-  amount: 100,
-  currency: "EUR",
-};
-void conflictingPayment;
 
 export async function probe(): Promise<unknown> {
-  const client = new BuPaymentClient(input);
+  const client = createBuPaymentClient(input);
   const code: typeof ErrorCode.RESOURCE_NOT_FOUND = ErrorCode.RESOURCE_NOT_FOUND;
   void code;
-  const page: Page<Product> = await client.products.list(productQuery);
+
+  const page = await client.catalogue.products().active(true).limit(20).get();
   const name: string = page.data[0]?.name ?? "";
   void name;
-  void client.payments.create(canonicalPayment);
-  void client.payments.create(adHocPayment);
-  for await (const product of client.products.listAll(productQuery)) {
+
+  for await (const product of client.catalogue.products().active(true).all()) {
     void product.id;
   }
-  const created: Refund = await client.refunds.create({ paymentId: "pay_1" });
+
+  await client.payments.create().customerId("cus_1").priceId("price_1").create();
+  await client.payments.create().customerId("cus_1").amount(100).currency("EUR").create();
+
+  // @ts-expect-error a payment cannot be created with no pricing source
+  await client.payments.create().customerId("cus_1").create();
+
+  // @ts-expect-error an ad hoc amount must not reach a payment priced canonically
+  client.payments.create().priceId("price_1").amount(100);
+
+  // @ts-expect-error a customer cannot be created before an email is set
+  await client.customers.create().create();
+
+  const created: Refund = await client.refunds.create().paymentId("pay_1").create();
   void created.id;
-  const owned: OwnedRefund = await client.refunds.get("ref_1");
+  const owned: OwnedRefund = await client.refunds.refund("ref_1").get();
   void owned.customerId;
+
   await manualPaging(client);
   await genericPaging(client);
   return await client.request(request);
 }
 
-async function manualPaging(client: BuPaymentClient): Promise<void> {
+type Client = ReturnType<typeof createBuPaymentClient>;
+
+async function manualPaging(client: Client): Promise<void> {
   let cursor: string | undefined;
   do {
-    const page = await client.products.list({
-      active: true,
-      ...(cursor === undefined ? {} : { cursor }),
-    });
+    const builder = client.catalogue.products().active(true);
+    const page = await (cursor === undefined ? builder : builder.cursor(cursor)).get();
     void page.data.length;
     cursor = page.nextCursor ?? undefined;
   } while (cursor !== undefined);
 }
 
-async function genericPaging(client: BuPaymentClient): Promise<void> {
-  const products = paginate<Product, ListProductsQuery>(
+async function genericPaging(client: Client): Promise<void> {
+  const products = paginate<Product, { cursor?: string; active?: boolean }>(
     (query) => client.request<Page<Product>>({ method: "GET", path: "/v1/products", query }),
     { active: true },
   );
