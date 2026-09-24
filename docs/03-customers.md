@@ -8,23 +8,27 @@ contract.
 Requires `customers:read` to read and `customers:write` to mutate.
 
 ```ts
-const customer = await client.customers.create({
-  email: "buyer@example.com",
-  name: "Buyer",
-});
+const customer = await client.customers
+  .create()
+  .email("buyer@example.com")
+  .name("Buyer")
+  .idempotencyKey(`signup-${signupId}`)
+  .create();
 
-const found = await client.customers.list({ email: "buyer@example.com" });
-const one = await client.customers.get(customer.id);
+const found = await client.customers.list().email("buyer@example.com").get();
+const one = await client.customers.customer(customer.id).get();
 
-await client.customers.update(customer.id, { name: "Renamed" });
+await client.customers.customer(customer.id).name("Renamed").update();
 ```
 
-`update` accepts `null` for `name` to clear it. At least one field is required.
+`create()` does not exist until an email is set, and `update()` does not exist until at
+least one field is set, which is the API's own rule expressed in the type. Pass `null` to
+`name()` on an update to clear it.
 
 Listing pages on a cursor bound to the email filter:
 
 ```ts
-for await (const record of client.customers.listAll({ email: "buyer@example.com" })) {
+for await (const record of client.customers.list().email("buyer@example.com").all()) {
   console.log(record.id);
 }
 ```

@@ -9,57 +9,60 @@ events without a trustworthy owner are not exposed.
 Requires `events:read`.
 
 ```ts
-const events = await client.events.list({ type: "payment.succeeded", limit: 50 });
-const event = await client.events.get("evt_1");
+const events = await client.events.list().type("payment.succeeded").limit(50).get();
+const event = await client.events.event("evt_1").get();
 
-for await (const one of client.events.listAll({ type: "payment.succeeded" })) {
+for await (const one of client.events.list().type("payment.succeeded").all()) {
   console.log(one.type, one.occurredAt);
 }
 ```
 
 The cursor is bound to the workspace, environment, App and the active type filter. Reusing
-it under a different filter is rejected, which is why `listAll` replays the original query
-on every page.
+it under a different filter is rejected, which is why `all()` replays the original query on
+every page.
 
 ## Endpoints
 
 Requires `webhooks:manage`.
 
 ```ts
-const endpoint = await client.webhookEndpoints.create({
-  url: "https://shop.example/hooks",
-  enabledEvents: ["payment.succeeded"],
-});
+const endpoint = await client.webhooks
+  .createEndpoint()
+  .url("https://shop.example/hooks")
+  .event("payment.succeeded")
+  .event("payment.failed")
+  .create();
 ```
 
-The signing `secret` is returned once, on creation, and never again. Store it before
-discarding the response.
+Event types accumulate one call at a time. The signing `secret` is returned once, on
+creation, and never again. Store it before discarding the response.
 
 ```ts
-const endpoints = await client.webhookEndpoints.list();
-await client.webhookEndpoints.update(endpoint.id, { status: "disabled" });
-await client.webhookEndpoints.remove(endpoint.id);
+const endpoints = await client.webhooks.endpoints();
+await client.webhooks.endpoint(endpoint.id).status("disabled").update();
+await client.webhooks.endpoint(endpoint.id).remove();
 ```
 
-`list` answers a plain array: endpoints are not paginated.
+`endpoints()` is a plain terminal, not a builder: endpoints are not paginated and carry no
+filter. `update()` does not exist until a field is set.
 
 ## Deliveries
 
 Reads require `events:read`; retrying requires `webhooks:manage`.
 
 ```ts
-const deliveries = await client.webhookDeliveries.list({ status: "failed" });
-const delivery = await client.webhookDeliveries.get("whd_1");
-const retried = await client.webhookDeliveries.retry("whd_1");
+const deliveries = await client.webhooks.deliveries().status("failed").limit(100).get();
+const delivery = await client.webhooks.delivery("whd_1").get();
+const retried = await client.webhooks.delivery("whd_1").retry();
 ```
 
-`list` answers a plain array with no cursor and no `hasMore`, so nothing in the response
-says whether it was truncated. Omitting `limit` returns the 50 newest matching deliveries;
-the server cap is 100. Driving retries from `list({ status: "failed" })` without a limit
-silently leaves the 51st failure and everything older unretried.
+`get()` answers a plain array with no cursor and no `hasMore`, so nothing in the response
+says whether it was truncated. Omitting `limit()` returns the 50 newest matching
+deliveries; the server cap is 100. Driving retries from `deliveries().status("failed")`
+without a limit silently leaves the 51st failure and everything older unretried.
 
-`retry` answers the delivery's identifier and its new status; a delivery already in flight
-is left alone.
+`retry()` answers the delivery's identifier and its new status; a delivery already in
+flight is left alone.
 
 Fanout reaches an endpoint only when the event and the endpoint share the same App scope.
 

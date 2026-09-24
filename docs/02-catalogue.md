@@ -9,21 +9,21 @@ Requires `catalogue:read`.
 ## Products
 
 ```ts
-const page = await client.products.list({ active: true, limit: 50 });
-const product = await client.products.get("prod_1");
+const page = await client.catalogue.products().active(true).limit(50).get();
+const product = await client.catalogue.product("prod_1").get();
 ```
 
-`list` answers `{ data, nextCursor }`. The cursor is opaque and bound to the workspace,
+`get()` answers `{ data, nextCursor }`. The cursor is opaque and bound to the workspace,
 environment, App and the `active` filter in force.
 
-`active` defaults to `true` on the API side, so `list()` with no query returns active
-products only and archived ones are absent without any signal. The filter is an exact
-match: `active: false` returns the archived products and nothing else, and no single walk
-returns both. Reconciling a local catalogue means two walks, or `get` by identifier, which
-returns a product whatever its state.
+`active` defaults to `true` on the API side, so `products().get()` returns active products
+only and archived ones are absent without any signal. The filter is an exact match:
+`active(false)` returns the archived products and nothing else, and no single walk returns
+both. Reconciling a local catalogue means two walks, or `product(id).get()`, which returns a
+product whatever its state.
 
 ```ts
-for await (const product of client.products.listAll({ active: true })) {
+for await (const product of client.catalogue.products().active(true).all()) {
   console.log(product.name);
 }
 ```
@@ -31,8 +31,8 @@ for await (const product of client.products.listAll({ active: true })) {
 ## Prices
 
 ```ts
-const prices = await client.prices.list({ productId: "prod_1", active: true });
-const price = await client.prices.get("price_1");
+const prices = await client.catalogue.prices().productId("prod_1").lookupKey("gold").get();
+const price = await client.catalogue.price("price_1").get();
 ```
 
 A price carries `unitAmount`, `currency`, `type` and, for a recurring price, `recurring`
@@ -40,17 +40,17 @@ with its interval and interval count.
 
 `active` defaults to `true` here too, and it matters more: a price is archived when it is
 superseded, while the subscriptions on it keep pointing at it. Building a price map from
-`listAll({ productId })` leaves every superseded price out, even though `get` on the same
-identifier returns it.
+`prices().productId(id).all()` leaves every superseded price out, even though
+`price(id).get()` returns it.
 
 ## Cross-sells and entitlements
 
 ```ts
-const crossSells = await client.products.listCrossSells("prod_1");
-const resolution = await client.products.getEntitlements("prod_1");
+const crossSells = await client.catalogue.crossSells("prod_1").limit(10).get();
+const resolution = await client.catalogue.entitlements("prod_1").get();
 ```
 
-Cross-sells page like products and embed the suggested product. `getEntitlements` answers the
+Cross-sells page like products and embed the suggested product. `entitlements` answers the
 whole resolution for the product in one object, with no cursor.
 
 ---

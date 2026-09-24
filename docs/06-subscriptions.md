@@ -6,70 +6,98 @@ bound to the App that owns the subscription.
 ## Creating and reading
 
 ```ts
-const detail = await client.subscriptions.create({
-  customerId: "cus_1",
-  name: "Gold",
-  priceId: "price_1",
-  quantity: 1,
-  activation: { state: "active", startsAt: "2026-01-01T00:00:00Z" },
-});
+const detail = await client.subscriptions
+  .create()
+  .customerId("cus_1")
+  .name("Gold")
+  .priceId("price_1")
+  .quantity(1)
+  .activeFrom("2026-01-01T00:00:00Z")
+  .create();
 
-const subscriptions = await client.subscriptions.list({ status: "active" });
-const one = await client.subscriptions.get("sub_1");
+const subscriptions = await client.subscriptions.list().status("active").get();
+const one = await client.subscriptions.subscription("sub_1").get();
 ```
 
-`activation` is a discriminated union: `pending`, `active` with `startsAt`, or `trialing`
-with `startsAt` and `trialEndsAt`. Reads answer `{ subscription, capabilities }`.
+Activation is three named methods rather than a union the caller assembles: `pending()`,
+`activeFrom(startsAt)`, and `trialing(startsAt, trialEndsAt)`. One of them must be called
+before `create()` exists. Reads answer `{ subscription, capabilities }`.
 
 ## Lifecycle
 
+Each pause and resume target is its own entry point, carrying exactly the fields that
+target requires:
+
 ```ts
-await client.subscriptions.cancel("sub_1", { timing: "period_end" });
+await client.subscriptions.subscription("sub_1").cancellation().timing("period_end").cancel();
 
-await client.subscriptions.pause("sub_1", {
-  target: "subscription",
-  effectiveTiming: "nextRenewal",
-  resumeBillingPolicy: "startNewBillingPeriod",
-});
+await client.subscriptions
+  .subscription("sub_1")
+  .pauseSubscription()
+  .effectiveTiming("nextRenewal")
+  .resumeBillingPolicy("startNewBillingPeriod")
+  .pause();
 
-await client.subscriptions.resume("sub_1", {
-  target: "paused_subscription",
-  effectiveTiming: "immediate",
-  billingPolicy: "continueExistingBillingPeriod",
-});
+await client.subscriptions
+  .subscription("sub_1")
+  .pausePaymentCollection()
+  .behavior("void")
+  .pause();
 
-await client.subscriptions.cancelScheduledChange("sub_1");
+await client.subscriptions
+  .subscription("sub_1")
+  .resumePausedSubscription()
+  .immediately()
+  .billingPolicy("continueExistingBillingPeriod")
+  .resume();
+
+await client.subscriptions.subscription("sub_1").resumePendingCancellation().resume();
+await client.subscriptions.subscription("sub_1").resumePaymentCollection().resume();
+await client.subscriptions.subscription("sub_1").cancelScheduledChange();
 ```
 
 Pausing the subscription needs a timing and a resume policy; pausing payment collection
-needs a behaviour instead. Resuming a paused subscription on a schedule needs
-`effectiveAt`. The types enforce each combination.
+needs a behaviour instead. `scheduledAt(effectiveAt)` replaces `immediately()` for a
+scheduled resume. In every case the terminal is absent until that target's own required
+fields are set.
 
 ## Price migrations
 
 ```ts
-const migration = await client.subscriptions.createPriceMigration("sub_1", {
-  targetPriceId: "price_2",
-  timing: { kind: "nextRenewal" },
-  prorationPolicy: "prorateAtNextRenewal",
-  paymentFailurePolicy: "preventChange",
-});
+const migration = await client.subscriptions
+  .subscription("sub_1")
+  .priceMigration()
+  .targetPriceId("price_2")
+  .atNextRenewal()
+  .prorationPolicy("prorateAtNextRenewal")
+  .paymentFailurePolicy("preventChange")
+  .create();
 
-await client.subscriptionPriceMigrations.approve(migration.id);
+await client.priceMigrations.migration(migration.id).approve();
 ```
 
-The created migration is a preview: it carries the immediate adjustment, the next renewal,
-warnings and provider limitations, and expires. Approve, cancel, retry and settle drive it
-from there.
+Timing is `immediately()`, `atNextRenewal()` or `scheduledAt(effectiveAt)`. The created
+migration is a preview: it carries the immediate adjustment, the next renewal, warnings and
+provider limitations, and expires. Approve, cancel, retry and settle drive it from there.
 
 ```ts
-const migrations = await client.subscriptionPriceMigrations.list({ status: "scheduled" });
-const plan = await client.subscriptionPriceMigrations.notificationPlan(migration.id);
+const migrations = await client.priceMigrations.list().status("scheduled").get();
 
-await client.subscriptionPriceMigrations.retryNotification(migration.id, plan.planVersion, "email");
-await client.subscriptionPriceMigrations.rescheduleNotification(migration.id, plan.planVersion, {
-  availableAt: "2026-02-01T00:00:00Z",
-});
+const plan = await client.priceMigrations.migration(migration.id).notificationPlan().get();
+
+await client.priceMigrations
+  .migration(migration.id)
+  .notificationPlan()
+  .version(plan.planVersion)
+  .channel("email")
+  .retry();
+
+await client.priceMigrations
+  .migration(migration.id)
+  .notificationPlan()
+  .version(plan.planVersion)
+  .availableAt("2026-02-01T00:00:00Z")
+  .reschedule();
 ```
 
 ---
