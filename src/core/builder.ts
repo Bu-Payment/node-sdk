@@ -17,10 +17,10 @@ export interface ScopeMethods<TBuilder> {
   timeoutMs(timeoutMs: number): TBuilder;
 }
 
-export interface PageMethods<TBuilder, TItem> extends ScopeMethods<TBuilder> {
+export interface PageMethods<TBuilder, TItem, TPage = Page<TItem>> extends ScopeMethods<TBuilder> {
   cursor(cursor: string): TBuilder;
   limit(limit: number): TBuilder;
-  get(): Promise<Page<TItem>>;
+  get(): Promise<TPage>;
   all(): AsyncGenerator<TItem, void, undefined>;
 }
 
@@ -35,21 +35,31 @@ export function scopeMethods<TBuilder>(
   };
 }
 
-export function pageMethods<TState extends CursorScope, TItem, TBuilder>(
+export type ItemOf<TPage> = TPage extends Page<infer TItem> ? TItem : never;
+
+export function pageMethods<TState extends CursorScope, TPage extends Page<unknown>, TBuilder>(
   state: TState,
   next: (update: Partial<CursorScope>) => TBuilder,
-  read: (state: TState) => Promise<Page<TItem>>,
-): PageMethods<TBuilder, TItem> {
+  read: (state: TState) => Promise<TPage>,
+): PageMethods<TBuilder, ItemOf<TPage>, TPage> {
   return {
     ...scopeMethods<TBuilder>(next),
     cursor: (cursor: string) => next({ cursor }),
     limit: (limit: number) => next({ limit }),
     get: () => read(state),
-    all: () => paginate((page: TState) => read(page), state),
+    all: () =>
+      paginate<ItemOf<TPage>, TState>(
+        async (page: TState) => (await read(page)) as Page<ItemOf<TPage>>,
+        state,
+      ),
   };
 }
 
-export function readRequest(path: string, state: RequestScope, query?: QueryInput) {
+export function readRequest(
+  path: string,
+  state: RequestScope,
+  query?: QueryInput,
+): TransportRequest {
   return { method: "GET", path, ...(query === undefined ? {} : { query }), ...scopeOf(state) };
 }
 
@@ -58,7 +68,7 @@ export function writeRequest(
   path: string,
   state: RequestScope & { idempotencyKey?: string },
   body?: unknown,
-) {
+): TransportRequest {
   return {
     method,
     path,

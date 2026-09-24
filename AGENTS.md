@@ -9,18 +9,36 @@ the BuPayment browser SDK.
 - Public operation inputs are configured through fluent, immutable builders.
 - Every builder instance must be frozen and every configuration method must
   return a new builder without mutating an earlier instance.
-- Network requests begin only in an explicit terminal method such as `get()`,
-  `all()`, `create()`, `update()`, `remove()`, `cancel()`, `pause()`,
-  `resume()`, `evaluate()`, `redeem()`, `calculate()`, `retry()` or
-  `reschedule()`.
+- Network requests begin only in an explicit terminal method. The terminal names
+  the action the caller is taking: `get()`, `all()`, `create()`, `update()`,
+  `remove()`, `cancel()`, `pause()`, `resume()`, `approve()`, `settle()`,
+  `evaluate()`, `redeem()`, `calculate()`, `retry()`, `reschedule()`. The set is
+  open, but a new terminal must be a verb for what the caller asked for, never a
+  transport detail.
+- An entry point must never issue a request. Build the path lazily inside the
+  terminal: `encodePathSegment` throws on an empty segment, and that rejection
+  belongs to the awaited call, not to the lookup expression.
 - Do not replace a builder with an options-object terminal such as
   `create({ customerId, priceId })` or introduce imperative root methods.
 - Required input must be represented with TypeScript type-state when practical,
   so the terminal method is unavailable until all required fields are set.
+- Express type-state by omitting the method, intersecting with `object` when it
+  does not apply. Never return `never` from a method that should not be
+  reachable: the call then compiles, and the diagnostic blames whatever is
+  chained after it instead of the method that is missing.
+- An idempotency key belongs on the builder whose terminal consumes it, never on
+  a resource builder that several operations branch from.
+- A configuration method takes one value. Two positional values of the same type
+  can be swapped silently; split them into named methods and gate the second on
+  the first.
 - Method names describe the user's action rather than provider or transport
   details.
-- A list entry point is a plural verb, a single-resource entry point is the
-  resource noun: `catalogue.products()` and `catalogue.product(id)`.
+- A domain holding one resource names its list `list()` and its record by the
+  resource noun: `customers.list()` and `customers.customer(id)`. A domain
+  holding several names each in the plural and each record in the singular:
+  `catalogue.products()` and `catalogue.product(id)`. The creation entry is
+  `create()` where the domain creates one thing and names the thing where it
+  creates several: `webhooks.createEndpoint()`.
 - A paginated list carries both terminals: `get()` for one page and `all()` for
   an async iterator that captures the query once and only advances the cursor.
 

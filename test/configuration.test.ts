@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { BuPaymentClient } from "../src/client";
 import { callAt, harnessReturning, queryOf } from "./support/harness";
+
+type Client = BuPaymentClient;
 
 describe("configuration methods", () => {
   it("carries every invoice filter onto the query", async () => {
@@ -176,5 +179,74 @@ describe("configuration methods", () => {
     const controller = new AbortController();
     await client.events.event("evt_1").signal(controller.signal).timeoutMs(5_000).get();
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("terminals", () => {
+  it("reads one subscription and one delivery", async () => {
+    const { client, calls } = harnessReturning({ subscription: { id: "sub_1" } }, { id: "whd_1" });
+    await client.subscriptions.subscription("sub_1").get();
+    await client.webhooks.delivery("whd_1").get();
+    expect(calls.map((call) => call.method)).toEqual(["GET", "GET"]);
+    expect(calls.map((call) => new URL(call.url).pathname)).toEqual([
+      "/v1/subscriptions/sub_1",
+      "/v1/webhook-deliveries/whd_1",
+    ]);
+  });
+
+  it("creates a subscription whose activation is pending", async () => {
+    const { client, calls } = harnessReturning({});
+    await client.subscriptions
+      .create()
+      .customerId("cus_1")
+      .name("Gold")
+      .priceId("price_1")
+      .pending()
+      .create();
+    expect(callAt(calls, 0).body).toMatchObject({ activation: { state: "pending" } });
+  });
+
+  it("creates an endpoint carrying its description", async () => {
+    const { client, calls } = harnessReturning({});
+    await client.webhooks
+      .createEndpoint()
+      .url("https://shop.test/hooks")
+      .description("order hooks")
+      .create();
+    expect(callAt(calls, 0).body).toMatchObject({ description: "order hooks" });
+  });
+
+  it("filters prices by their active state", async () => {
+    const { client, calls } = harnessReturning({ data: [], nextCursor: null });
+    await client.catalogue.prices().active(false).get();
+    expect(queryOf(callAt(calls, 0))).toBe("?active=false");
+  });
+
+  it("walks the remaining paginated lists", async () => {
+    const pages = [
+      { data: [{ id: "a" }], nextCursor: "cur_2", hasMore: true },
+      { data: [{ id: "b" }], nextCursor: null, hasMore: false },
+    ];
+    const walks: Record<string, (client: Client) => AsyncGenerator<{ id: string }>> = {
+      subscriptions: (client) => client.subscriptions.list().all(),
+      priceMigrations: (client) => client.priceMigrations.list().all(),
+      prices: (client) => client.catalogue.prices().all(),
+      crossSells: (client) => client.catalogue.crossSells("prod_1").all(),
+      shippingRates: (client) =>
+        client.checkout
+          .shippingRates()
+          .currency("EUR")
+          .destinationCountry("PT")
+          .product("prod_1")
+          .all(),
+    };
+    for (const [name, walk] of Object.entries(walks)) {
+      const { client } = harnessReturning(...pages);
+      const collected: string[] = [];
+      for await (const item of walk(client)) {
+        collected.push(item.id);
+      }
+      expect(collected, name).toEqual(["a", "b"]);
+    }
   });
 });

@@ -101,6 +101,29 @@ describe("paginate", () => {
     });
   });
 
+  it("refuses a page that reports more results behind a cursor it did not send", async () => {
+    const { read } = readerOf([
+      { data: ["a"], nextCursor: null, hasMore: true } as Partial<Page<string>>,
+    ]);
+    await expect(drain(paginate(read, {}))).rejects.toMatchObject({
+      code: ErrorCode.RESPONSE_INVALID,
+    });
+  });
+
+  it("accepts a final page that reports no more results", async () => {
+    const { items } = await collect([
+      { data: ["a"], nextCursor: null, hasMore: false } as Partial<Page<string>>,
+    ]);
+    expect(items).toEqual(["a"]);
+  });
+
+  it("refuses a page with no data array rather than throwing a bare TypeError", async () => {
+    const { read } = readerOf([{ nextCursor: null }]);
+    await expect(drain(paginate(read, {}))).rejects.toMatchObject({
+      code: ErrorCode.RESPONSE_INVALID,
+    });
+  });
+
   it("yields nothing for an empty first page", async () => {
     const { items, queries } = await collect([{ data: [], nextCursor: null }]);
     expect(items).toEqual([]);

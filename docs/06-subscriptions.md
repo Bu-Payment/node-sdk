@@ -19,9 +19,10 @@ const subscriptions = await client.subscriptions.list().status("active").get();
 const one = await client.subscriptions.subscription("sub_1").get();
 ```
 
-Activation is three named methods rather than a union the caller assembles: `pending()`,
-`activeFrom(startsAt)`, and `trialing(startsAt, trialEndsAt)`. One of them must be called
-before `create()` exists. Reads answer `{ subscription, capabilities }`.
+Activation is a set of named methods rather than a union the caller assembles: `pending()`,
+`activeFrom(startsAt)`, or `trialingFrom(startsAt)` followed by `trialEndsAt(endsAt)`, which
+only appears once a trial start is set. One of them must complete before `create()` exists.
+Reads answer `{ subscription, capabilities }`.
 
 ## Lifecycle
 
@@ -53,7 +54,7 @@ await client.subscriptions
 
 await client.subscriptions.subscription("sub_1").resumePendingCancellation().resume();
 await client.subscriptions.subscription("sub_1").resumePaymentCollection().resume();
-await client.subscriptions.subscription("sub_1").cancelScheduledChange();
+await client.subscriptions.subscription("sub_1").scheduledChange().cancel();
 ```
 
 Pausing the subscription needs a timing and a resume policy; pausing payment collection

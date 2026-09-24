@@ -8,6 +8,7 @@ type Activation =
   | { state: "trialing"; startsAt: string; trialEndsAt: string };
 
 export interface DraftState extends RequestScope {
+  trialStartsAt?: string;
   customerId?: string;
   name?: string;
   priceId?: string;
@@ -23,11 +24,12 @@ interface DraftMethods<TState extends DraftState> extends ScopeMethods<Subscript
   quantity(quantity: number): SubscriptionDraft<TState>;
   pending(): SubscriptionDraft<TState & { activation: Activation }>;
   activeFrom(startsAt: string): SubscriptionDraft<TState & { activation: Activation }>;
-  trialing(
-    startsAt: string,
-    trialEndsAt: string,
-  ): SubscriptionDraft<TState & { activation: Activation }>;
+  trialingFrom(startsAt: string): SubscriptionDraft<TState & { trialStartsAt: string }>;
   idempotencyKey(idempotencyKey: string): SubscriptionDraft<TState>;
+}
+
+interface TrialEndable<TState extends DraftState> {
+  trialEndsAt(trialEndsAt: string): SubscriptionDraft<TState & { activation: Activation }>;
 }
 
 export interface CreatableSubscription {
@@ -42,6 +44,7 @@ type DraftReady = {
 };
 
 export type SubscriptionDraft<TState extends DraftState = DraftState> = DraftMethods<TState> &
+  (TState extends { trialStartsAt: string } ? TrialEndable<TState> : object) &
   (TState extends DraftReady ? CreatableSubscription : object);
 
 export function subscriptionDraft<TState extends DraftState>(
@@ -57,10 +60,14 @@ export function subscriptionDraft<TState extends DraftState>(
     quantity: (quantity: number) => next({ quantity }),
     pending: () => next({ activation: { state: "pending" } }),
     activeFrom: (startsAt: string) => next({ activation: { state: "active", startsAt } }),
-    trialing: (startsAt: string, trialEndsAt: string) =>
-      next({ activation: { state: "trialing", startsAt, trialEndsAt } }),
+    trialingFrom: (startsAt: string) => next({ trialStartsAt: startsAt }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
   };
+  const trialStartsAt = state.trialStartsAt;
+  if (trialStartsAt !== undefined) {
+    builder.trialEndsAt = (trialEndsAt: string) =>
+      next({ activation: { state: "trialing", startsAt: trialStartsAt, trialEndsAt } });
+  }
   if (isReady(state)) {
     builder.create = () =>
       send<SubscriptionDetail>(

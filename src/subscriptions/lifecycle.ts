@@ -111,6 +111,20 @@ export interface PlainResumeBuilder
   idempotencyKey(idempotencyKey: string): PlainResumeBuilder;
 }
 
+export interface ScheduledChangeBuilder extends ScopeMethods<ScheduledChangeBuilder> {
+  idempotencyKey(idempotencyKey: string): ScheduledChangeBuilder;
+  cancel(): Promise<SubscriptionDetail>;
+}
+
+export function scheduledChange(send: Sender, path: string, state: Keyed): ScheduledChangeBuilder {
+  const next = (update: Partial<Keyed>) => scheduledChange(send, path, { ...state, ...update });
+  return Object.freeze({
+    ...scopeMethods(next),
+    idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
+    cancel: () => post(send, `${path}/scheduled-change/cancel`, state, undefined),
+  });
+}
+
 export function cancellation<TState extends CancellationState>(
   send: Sender,
   path: string,
@@ -224,7 +238,7 @@ function post(
   send: Sender,
   path: string,
   state: Keyed,
-  body: Record<string, unknown>,
+  body: Record<string, unknown> | undefined,
 ): Promise<SubscriptionDetail> {
   return send<SubscriptionDetail>(writeRequest("POST", path, state, body));
 }

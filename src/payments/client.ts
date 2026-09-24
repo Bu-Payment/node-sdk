@@ -14,9 +14,8 @@ import { encodePathSegment } from "../core/request-target";
 import { type PaymentDraft, paymentDraft } from "./draft";
 import type { Payment } from "./types";
 
-export interface PaymentListBuilder extends PageMethods<PaymentListBuilder, Payment> {
-  get(): Promise<PageWithMore<Payment>>;
-}
+export interface PaymentListBuilder
+  extends PageMethods<PaymentListBuilder, Payment, PageWithMore<Payment>> {}
 
 export interface PaymentBuilder extends ScopeMethods<PaymentBuilder> {
   get(): Promise<Payment>;
@@ -40,7 +39,7 @@ function paymentList(send: Sender, state: CursorScope): PaymentListBuilder {
   const next = (update: Partial<CursorScope>) => paymentList(send, { ...state, ...update });
   const read = (page: CursorScope) =>
     send<PageWithMore<Payment>>(readRequest("/v1/payments", page, pageQuery(page)));
-  return Object.freeze(pageMethods(state, next, read)) as PaymentListBuilder;
+  return Object.freeze(pageMethods(state, next, read));
 }
 
 function singlePayment(send: Sender, paymentId: string, state: RequestScope): PaymentBuilder {

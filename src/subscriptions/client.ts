@@ -24,6 +24,8 @@ import {
   plainResume,
   type ResumePausedBuilder,
   resumePaused,
+  type ScheduledChangeBuilder,
+  scheduledChange,
 } from "./lifecycle";
 import { type MigrationDraft, migrationDraft } from "./migration-draft";
 import type { Subscription, SubscriptionDetail, SubscriptionStatus } from "./types";
@@ -38,18 +40,16 @@ interface SubscriptionListState extends CursorScope {
 }
 
 export interface SubscriptionListBuilder
-  extends PageMethods<SubscriptionListBuilder, Subscription> {
+  extends PageMethods<SubscriptionListBuilder, Subscription, PageWithMore<Subscription>> {
   customerId(customerId: string): SubscriptionListBuilder;
   status(status: SubscriptionStatus): SubscriptionListBuilder;
   priceId(priceId: string): SubscriptionListBuilder;
   productId(productId: string): SubscriptionListBuilder;
   name(name: string): SubscriptionListBuilder;
   includeBindings(includeBindings: boolean): SubscriptionListBuilder;
-  get(): Promise<PageWithMore<Subscription>>;
 }
 
 export interface SubscriptionBuilder extends ScopeMethods<SubscriptionBuilder> {
-  idempotencyKey(idempotencyKey: string): SubscriptionBuilder;
   get(): Promise<SubscriptionDetail>;
   cancellation(): CancellationBuilder<Record<never, never>>;
   pauseSubscription(): PauseSubscriptionBuilder<Record<never, never>>;
@@ -57,7 +57,7 @@ export interface SubscriptionBuilder extends ScopeMethods<SubscriptionBuilder> {
   resumePendingCancellation(): PlainResumeBuilder;
   resumePausedSubscription(): ResumePausedBuilder<Record<never, never>>;
   resumePaymentCollection(): PlainResumeBuilder;
-  cancelScheduledChange(): Promise<SubscriptionDetail>;
+  scheduledChange(): ScheduledChangeBuilder;
   priceMigration(): MigrationDraft<Record<never, never>>;
 }
 
@@ -101,29 +101,27 @@ function subscriptionList(send: Sender, state: SubscriptionListState): Subscript
     productId: (productId: string) => next({ productId }),
     name: (name: string) => next({ name }),
     includeBindings: (includeBindings: boolean) => next({ includeBindings }),
-  }) as SubscriptionListBuilder;
+  });
 }
 
 function subscriptionBuilder(
   send: Sender,
   subscriptionId: string,
-  state: RequestScope & { idempotencyKey?: string },
+  state: RequestScope,
 ): SubscriptionBuilder {
-  const path = `/v1/subscriptions/${encodePathSegment(subscriptionId)}`;
-  const next = (update: Partial<RequestScope & { idempotencyKey?: string }>) =>
+  const path = () => `/v1/subscriptions/${encodePathSegment(subscriptionId)}`;
+  const next = (update: Partial<RequestScope>) =>
     subscriptionBuilder(send, subscriptionId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<SubscriptionDetail>(readRequest(path, state)),
-    cancellation: () => cancellation(send, path, state),
-    pauseSubscription: () => pauseSubscription(send, path, state),
-    pausePaymentCollection: () => pauseCollection(send, path, state),
-    resumePendingCancellation: () => plainResume(send, path, "pending_cancellation", state),
-    resumePausedSubscription: () => resumePaused(send, path, state),
-    resumePaymentCollection: () => plainResume(send, path, "payment_collection", state),
-    cancelScheduledChange: () =>
-      send<SubscriptionDetail>(writeRequest("POST", `${path}/scheduled-change/cancel`, state)),
-    priceMigration: () => migrationDraft(send, path, state),
+    get: () => send<SubscriptionDetail>(readRequest(path(), state)),
+    cancellation: () => cancellation(send, path(), state),
+    pauseSubscription: () => pauseSubscription(send, path(), state),
+    pausePaymentCollection: () => pauseCollection(send, path(), state),
+    resumePendingCancellation: () => plainResume(send, path(), "pending_cancellation", state),
+    resumePausedSubscription: () => resumePaused(send, path(), state),
+    resumePaymentCollection: () => plainResume(send, path(), "payment_collection", state),
+    scheduledChange: () => scheduledChange(send, path(), state),
+    priceMigration: () => migrationDraft(send, path(), state),
   });
 }

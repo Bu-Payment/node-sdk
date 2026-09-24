@@ -33,7 +33,8 @@ describe("subscriptions", () => {
       .customerId("cus_1")
       .name("Gold")
       .priceId("price_1")
-      .trialing("2026-01-01T00:00:00Z", "2026-01-15T00:00:00Z")
+      .trialingFrom("2026-01-01T00:00:00Z")
+      .trialEndsAt("2026-01-15T00:00:00Z")
       .create();
     expect(callAt(calls, 0).body).toMatchObject({
       activation: {
@@ -111,7 +112,7 @@ describe("subscriptions", () => {
 
   it("cancels a scheduled change with no body", async () => {
     const { client, calls } = harnessReturning(detail);
-    await client.subscriptions.subscription("sub_1").cancelScheduledChange();
+    await client.subscriptions.subscription("sub_1").scheduledChange().cancel();
     expect(callAt(calls, 0).method).toBe("POST");
     expect(pathOf(callAt(calls, 0))).toBe("/v1/subscriptions/sub_1/scheduled-change/cancel");
     expect(callAt(calls, 0).body).toBeUndefined();

@@ -20,12 +20,12 @@ interface InvoiceListState extends CursorScope {
   number?: string;
 }
 
-export interface InvoiceListBuilder extends PageMethods<InvoiceListBuilder, Invoice> {
+export interface InvoiceListBuilder
+  extends PageMethods<InvoiceListBuilder, Invoice, PageWithMore<Invoice>> {
   customerId(customerId: string): InvoiceListBuilder;
   subscriptionId(subscriptionId: string): InvoiceListBuilder;
   status(status: InvoiceStatus): InvoiceListBuilder;
   number(number: string): InvoiceListBuilder;
-  get(): Promise<PageWithMore<Invoice>>;
 }
 
 export interface InvoiceBuilder extends ScopeMethods<InvoiceBuilder> {
@@ -65,7 +65,7 @@ function invoiceList(send: Sender, state: InvoiceListState): InvoiceListBuilder 
     subscriptionId: (subscriptionId: string) => next({ subscriptionId }),
     status: (status: InvoiceStatus) => next({ status }),
     number: (number: string) => next({ number }),
-  }) as InvoiceListBuilder;
+  });
 }
 
 function singleInvoice(send: Sender, invoiceId: string, state: RequestScope): InvoiceBuilder {

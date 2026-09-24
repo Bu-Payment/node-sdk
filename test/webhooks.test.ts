@@ -51,7 +51,7 @@ describe("webhooks", () => {
 
   it("lists endpoints as a plain collection with no cursor", async () => {
     const { client, calls } = harnessReturning([{ id: "whe_1" }]);
-    const endpoints = await client.webhooks.endpoints();
+    const endpoints = await client.webhooks.endpoints().get();
     expect(calls).toHaveLength(1);
     expect(pathOf(callAt(calls, 0))).toBe("/v1/webhook-endpoints");
     expect(queryOf(callAt(calls, 0))).toBe("");

@@ -22,9 +22,8 @@ interface RefundState extends RequestScope {
   idempotencyKey?: string;
 }
 
-export interface RefundListBuilder extends PageMethods<RefundListBuilder, OwnedRefund> {
-  get(): Promise<PageWithMore<OwnedRefund>>;
-}
+export interface RefundListBuilder
+  extends PageMethods<RefundListBuilder, OwnedRefund, PageWithMore<OwnedRefund>> {}
 
 export interface RefundBuilder extends ScopeMethods<RefundBuilder> {
   get(): Promise<OwnedRefund>;
@@ -71,7 +70,7 @@ function refundList(send: Sender, state: CursorScope): RefundListBuilder {
   const next = (update: Partial<CursorScope>) => refundList(send, { ...state, ...update });
   const read = (page: CursorScope) =>
     send<PageWithMore<OwnedRefund>>(readRequest("/v1/refunds", page, pageQuery(page)));
-  return Object.freeze(pageMethods(state, next, read)) as RefundListBuilder;
+  return Object.freeze(pageMethods(state, next, read));
 }
 
 function singleRefund(send: Sender, refundId: string, state: RequestScope): RefundBuilder {

@@ -30,22 +30,43 @@ export function harnessOf(respond: (call: Call, index: number) => Response): Har
     calls.push(call);
     return respond(call, calls.length - 1);
   };
-  return {
-    client: createBuPaymentClient(
-      {
-        applicationId: vector.appId,
-        keyId: vector.keyId,
-        secret: vector.confidentialSecret,
-        apiBaseUrl: "https://api.bupayment.test",
-      },
-      { fetch: stub },
-    ),
-    calls,
-  };
+  return { client: clientWith(stub), calls };
+}
+
+function clientWith(fetch: FetchLike): BuPaymentClient {
+  return createBuPaymentClient(
+    {
+      applicationId: vector.appId,
+      keyId: vector.keyId,
+      secret: vector.confidentialSecret,
+      apiBaseUrl: "https://api.bupayment.test",
+    },
+    { fetch },
+  );
 }
 
 export function harnessReturning(...bodies: unknown[]): Harness {
   return harnessOf((_call, index) => json(bodies[index] ?? {}));
+}
+
+export function harnessStalling(): Harness {
+  const calls: Call[] = [];
+  const stub: FetchLike = async (url, init) => {
+    calls.push({
+      method: init.method ?? "GET",
+      url,
+      headers: init.headers as Record<string, string>,
+      body: undefined,
+    });
+    return await new Promise<Response>((_resolve, reject) => {
+      if (init.signal?.aborted === true) {
+        reject(new Error("aborted"));
+        return;
+      }
+      init.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+    });
+  };
+  return { client: clientWith(stub), calls };
 }
 
 export function json(body: unknown, status = 200): Response {

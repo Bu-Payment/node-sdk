@@ -25,13 +25,23 @@ export async function* paginate<TItem, TQuery extends CursorQuery>(
   let cursor = query.cursor;
   for (;;) {
     const page = await read({ ...query, cursor });
+    if (!Array.isArray(page?.data)) {
+      throw malformed("The API answered a page with no data array");
+    }
     yield* page.data;
     const next = page.nextCursor;
     if (next === null) {
+      if ((page as PageWithMore<TItem>).hasMore === true) {
+        throw malformed(
+          "The API answered a page that reports more results behind a cursor it did not send",
+        );
+      }
       return;
     }
     if (typeof next !== "string" || next === "") {
-      throw malformedPage();
+      throw malformed(
+        "The API answered a page without a usable nextCursor, so pagination cannot continue",
+      );
     }
     if (next === cursor || seen.has(next)) {
       throw repeatedCursor(next);
@@ -41,11 +51,8 @@ export async function* paginate<TItem, TQuery extends CursorQuery>(
   }
 }
 
-function malformedPage(): BuPaymentError {
-  return new BuPaymentError(
-    "The API answered a page without a usable nextCursor, so pagination cannot continue",
-    { code: ErrorCode.RESPONSE_INVALID },
-  );
+function malformed(message: string): BuPaymentError {
+  return new BuPaymentError(message, { code: ErrorCode.RESPONSE_INVALID });
 }
 
 function repeatedCursor(cursor: string): BuPaymentError {

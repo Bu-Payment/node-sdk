@@ -50,15 +50,36 @@ describe("payments, invoices and refunds", () => {
     });
   });
 
-  it("lists and reads payments", async () => {
+  it("lists and reads payments, answering the envelope the API sends", async () => {
     const { client, calls } = harnessReturning(
-      { data: [], nextCursor: null, hasMore: false },
+      { data: [{ id: "pay_1" }], nextCursor: "cur_2", hasMore: true },
       { id: "pay_1" },
     );
-    await client.payments.list().limit(10).get();
+    const page = await client.payments.list().limit(10).cursor("cur_1").get();
     await client.payments.payment("pay_1").get();
-    expect(queryOf(callAt(calls, 0))).toBe("?limit=10");
+    expect(queryOf(callAt(calls, 0))).toBe("?cursor=cur_1&limit=10");
+    expect(page.hasMore).toBe(true);
+    expect(page.nextCursor).toBe("cur_2");
     expect(pathOf(callAt(calls, 1))).toBe("/v1/payments/pay_1");
+  });
+
+  it("walks every payment page", async () => {
+    const { client } = harnessReturning(
+      { data: [{ id: "pay_1" }], nextCursor: "cur_2", hasMore: true },
+      { data: [{ id: "pay_2" }], nextCursor: null, hasMore: false },
+    );
+    const collected: string[] = [];
+    for await (const payment of client.payments.list().all()) {
+      collected.push(payment.id);
+    }
+    expect(collected).toEqual(["pay_1", "pay_2"]);
+  });
+
+  it("lists refunds as a page as well as a walk", async () => {
+    const { client, calls } = harnessReturning({ data: [], nextCursor: null, hasMore: false });
+    const page = await client.refunds.list().limit(5).get();
+    expect(page.hasMore).toBe(false);
+    expect(queryOf(callAt(calls, 0))).toBe("?limit=5");
   });
 
   it("lists invoices by subscription and status", async () => {

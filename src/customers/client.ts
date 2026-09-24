@@ -109,7 +109,7 @@ function customerBuilder<TState extends DraftState>(
   customerId: string,
   state: TState,
 ): CustomerBuilder<TState> {
-  const path = `/v1/customers/${encodePathSegment(customerId)}`;
+  const path = () => `/v1/customers/${encodePathSegment(customerId)}`;
   const next = (update: Partial<DraftState>) =>
     customerBuilder(send, customerId, { ...state, ...update });
   const builder: Record<string, unknown> = {
@@ -117,10 +117,10 @@ function customerBuilder<TState extends DraftState>(
     email: (email: string) => next({ email }),
     name: (name: string | null) => next({ name }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<Customer>(readRequest(path, state)),
+    get: () => send<Customer>(readRequest(path(), state)),
   };
   if (state.email !== undefined || state.name !== undefined) {
-    builder.update = () => send<Customer>(writeRequest("PATCH", path, state, fieldsOf(state)));
+    builder.update = () => send<Customer>(writeRequest("PATCH", path(), state, fieldsOf(state)));
   }
   return Object.freeze(builder) as CustomerBuilder<TState>;
 }

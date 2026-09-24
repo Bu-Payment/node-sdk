@@ -23,10 +23,13 @@ interface MigrationListState extends CursorScope {
 }
 
 export interface MigrationListBuilder
-  extends PageMethods<MigrationListBuilder, SubscriptionPriceMigration> {
+  extends PageMethods<
+    MigrationListBuilder,
+    SubscriptionPriceMigration,
+    PageWithMore<SubscriptionPriceMigration>
+  > {
   subscriptionId(subscriptionId: string): MigrationListBuilder;
   status(status: MigrationStatus): MigrationListBuilder;
-  get(): Promise<PageWithMore<SubscriptionPriceMigration>>;
 }
 
 export interface MigrationBuilder extends ScopeMethods<MigrationBuilder> {
@@ -69,7 +72,7 @@ function migrationList(send: Sender, state: MigrationListState): MigrationListBu
     ...pageMethods(state, next, read),
     subscriptionId: (subscriptionId: string) => next({ subscriptionId }),
     status: (status: MigrationStatus) => next({ status }),
-  }) as MigrationListBuilder;
+  });
 }
 
 function migrationBuilder(
@@ -77,19 +80,19 @@ function migrationBuilder(
   migrationId: string,
   state: RequestScope & { idempotencyKey?: string },
 ): MigrationBuilder {
-  const path = `${BASE_PATH}/${encodePathSegment(migrationId)}`;
+  const path = () => `${BASE_PATH}/${encodePathSegment(migrationId)}`;
   const next = (update: Partial<RequestScope & { idempotencyKey?: string }>) =>
     migrationBuilder(send, migrationId, { ...state, ...update });
   const mutate = (operation: string) =>
-    send<SubscriptionPriceMigration>(writeRequest("POST", `${path}/${operation}`, state));
+    send<SubscriptionPriceMigration>(writeRequest("POST", `${path()}/${operation}`, state));
   return Object.freeze({
     ...scopeMethods(next),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<SubscriptionPriceMigration>(readRequest(path, state)),
+    get: () => send<SubscriptionPriceMigration>(readRequest(path(), state)),
     approve: () => mutate("approve"),
     cancel: () => mutate("cancel"),
     retry: () => mutate("retry"),
     settle: () => mutate("settle"),
-    notificationPlan: () => notificationPlan(send, path, {}),
+    notificationPlan: () => notificationPlan(send, path(), state),
   });
 }

@@ -38,13 +38,13 @@ Event types accumulate one call at a time. The signing `secret` is returned once
 creation, and never again. Store it before discarding the response.
 
 ```ts
-const endpoints = await client.webhooks.endpoints();
+const endpoints = await client.webhooks.endpoints().get();
 await client.webhooks.endpoint(endpoint.id).status("disabled").update();
 await client.webhooks.endpoint(endpoint.id).remove();
 ```
 
-`endpoints()` is a plain terminal, not a builder: endpoints are not paginated and carry no
-filter. `update()` does not exist until a field is set.
+`endpoints()` is a builder like any other, ending in `get()`, although the API neither
+paginates nor filters that list. `update()` does not exist until a field is set.
 
 ## Deliveries
 

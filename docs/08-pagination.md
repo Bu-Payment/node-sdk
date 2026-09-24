@@ -44,9 +44,11 @@ for await (const product of client.catalogue.products().active(true).all()) {
 ```
 
 Nothing is requested until the iterator is pulled. It ends on a null cursor, and throws
-`response_invalid` when the API answers a cursor it has already served, or a page whose
-`nextCursor` is missing or empty, because both would otherwise walk the same pages forever
-or stop early while reporting success. A walk that ends without an error read every page.
+`response_invalid` when the API answers a cursor it has already served, a page whose
+`nextCursor` is missing or empty, a page with no `data` array, or a final page that sets
+`hasMore` with no cursor to follow it. Each of those would otherwise walk the same pages
+forever, stop early while reporting success, or surface a bare `TypeError`. A walk that
+ends without an error read every page.
 
 ## Building your own
 

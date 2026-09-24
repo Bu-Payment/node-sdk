@@ -62,9 +62,10 @@ method to call. The same holds for a shipping resolution with no product, a cust
 no email, and every other required field: the terminal is absent, so the mistake cannot
 reach the network.
 
-`paginate` and every `listAll` raise `response_invalid` when the API answers a cursor it
-has already served, or a page whose `nextCursor` is missing or empty. Both would otherwise
-end the walk in silence, or repeat it forever.
+`paginate` and every `all()` raise `response_invalid` when a page answers a cursor already
+served, a `nextCursor` that is missing or empty, no `data` array, or `hasMore` with no
+cursor to follow. Every one of those would otherwise end the walk in silence, repeat it
+forever, or escape as a bare `TypeError`.
 
 ---
 

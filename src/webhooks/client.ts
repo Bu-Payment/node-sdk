@@ -84,8 +84,12 @@ export interface DeliveryBuilder extends ScopeMethods<DeliveryBuilder> {
   retry(): Promise<WebhookDeliveryRetry>;
 }
 
+export interface EndpointListBuilder extends ScopeMethods<EndpointListBuilder> {
+  get(): Promise<WebhookEndpoint[]>;
+}
+
 export interface WebhooksClient {
-  endpoints(): Promise<WebhookEndpoint[]>;
+  endpoints(): EndpointListBuilder;
   endpoint(endpointId: string): EndpointBuilder<Record<never, never>>;
   createEndpoint(): EndpointDraft<Record<never, never>>;
   deliveries(): DeliveryListBuilder;
@@ -94,11 +98,19 @@ export interface WebhooksClient {
 
 export function createWebhooksClient(send: Sender): WebhooksClient {
   return Object.freeze({
-    endpoints: () => send<WebhookEndpoint[]>(readRequest("/v1/webhook-endpoints", {})),
+    endpoints: () => endpointList(send, {}),
     endpoint: (endpointId: string) => endpointBuilder(send, endpointId, {}),
     createEndpoint: () => endpointDraft(send, {}),
     deliveries: () => deliveryList(send, {}),
     delivery: (deliveryId: string) => deliveryBuilder(send, deliveryId, {}),
+  });
+}
+
+function endpointList(send: Sender, state: RequestScope): EndpointListBuilder {
+  const next = (update: Partial<RequestScope>) => endpointList(send, { ...state, ...update });
+  return Object.freeze({
+    ...scopeMethods(next),
+    get: () => send<WebhookEndpoint[]>(readRequest("/v1/webhook-endpoints", state)),
   });
 }
 
@@ -128,7 +140,7 @@ function endpointBuilder<TState extends EndpointState>(
   endpointId: string,
   state: TState,
 ): EndpointBuilder<TState> {
-  const path = `/v1/webhook-endpoints/${encodePathSegment(endpointId)}`;
+  const path = () => `/v1/webhook-endpoints/${encodePathSegment(endpointId)}`;
   const next = (update: Partial<EndpointState>) =>
     endpointBuilder(send, endpointId, { ...state, ...update });
   const builder: Record<string, unknown> = {
@@ -138,12 +150,12 @@ function endpointBuilder<TState extends EndpointState>(
     event: (eventType: string) => next({ enabledEvents: appendEvent(state, eventType) }),
     status: (status: WebhookEndpointStatus) => next({ status }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<WebhookEndpoint>(readRequest(path, state)),
-    remove: () => send<DeletedWebhookEndpoint>(writeRequest("DELETE", path, state)),
+    get: () => send<WebhookEndpoint>(readRequest(path(), state)),
+    remove: () => send<DeletedWebhookEndpoint>(writeRequest("DELETE", path(), state)),
   };
   if (hasEndpointField(state)) {
     builder.update = () =>
-      send<WebhookEndpoint>(writeRequest("PATCH", path, state, endpointFields(state)));
+      send<WebhookEndpoint>(writeRequest("PATCH", path(), state, endpointFields(state)));
   }
   return Object.freeze(builder) as EndpointBuilder<TState>;
 }
@@ -169,14 +181,14 @@ function deliveryBuilder(
   deliveryId: string,
   state: RequestScope & { idempotencyKey?: string },
 ): DeliveryBuilder {
-  const path = `/v1/webhook-deliveries/${encodePathSegment(deliveryId)}`;
+  const path = () => `/v1/webhook-deliveries/${encodePathSegment(deliveryId)}`;
   const next = (update: Partial<RequestScope & { idempotencyKey?: string }>) =>
     deliveryBuilder(send, deliveryId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<WebhookDelivery>(readRequest(path, state)),
-    retry: () => send<WebhookDeliveryRetry>(writeRequest("POST", `${path}/retry`, state)),
+    get: () => send<WebhookDelivery>(readRequest(path(), state)),
+    retry: () => send<WebhookDeliveryRetry>(writeRequest("POST", `${path()}/retry`, state)),
   });
 }
 
