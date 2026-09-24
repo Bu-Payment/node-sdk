@@ -16,48 +16,71 @@ bun add @bu-payment/node-sdk
 ## Configuration
 
 ```ts
-import { BuPaymentClient } from "@bu-payment/node-sdk";
+import { createBuPaymentClient } from "@bu-payment/node-sdk";
 
-const client = new BuPaymentClient({
-  applicationId: process.env.BUPAYMENT_APP_ID!,
-  keyId: process.env.BUPAYMENT_KEY_ID!,
-  secret: process.env.BUPAYMENT_SECRET!,
-  apiBaseUrl: process.env.BUPAYMENT_API_BASE_URL!,
+const client = createBuPaymentClient({
+  applicationId: process.env.BU_PAYMENT_APP_ID!,
+  keyId: process.env.BU_PAYMENT_KEY_ID!,
+  secret: process.env.BU_PAYMENT_SECRET!,
+  apiBaseUrl: "https://api.bupayment.com",
 });
 ```
 
-The environment is derived from the key ID, so a test credential can never be pointed at live by
-configuration alone. The secret is parsed into its 32 HMAC key bytes and wrapped so that string
-conversion, `JSON.stringify`, `util.inspect`, and thrown error metadata all render `[redacted]`.
+Client creation validates the application and key identifiers, parses the secret into a
+non-printable holder, normalizes the API URL, enforces HTTPS except for loopback development, and
+rejects an explicit Test or Live mismatch. The environment comes from the key, never from a
+separate field. Failures are a `BuPaymentError` with `ErrorCode.CONFIGURATION_INVALID` and never
+echo the secret.
+
+## Commerce builders
+
+Every operation is configured through a fluent, immutable builder, and no request is sent until
+an explicit terminal method. Each configuration method returns a new frozen builder, so a partly
+configured builder is safe to hold and branch from.
+
+```ts
+const products = await client.catalogue.products().active(true).limit(20).get();
+
+const payment = await client.payments
+  .create()
+  .customerId("cus_123")
+  .priceId("price_123")
+  .idempotencyKey(orderId)
+  .create();
+
+for await (const event of client.events.list().type("payment.succeeded").all()) {
+  handle(event);
+}
+```
+
+Required input is enforced by the type, not by a runtime check: the terminal does not exist until
+every required field is set. `create()` is absent from a payment with no customer, and absent from
+one with no price; `amount()` disappears once `priceId()` is called, and `priceId()` disappears
+once an amount is set, so a request can never override the price of a canonical resource.
+
+`catalogue`, `customers`, `checkout`, `payments`, `invoices`, `refunds`, `subscriptions`,
+`priceMigrations`, `events`, and `webhooks`. Each route needs its capability on the credential. See
+[the documentation](docs/00-index.md) for the whole surface.
+
+Two machine surfaces are not yet typed: payment methods, under
+`/v1/customers/{id}/payment-methods`, and billing capabilities. Reach them through `request` until
+they land. A `paymentMethodId` for payment allocations comes from there.
 
 ## Signed requests
 
 ```ts
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Page, Product } from "@bu-payment/node-sdk/types";
 
-const products = await client.request<{ data: Product[]; nextCursor: string | null }>({
+const products = await client.request<Page<Product>>({
   method: "GET",
   path: "/v1/products",
   query: { limit: 20 },
 });
-
-const payment = await client.request<Payment>({
-  method: "POST",
-  path: "/v1/payments",
-  body: { customerId: "cus_123", priceId: "price_123" },
-});
 ```
 
-`request` is the low-level entry point and carries the response type the caller declares. The
-typed commerce clients, which ship the resource models, the request bodies, and the page envelopes
-for every route, land with the app-scoped commerce operations.
+`request` is the low-level escape hatch, for routes the builders have not reached yet. It carries
+the response type the caller declares, and it is the only method on the client that takes an
+options object rather than a builder.
 
 Each call derives a fresh timestamp and nonce, canonicalizes the exact path and query it transmits,
 hashes the exact body bytes it sends, and signs the nine-line canonical request with HMAC-SHA256.
@@ -65,19 +88,26 @@ The request carries `Bu-Payment-Signature-Version`, `Bu-Payment-App-Id`, `Bu-Pay
 `Bu-Payment-Timestamp`, `Bu-Payment-Nonce`, and `Bu-Payment-Signature`.
 
 The authenticated application, workspace, and environment come from the credential. Nothing in a
-path, query, or body can widen or replace that scope.
+query or body can widen or replace that scope: a scope key is refused before the request is
+signed, whatever its casing or separator, and the body is checked as it will be serialized. A
+path that smuggles a query string past the signer produces a signature the API rejects.
 
 ## Idempotency
 
-Every `POST`, `PUT`, `PATCH`, and `DELETE` sends an `Idempotency-Key`. The SDK generates one when
-the caller does not supply it. Pass your own key to replay a mutation safely after a network
-failure or a timeout:
+Every `POST`, `PUT`, `PATCH`, and `DELETE` sends an `Idempotency-Key`. The SDK mints a fresh one
+for each call the caller does not key, which means a retry of an unkeyed mutation after a timeout
+is a second charge rather than a replay. Every mutation builder takes `idempotencyKey()`; use it
+whenever a retry is possible, with a key derived from the operation rather than from the attempt:
 
 ```ts
-const idempotencyKey = `order-${orderId}`;
+const draft = client.payments
+  .create()
+  .customerId(customerId)
+  .priceId(priceId)
+  .idempotencyKey(`order-${orderId}`);
 
-await client.request({ method: "POST", path: "/v1/payments", body, idempotencyKey });
-await client.request({ method: "POST", path: "/v1/payments", body, idempotencyKey });
+await draft.create();
+await draft.create();
 ```
 
 The second call makes the API replay the stored result of the first instead of performing the

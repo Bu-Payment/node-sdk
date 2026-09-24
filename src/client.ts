@@ -1,31 +1,60 @@
-import { type ClientConfig, type ClientConfigInput, parseClientConfig } from "./core/config";
+import { type CatalogueClient, createCatalogueClient } from "./catalogue/client";
+import { type CheckoutClient, createCheckoutClient } from "./checkout/client";
+import type { Sender } from "./core/builder";
+import { type ClientConfigInput, parseClientConfig } from "./core/config";
 import { SignedTransport, type TransportOptions, type TransportRequest } from "./core/http";
 import { generateIdempotencyKey, parseIdempotencyKey } from "./core/idempotency";
+import { type CustomersClient, createCustomersClient } from "./customers/client";
+import { createEventsClient, type EventsClient } from "./events/client";
+import { createInvoicesClient, type InvoicesClient } from "./invoices/client";
+import { createPaymentsClient, type PaymentsClient } from "./payments/client";
+import { createPriceMigrationsClient, type PriceMigrationsClient } from "./price-migrations/client";
+import { createRefundsClient, type RefundsClient } from "./refunds/client";
+import { createSubscriptionsClient, type SubscriptionsClient } from "./subscriptions/client";
+import { createWebhooksClient, type WebhooksClient } from "./webhooks/client";
 
 export type ClientOptions = TransportOptions;
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-export class BuPaymentClient {
-  readonly #config: ClientConfig;
-  readonly #transport: SignedTransport;
+export interface BuPaymentClient {
+  readonly applicationId: string;
+  readonly environment: "test" | "live";
+  readonly catalogue: CatalogueClient;
+  readonly customers: CustomersClient;
+  readonly checkout: CheckoutClient;
+  readonly payments: PaymentsClient;
+  readonly invoices: InvoicesClient;
+  readonly refunds: RefundsClient;
+  readonly subscriptions: SubscriptionsClient;
+  readonly priceMigrations: PriceMigrationsClient;
+  readonly events: EventsClient;
+  readonly webhooks: WebhooksClient;
+  request<T>(request: TransportRequest): Promise<T>;
+}
 
-  constructor(input: ClientConfigInput, options: ClientOptions = {}) {
-    this.#config = parseClientConfig(input);
-    this.#transport = new SignedTransport(this.#config, options);
-  }
-
-  get applicationId(): string {
-    return this.#config.applicationId;
-  }
-
-  get environment(): ClientConfig["environment"] {
-    return this.#config.environment;
-  }
-
-  async request<T>(request: TransportRequest): Promise<T> {
-    return await this.#transport.send<T>(withIdempotencyKey(request));
-  }
+export function createBuPaymentClient(
+  input: ClientConfigInput,
+  options: ClientOptions = {},
+): BuPaymentClient {
+  const config = parseClientConfig(input);
+  const transport = new SignedTransport(config, options);
+  const send: Sender = async (request) => await transport.send(withIdempotencyKey(request));
+  return Object.freeze({
+    applicationId: config.applicationId,
+    environment: config.environment,
+    catalogue: createCatalogueClient(send),
+    customers: createCustomersClient(send),
+    checkout: createCheckoutClient(send),
+    payments: createPaymentsClient(send),
+    invoices: createInvoicesClient(send),
+    refunds: createRefundsClient(send),
+    subscriptions: createSubscriptionsClient(send),
+    priceMigrations: createPriceMigrationsClient(send),
+    events: createEventsClient(send),
+    webhooks: createWebhooksClient(send),
+    request: <T>(request: TransportRequest) => send<T>(request),
+  });
 }
 
 function withIdempotencyKey(request: TransportRequest): TransportRequest {
