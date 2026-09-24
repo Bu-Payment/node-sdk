@@ -121,6 +121,7 @@ import { BuPaymentClient, buildCanonicalRequest, signCanonicalRequest, Confident
 
 ${signatureAssertion(vector)}
 assert.equal(typeof BuPaymentClient, "function");
+${commerceAssertion(vector)}
 `;
 }
 
@@ -130,7 +131,58 @@ const { BuPaymentClient, buildCanonicalRequest, signCanonicalRequest, Confidenti
 
 ${signatureAssertion(vector)}
 assert.equal(typeof BuPaymentClient, "function");
+${commerceAssertion(vector)}
 `;
+}
+
+function commerceAssertion(vector) {
+  return `const commerceClient = new BuPaymentClient({
+  applicationId: ${JSON.stringify(vector.appId)},
+  keyId: ${JSON.stringify(vector.keyId)},
+  secret: ${JSON.stringify(vector.confidentialSecret)},
+  apiBaseUrl: "https://api.bupayment.test",
+});
+for (const resource of [
+  "products",
+  "prices",
+  "customers",
+  "coupons",
+  "taxRates",
+  "shippingRates",
+  "subscriptionCheckouts",
+  "payments",
+  "subscriptions",
+  "subscriptionPriceMigrations",
+  "invoices",
+  "refunds",
+  "events",
+  "webhookEndpoints",
+  "webhookDeliveries",
+]) {
+  assert.equal(typeof commerceClient[resource], "object", resource);
+}
+assert.equal(typeof commerceClient.products.list, "function");
+assert.equal(typeof commerceClient.products.listAll, "function");
+
+async function assertScopeGuards() {
+  await assert.rejects(
+    commerceClient.payments.create({ customerId: "cus_1", priceId: "price_1", amount: 1 }),
+    (error) => error.code === "request_invalid",
+  );
+  await assert.rejects(
+    commerceClient.request({
+      method: "POST",
+      path: "/v1/customers",
+      body: { appId: "app_other" },
+    }),
+    (error) => error.code === "request_invalid",
+  );
+}
+
+assertScopeGuards().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});`;
 }
 
 function signatureAssertion(vector) {
@@ -151,7 +203,14 @@ assert.equal(
 
 function typesCheck() {
   return `import { BuPaymentClient, ErrorCode } from "@bu-payment/node-sdk";
-import type { ClientConfigInput, TransportRequest } from "@bu-payment/node-sdk/types";
+import type {
+  ClientConfigInput,
+  CreatePaymentBody,
+  ListProductsQuery,
+  Page,
+  Product,
+  TransportRequest,
+} from "@bu-payment/node-sdk/types";
 
 const input: ClientConfigInput = {
   applicationId: "app_123",
@@ -161,11 +220,30 @@ const input: ClientConfigInput = {
 };
 
 const request: TransportRequest = { method: "GET", path: "/v1/products" };
+const productQuery: ListProductsQuery = { active: true, limit: 10 };
+const canonicalPayment: CreatePaymentBody = { customerId: "cus_1", priceId: "price_1" };
+const adHocPayment: CreatePaymentBody = { customerId: "cus_1", amount: 100, currency: "EUR" };
+// @ts-expect-error an ad hoc amount must never override a canonical price
+const conflictingPayment: CreatePaymentBody = {
+  customerId: "cus_1",
+  priceId: "price_1",
+  amount: 100,
+  currency: "EUR",
+};
+void conflictingPayment;
 
 export async function probe(): Promise<unknown> {
   const client = new BuPaymentClient(input);
   const code: typeof ErrorCode.RESOURCE_NOT_FOUND = ErrorCode.RESOURCE_NOT_FOUND;
   void code;
+  const page: Page<Product> = await client.products.list(productQuery);
+  const name: string = page.data[0]?.name ?? "";
+  void name;
+  void client.payments.create(canonicalPayment);
+  void client.payments.create(adHocPayment);
+  for await (const product of client.products.listAll(productQuery)) {
+    void product.id;
+  }
   return await client.request(request);
 }
 `;
