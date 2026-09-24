@@ -30,34 +30,47 @@ The environment is derived from the key ID, so a test credential can never be po
 configuration alone. The secret is parsed into its 32 HMAC key bytes and wrapped so that string
 conversion, `JSON.stringify`, `util.inspect`, and thrown error metadata all render `[redacted]`.
 
+## Commerce resources
+
+The client exposes one typed resource per part of the machine API. Every model, request body,
+list query, and page envelope mirrors the contract, so no response type has to be declared by
+hand.
+
+```ts
+const products = await client.products.list({ active: true, limit: 20 });
+
+const payment = await client.payments.create({
+  customerId: "cus_123",
+  priceId: "price_123",
+});
+
+for await (const event of client.events.listAll({ type: "payment.succeeded" })) {
+  handle(event);
+}
+```
+
+`products`, `prices`, `customers`, `coupons`, `taxRates`, `shippingRates`,
+`subscriptionCheckouts`, `payments`, `subscriptions`, `subscriptionPriceMigrations`, `invoices`,
+`refunds`, `events`, `webhookEndpoints`, and `webhookDeliveries`. Each route needs its capability
+on the credential. See [the documentation](docs/00-index.md) for the whole surface.
+
+A payment is priced either by a canonical `priceId` or by an ad hoc `amount` with its `currency`,
+never by both: a request can never override the price of a canonical resource.
+
 ## Signed requests
 
 ```ts
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Page, Product } from "@bu-payment/node-sdk/types";
 
-const products = await client.request<{ data: Product[]; nextCursor: string | null }>({
+const products = await client.request<Page<Product>>({
   method: "GET",
   path: "/v1/products",
   query: { limit: 20 },
 });
-
-const payment = await client.request<Payment>({
-  method: "POST",
-  path: "/v1/payments",
-  body: { customerId: "cus_123", priceId: "price_123" },
-});
 ```
 
-`request` is the low-level entry point and carries the response type the caller declares. The
-typed commerce clients, which ship the resource models, the request bodies, and the page envelopes
-for every route, land with the app-scoped commerce operations.
+`request` is the low-level escape hatch, for routes the typed resources have not reached yet. It
+carries the response type the caller declares.
 
 Each call derives a fresh timestamp and nonce, canonicalizes the exact path and query it transmits,
 hashes the exact body bytes it sends, and signs the nine-line canonical request with HMAC-SHA256.
@@ -65,7 +78,9 @@ The request carries `Bu-Payment-Signature-Version`, `Bu-Payment-App-Id`, `Bu-Pay
 `Bu-Payment-Timestamp`, `Bu-Payment-Nonce`, and `Bu-Payment-Signature`.
 
 The authenticated application, workspace, and environment come from the credential. Nothing in a
-path, query, or body can widen or replace that scope.
+path, query, or body can widen or replace that scope: a body carrying `workspaceId`,
+`environmentId`, `applicationId`, `appId`, `tenantId`, `provider`, `providerAccountId`, or
+`providerAccountVersion` is refused before the request is signed.
 
 ## Idempotency
 
