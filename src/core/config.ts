@@ -42,10 +42,6 @@ export function parseClientConfig(input: ClientConfigInput): ClientConfig {
   };
 }
 
-export function apiUrl(baseUrl: URL, path: string): URL {
-  return new URL(path.replace(/^\//u, ""), baseUrl);
-}
-
 function keyEnvironment(keyId: string): Environment {
   const match = /^bup_ck_(test|live)_[A-Za-z0-9_-]+$/u.exec(keyId);
   const environment = match?.[1];

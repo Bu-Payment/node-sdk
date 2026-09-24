@@ -1,0 +1,287 @@
+{
+  "protocol": "BUPAYMENT-HMAC-SHA256-V1",
+  "success": [
+    {
+      "name": "empty GET request",
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "confidentialSecret": "bup_sec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "appId": "app_123",
+      "keyId": "bup_ck_test_A12345678901234567890123",
+      "timestamp": "1722513600",
+      "nonce": "0123456789abcdef0123456789abcdef",
+      "method": "GET",
+      "rawPath": "/v1/items",
+      "rawQuery": "",
+      "bodyBase64": "",
+      "canonicalPath": "/v1/items",
+      "canonicalQuery": "",
+      "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "BUPAYMENT-HMAC-SHA256-V1\napp_123\nbup_ck_test_A12345678901234567890123\n1722513600\n0123456789abcdef0123456789abcdef\nGET\n/v1/items\n\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "signature": "1020cdc3fb9b3c6fe8e1677f8ffd1c93e26fb8b54355d609abeb6b99af97244c"
+    },
+    {
+      "name": "Unicode JSON and sorted query",
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "confidentialSecret": "bup_sec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "appId": "app_456",
+      "keyId": "bup_ck_test_B12345678901234567890123",
+      "timestamp": "1722513601",
+      "nonce": "11111111111111111111111111111111",
+      "method": "POST",
+      "rawPath": "/café/%2f/./%E2%82%AC",
+      "rawQuery": "q=hello world&tag=b&tag=a&plus=+&empty&encoded=%7e%2f",
+      "bodyBase64": "ewogICJtZXNzYWdlIjogIk9sw6Eg4piVIiwgInZhbHVlIjogMQp9",
+      "canonicalPath": "/caf%C3%A9/%2F/./%E2%82%AC",
+      "canonicalQuery": "empty=&encoded=~%2F&plus=%2B&q=hello%20world&tag=a&tag=b",
+      "bodySha256": "db144ecfc955894afc5c3b619803359a302f89e0669970e091945a316d5554b1",
+      "canonicalRequest": "BUPAYMENT-HMAC-SHA256-V1\napp_456\nbup_ck_test_B12345678901234567890123\n1722513601\n11111111111111111111111111111111\nPOST\n/caf%C3%A9/%2F/./%E2%82%AC\nempty=&encoded=~%2F&plus=%2B&q=hello%20world&tag=a&tag=b\ndb144ecfc955894afc5c3b619803359a302f89e0669970e091945a316d5554b1",
+      "signature": "9d7b5f660e55a3ac7f8959e06ad5e4b85ba7fec4607251e3364303e1158b4f8d"
+    },
+    {
+      "name": "non-text bytes",
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "confidentialSecret": "bup_sec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "appId": "app_789",
+      "keyId": "bup_ck_test_C12345678901234567890123",
+      "timestamp": "1722513602",
+      "nonce": "ffffffffffffffffffffffffffffffff",
+      "method": "PATCH",
+      "rawPath": "/binary//%2F",
+      "rawQuery": "a=%00&z=%FF&z=",
+      "bodyBase64": "AP+AQUI=",
+      "canonicalPath": "/binary//%2F",
+      "canonicalQuery": "a=%00&z=&z=%FF",
+      "bodySha256": "a3075635f768bba4f001a2215903dae788666ae6f6efa08199e24ef5402c63f0",
+      "canonicalRequest": "BUPAYMENT-HMAC-SHA256-V1\napp_789\nbup_ck_test_C12345678901234567890123\n1722513602\nffffffffffffffffffffffffffffffff\nPATCH\n/binary//%2F\na=%00&z=&z=%FF\na3075635f768bba4f001a2215903dae788666ae6f6efa08199e24ef5402c63f0",
+      "signature": "8239d3eff61f07b979091d6b8dd5944f1e500b8dbd9cb50aad7019dcbaa6385f"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "unsupported signature version",
+      "header": "Bu-Payment-Signature-Version",
+      "value": "2",
+      "error": "application_auth_version_unsupported"
+    },
+    {
+      "name": "uppercase nonce",
+      "header": "Bu-Payment-Nonce",
+      "value": "0123456789ABCDEF0123456789ABCDEF",
+      "error": "application_auth_malformed"
+    },
+    {
+      "name": "invalid percent encoding",
+      "rawPath": "/bad/%GG",
+      "error": "application_auth_malformed"
+    }
+  ],
+  "securityStateFixtures": {
+    "active-source": {
+      "credentials": {
+        "source": {
+          "id": "vector-source",
+          "appId": "app_123",
+          "keyId": "bup_ck_test_A12345678901234567890123",
+          "confidentialSecret": "bup_sec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+          "status": "active",
+          "expiresAt": null,
+          "rotationSuccessorId": null
+        }
+      }
+    },
+    "rotation": {
+      "credentials": {
+        "source": {
+          "id": "vector-source",
+          "appId": "app_123",
+          "keyId": "bup_ck_test_A12345678901234567890123",
+          "confidentialSecret": "bup_sec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+          "status": "active",
+          "expiresAt": "2024-08-02T12:00:00.000Z",
+          "rotationSuccessorId": "vector-successor"
+        },
+        "successor": {
+          "id": "vector-successor",
+          "appId": "app_123",
+          "keyId": "bup_ck_test_B12345678901234567890123",
+          "confidentialSecret": "bup_sec___________________________________________8",
+          "status": "active",
+          "expiresAt": null,
+          "rotationSuccessorId": null
+        }
+      }
+    }
+  },
+  "securityScenarios": [
+    {
+      "version": 1,
+      "id": "timestamp-minus-300",
+      "name": "accepts a timestamp exactly 300 seconds before server time",
+      "setup": {
+        "serverTime": "2024-08-01T12:00:00.000Z",
+        "stateFixture": "active-source",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "source",
+        "timestamp": "1722513300",
+        "nonce": "01010101010101010101010101010101"
+      },
+      "expected": { "status": 200, "error": null }
+    },
+    {
+      "version": 1,
+      "id": "timestamp-plus-300",
+      "name": "accepts a timestamp exactly 300 seconds after server time",
+      "setup": {
+        "serverTime": "2024-08-01T12:00:00.000Z",
+        "stateFixture": "active-source",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "source",
+        "timestamp": "1722513900",
+        "nonce": "02020202020202020202020202020202"
+      },
+      "expected": { "status": 200, "error": null }
+    },
+    {
+      "version": 1,
+      "id": "timestamp-minus-301",
+      "name": "rejects a timestamp 301 seconds before server time",
+      "setup": {
+        "serverTime": "2024-08-01T12:00:00.000Z",
+        "stateFixture": "active-source",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "source",
+        "timestamp": "1722513299",
+        "nonce": "03030303030303030303030303030303"
+      },
+      "expected": { "status": 401, "error": "application_auth_expired" }
+    },
+    {
+      "version": 1,
+      "id": "timestamp-plus-301",
+      "name": "rejects a timestamp 301 seconds after server time",
+      "setup": {
+        "serverTime": "2024-08-01T12:00:00.000Z",
+        "stateFixture": "active-source",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "source",
+        "timestamp": "1722513901",
+        "nonce": "04040404040404040404040404040404"
+      },
+      "expected": { "status": 401, "error": "application_auth_expired" }
+    },
+    {
+      "version": 1,
+      "id": "nonce-first-use",
+      "name": "accepts the first use of a nonce",
+      "setup": {
+        "serverTime": "2024-08-01T12:00:00.000Z",
+        "stateFixture": "active-source",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "source",
+        "timestamp": "1722513600",
+        "nonce": "05050505050505050505050505050505"
+      },
+      "expected": { "status": 200, "error": null }
+    },
+    {
+      "version": 1,
+      "id": "nonce-replay",
+      "name": "rejects a nonce already claimed for the same credential",
+      "setup": {
+        "serverTime": "2024-08-01T12:00:00.000Z",
+        "stateFixture": "active-source",
+        "nonceClaims": [{ "credential": "source", "nonce": "05050505050505050505050505050505" }]
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "source",
+        "timestamp": "1722513600",
+        "nonce": "05050505050505050505050505050505"
+      },
+      "expected": { "status": 401, "error": "application_auth_replayed" }
+    },
+    {
+      "version": 1,
+      "id": "rotation-source-within-overlap",
+      "name": "accepts the source credential during the rotation overlap",
+      "setup": {
+        "serverTime": "2024-08-01T12:00:00.000Z",
+        "stateFixture": "rotation",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "source",
+        "timestamp": "1722513600",
+        "nonce": "06060606060606060606060606060606"
+      },
+      "expected": { "status": 200, "error": null }
+    },
+    {
+      "version": 1,
+      "id": "rotation-successor-within-overlap",
+      "name": "accepts the successor credential during the rotation overlap",
+      "setup": {
+        "serverTime": "2024-08-01T12:00:00.000Z",
+        "stateFixture": "rotation",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "successor",
+        "timestamp": "1722513600",
+        "nonce": "07070707070707070707070707070707"
+      },
+      "expected": { "status": 200, "error": null }
+    },
+    {
+      "version": 1,
+      "id": "rotation-source-post-expiry",
+      "name": "rejects the source credential after the rotation overlap expires",
+      "setup": {
+        "serverTime": "2024-08-02T12:00:01.000Z",
+        "stateFixture": "rotation",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "source",
+        "timestamp": "1722600001",
+        "nonce": "08080808080808080808080808080808"
+      },
+      "expected": { "status": 401, "error": "application_auth_invalid" }
+    },
+    {
+      "version": 1,
+      "id": "rotation-successor-post-expiry",
+      "name": "accepts the successor credential after the source overlap expires",
+      "setup": {
+        "serverTime": "2024-08-02T12:00:01.000Z",
+        "stateFixture": "rotation",
+        "nonceClaims": []
+      },
+      "signedInput": {
+        "referenceSuccess": "empty GET request",
+        "credential": "successor",
+        "timestamp": "1722600001",
+        "nonce": "09090909090909090909090909090909"
+      },
+      "expected": { "status": 200, "error": null }
+    }
+  ]
+}
