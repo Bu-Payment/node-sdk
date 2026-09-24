@@ -69,4 +69,4 @@ forever, or escape as a bare `TypeError`.
 
 ---
 
-Previous: [Pagination](08-pagination.md) · Next: [Index](00-index.md)
+Previous: [Pagination](09-pagination.md) · Next: [Index](00-index.md)

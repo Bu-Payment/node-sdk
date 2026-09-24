@@ -67,7 +67,7 @@ Each route requires a capability on the credential. Without it the API answers
 | `catalogue:read` | `catalogue` |
 | `customers:read`, `customers:write` | `customers` |
 | `checkout:create` | `checkout` |
-| `payments:read`, `payments:write` | `payments`, `invoices`, refund reads |
+| `payments:read`, `payments:write` | `payments`, `paymentMethods`, `billing`, `invoices`, refund reads |
 | `refunds:write` | `refunds.create()` |
 | `subscriptions:read`, `subscriptions:write` | `subscriptions`, `priceMigrations` |
 | `events:read` | `events`, delivery reads |

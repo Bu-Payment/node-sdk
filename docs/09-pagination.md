@@ -1,12 +1,14 @@
 # Pagination
 
-## Four response shapes
+## Five response shapes
 
 Products, prices, cross-sells, customers, shipping rates and events answer
 `{ data, nextCursor }`. Payments, invoices, refunds, subscriptions and price migrations add
 `hasMore`, which is always `nextCursor !== null`. Applicable tax rates answer `{ data }`
-alone. Webhook endpoints and webhook deliveries answer a plain array. The return type of
-each terminal says which shape that call produces.
+alone. Webhook endpoints and webhook deliveries answer a plain array. A customer's payment methods
+answer `{ data, hasMore: false, nextCursor: null }`: at most 100 rows and never a second page,
+so their builder has no `cursor()`, `limit()` or `all()`. The return type of each terminal
+says which shape that call produces.
 
 ## The cursor is scoped
 
@@ -71,4 +73,4 @@ for await (const product of products) {
 
 ---
 
-Previous: [Events and webhooks](07-events-and-webhooks.md) · Next: [Errors](09-errors.md)
+Previous: [Events and webhooks](08-events-and-webhooks.md) · Next: [Errors](10-errors.md)
