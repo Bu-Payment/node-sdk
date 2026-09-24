@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "algorithm": "sha256",
+  "copyPolicy": "byte-for-byte",
+  "basePath": "..",
+  "files": [
+    {
+      "path": "v1/conformance-vectors.json",
+      "sha256": "d4054f2fd0f9a73b968fe610da9e49a88870dfd635eaab1c0832f5e8755bd724"
+    },
+    {
+      "path": "v1/browser-session-conformance-vectors.json",
+      "sha256": "17bdd9abc6352161c8d8803ac49049c567f81e70e9637c0ab3b59415b08a4d65"
+    },
+    {
+      "path": "conformance/browser-commerce-valid.json",
+      "sha256": "437a88421de150a1e06adc6af9a886e898e5905478d0270fa8a9b696049dad1d"
+    },
+    {
+      "path": "conformance/browser-commerce-invalid.json",
+      "sha256": "9253616a06143a06ee2a812d22b1bd644a943ea7ed7c6e72a94ec16996f16d45"
+    }
+  ]
+}

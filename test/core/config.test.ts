@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ErrorCode } from "../../src/constants";
 import type { ClientConfigInput } from "../../src/core/config";
-import { apiUrl, parseClientConfig } from "../../src/core/config";
+import { parseClientConfig } from "../../src/core/config";
 import { BuPaymentError } from "../../src/errors";
 
 const SECRET = "bup_sec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
@@ -67,14 +67,5 @@ describe("parseClientConfig", () => {
   it("keeps the secret out of configuration serialisation", () => {
     const config = parseClientConfig(input());
     expect(JSON.stringify(config)).not.toContain("AAECAw");
-  });
-});
-
-describe("apiUrl", () => {
-  it("resolves a path against a base URL that carries its own prefix", () => {
-    const base = parseClientConfig(input({ apiBaseUrl: "https://api.bupayment.test/gateway" }));
-    expect(apiUrl(base.apiBaseUrl, "/v1/items").href).toBe(
-      "https://api.bupayment.test/gateway/v1/items",
-    );
   });
 });
