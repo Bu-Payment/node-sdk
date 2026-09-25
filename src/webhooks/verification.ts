@@ -1,10 +1,15 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
-import type { VerifiedWebhookDelivery, WebhookDeliveryInput, WebhookHeaders } from "./types";
+import type {
+  VerifiedWebhookDelivery,
+  WebhookDeliveryInput,
+  WebhookHeaderReader,
+  WebhookHeaders,
+} from "./types";
 
 const DEFAULT_TOLERANCE_SECONDS = 300;
-const SECRET_PREFIX = "whsec_";
+const ENDPOINT_SECRET = /^whsec_[A-Za-z0-9_-]{32,}$/u;
 
 export const WebhookHeader = {
   ID: "x-webhook-id",
@@ -37,16 +42,20 @@ export function verifyWebhookDelivery(input: WebhookDeliveryInput): VerifiedWebh
   }
   return {
     deliveryId,
+    signature,
     timestamp: new Date(sentAt),
     payload: parsePayload(body),
   };
 }
 
 function assertEndpointSecret(secret: string): void {
-  if (typeof secret !== "string" || !secret.startsWith(SECRET_PREFIX)) {
-    throw new BuPaymentError("Webhook endpoint secret must start with whsec_", {
-      code: ErrorCode.CONFIGURATION_INVALID,
-    });
+  if (typeof secret !== "string" || !ENDPOINT_SECRET.test(secret)) {
+    throw new BuPaymentError(
+      "Webhook endpoint secret must be the whsec_ value issued for the endpoint",
+      {
+        code: ErrorCode.CONFIGURATION_INVALID,
+      },
+    );
   }
 }
 
@@ -89,7 +98,7 @@ function toleranceMilliseconds(toleranceSeconds = DEFAULT_TOLERANCE_SECONDS): nu
 
 function requiredHeader(headers: WebhookHeaders, name: string): string {
   const value = headerValue(headers, name);
-  if (value === undefined || value === "") {
+  if (value === undefined || value === "" || value.includes(",")) {
     throw new BuPaymentError(`Webhook delivery is missing a single ${name} header`, {
       code: ErrorCode.WEBHOOK_SIGNATURE_MISSING,
     });
@@ -98,13 +107,17 @@ function requiredHeader(headers: WebhookHeaders, name: string): string {
 }
 
 function headerValue(headers: WebhookHeaders, name: string): string | undefined {
-  if (headers instanceof Headers) {
+  if (isFetchHeaders(headers)) {
     return headers.get(name) ?? undefined;
   }
   const values = Object.entries(headers)
     .filter(([key]) => key.toLowerCase() === name)
     .flatMap(([, value]) => (value === undefined ? [] : [value].flat()));
   return values.length === 1 ? values[0] : undefined;
+}
+
+function isFetchHeaders(headers: WebhookHeaders): headers is WebhookHeaderReader {
+  return typeof (headers as { get?: unknown }).get === "function";
 }
 
 function signatureMatches(signature: string, expected: Buffer): boolean {

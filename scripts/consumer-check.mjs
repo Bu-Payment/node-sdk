@@ -156,7 +156,7 @@ function webhookAssertion() {
 });
 assert.equal(delivery.deliveryId, ${JSON.stringify(webhookVector.deliveryId)});
 assert.throws(
-  () => verifyWebhookDelivery({ body: {}, headers: {}, secret: "whsec_x" }),
+  () => verifyWebhookDelivery({ body: {}, headers: {}, secret: ${JSON.stringify(webhookVector.secret)} }),
   (error) => error.code === "webhook_payload_invalid",
 );`;
 }

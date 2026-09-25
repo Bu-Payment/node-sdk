@@ -45,7 +45,13 @@ export interface WebhookDeliveryRetry {
   status: WebhookDeliveryStatus;
 }
 
-export type WebhookHeaders = Headers | Readonly<Record<string, string | string[] | undefined>>;
+export interface WebhookHeaderReader {
+  get(name: string): string | null;
+}
+
+export type WebhookHeaders =
+  | WebhookHeaderReader
+  | Readonly<Record<string, string | string[] | undefined>>;
 
 export interface WebhookDeliveryInput {
   body: string | Uint8Array;
@@ -57,6 +63,7 @@ export interface WebhookDeliveryInput {
 
 export interface VerifiedWebhookDelivery {
   deliveryId: string;
+  signature: string;
   timestamp: Date;
   payload: Record<string, unknown>;
 }

@@ -29,6 +29,10 @@ function failure(run: () => unknown): BuPaymentError {
   throw new Error("expected verification to fail");
 }
 
+function signed(timestamp: string, body = BODY): string {
+  return createHmac("sha256", SECRET).update(`${timestamp}.${body}`).digest("hex");
+}
+
 function headers(overrides: Record<string, string | undefined> = {}) {
   return {
     "x-webhook-id": webhookDelivery.deliveryId,
@@ -48,6 +52,7 @@ describe("verifyWebhookDelivery", () => {
     });
 
     expect(delivery.deliveryId).toBe("whd_1");
+    expect(delivery.signature).toBe(SIGNATURE);
     expect(delivery.timestamp.getTime()).toBe(Number(TIMESTAMP));
     expect(delivery.payload).toEqual({
       resourceType: "product",
@@ -83,6 +88,7 @@ describe("verifyWebhookDelivery", () => {
   ])("rejects an authentic delivery %s than the default window", (_name, offset) => {
     const error = failure(() => verify({ now: () => Number(TIMESTAMP) + offset }));
     expect(error.code).toBe(ErrorCode.WEBHOOK_TIMESTAMP_EXPIRED);
+    expect(error.metadata).toEqual({ toleranceSeconds: 300 });
   });
 
   it("applies a configured tolerance", () => {
@@ -137,9 +143,46 @@ describe("verifyWebhookDelivery", () => {
     "1790000000000.5",
     "-1790000000000",
     "1e12",
-  ])("rejects the timestamp %j as an invalid signature", (timestamp) => {
-    const error = failure(() => verify({ headers: headers({ "x-webhook-timestamp": timestamp }) }));
+    " 1790000000000",
+  ])("rejects the timestamp %j even when it was signed as sent", (timestamp) => {
+    const error = failure(() =>
+      verify({
+        headers: headers({
+          "x-webhook-timestamp": timestamp,
+          "x-webhook-signature": signed(timestamp),
+        }),
+        now: () => Number(timestamp),
+      }),
+    );
     expect(error.code).toBe(ErrorCode.WEBHOOK_SIGNATURE_INVALID);
+  });
+
+  it("rejects an uppercase signature, since the platform sends lowercase hex", () => {
+    const error = failure(() =>
+      verify({ headers: headers({ "x-webhook-signature": SIGNATURE.toUpperCase() }) }),
+    );
+    expect(error.code).toBe(ErrorCode.WEBHOOK_SIGNATURE_INVALID);
+  });
+
+  it("accepts a header given as an array of one value", () => {
+    const delivery = verify({ headers: { ...headers(), "x-webhook-signature": [SIGNATURE] } });
+    expect(delivery.signature).toBe(SIGNATURE);
+  });
+
+  it.each([
+    ["joined by Node", { ...headers(), "x-webhook-id": "whd_1, whd_2" }],
+    ["joined by a Fetch Headers object", appended("x-webhook-id", "whd_2")],
+    ["a signature joined by a Fetch Headers object", appended("x-webhook-signature", SIGNATURE)],
+  ])("refuses a header sent twice and %s", (_name, duplicated) => {
+    expect(failure(() => verify({ headers: duplicated })).code).toBe(
+      ErrorCode.WEBHOOK_SIGNATURE_MISSING,
+    );
+  });
+
+  it("reads a Headers object from another realm or a polyfill", () => {
+    const native = new Headers(headers());
+    const foreign = { get: (name: string) => native.get(name) };
+    expect(verify({ headers: foreign }).deliveryId).toBe("whd_1");
   });
 
   it("reads header names in any casing", () => {
@@ -199,10 +242,12 @@ describe("verifyWebhookDelivery", () => {
     ["an empty secret", ""],
     ["a secret without the whsec_ prefix", "AAECAwQFBgcICQoLDA0ODxAREhMUFRYX"],
     ["the confidential API secret", "bup_sec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"],
+    ["the bare prefix", "whsec_"],
+    ["a truncated secret", "whsec_AAECAwQFBgcICQoL"],
   ])("refuses %s as a configuration error without echoing it", (_name, secret) => {
     const error = failure(() => verify({ secret }));
     expect(error.code).toBe(ErrorCode.CONFIGURATION_INVALID);
-    if (secret !== "") {
+    if (secret.length > "whsec_".length) {
       expect(error.message).not.toContain(secret);
     }
   });
@@ -229,3 +274,9 @@ describe("verifyWebhookDelivery secret handling", () => {
     expect(rendered).not.toContain(SECRET_MATERIAL);
   });
 });
+
+function appended(name: string, value: string): Headers {
+  const duplicated = new Headers(headers());
+  duplicated.append(name, value);
+  return duplicated;
+}
