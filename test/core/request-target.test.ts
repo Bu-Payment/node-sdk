@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ErrorCode } from "../../src/constants";
 import { buildRequestTarget, encodePathSegment } from "../../src/core/request-target";
+import { harnessReturning } from "../support/harness";
 
 const baseUrl = new URL("https://api.bupayment.test/");
 const nestedBaseUrl = new URL("https://api.bupayment.test/gateway/");
@@ -67,5 +68,23 @@ describe("encodePathSegment", () => {
       }
     })();
     expect(error?.code).toBe(ErrorCode.REQUEST_INVALID);
+  });
+
+  it.each([".", ".."])("refuses the dot segment %j", (segment) => {
+    expect(() => encodePathSegment(segment)).toThrowError(
+      expect.objectContaining({ code: ErrorCode.REQUEST_INVALID }),
+    );
+  });
+
+  it.each(["..a", "a..", ".a", "..."])("keeps %j as an ordinary segment", (segment) => {
+    expect(encodePathSegment(segment)).toBe(segment);
+  });
+
+  it("sends nothing when a builder identifier is a dot segment", async () => {
+    const { client, calls } = harnessReturning({ id: "cus_1" });
+    await expect(async () => client.customers.customer("..").get()).rejects.toMatchObject({
+      code: ErrorCode.REQUEST_INVALID,
+    });
+    expect(calls).toHaveLength(0);
   });
 });
