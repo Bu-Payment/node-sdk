@@ -85,6 +85,59 @@ describe("app-scoped isolation", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("signs every payment method and billing request with the credential", async () => {
+    const { client, calls } = harnessReturning({}, { data: [] }, {}, {}, {});
+    await client.paymentMethods
+      .createSetup("cus_1")
+      .currency("EUR")
+      .returnUrl("https://shop.test/r")
+      .consentAcceptedAt("2026-01-01T00:00:00Z")
+      .create();
+    await client.paymentMethods.list("cus_1").get();
+    await client.paymentMethods.paymentMethod("cus_1", "pm_1").get();
+    await client.paymentMethods.paymentMethod("cus_1", "pm_1").revoke();
+    await client.billing.capabilities().get();
+    expect(calls).toHaveLength(5);
+    for (const call of calls) {
+      expect(call.headers[Header.SIGNATURE]).toMatch(/^[0-9a-f]{64}$/u);
+      expect(call.headers[Header.APP_ID]).toBe(client.applicationId);
+    }
+  });
+
+  it("surfaces another App's customer as an opaque not-found", async () => {
+    const { client } = harnessOf(() =>
+      json({ error: "app_customer_not_found", message: "App customer not found" }, 404),
+    );
+    await expect(client.paymentMethods.list("cus_owned_elsewhere").get()).rejects.toMatchObject({
+      code: ErrorCode.RESOURCE_NOT_FOUND,
+      status: 404,
+      metadata: { apiError: "app_customer_not_found" },
+    });
+  });
+
+  it("surfaces revoking an unknown or foreign payment method as unusable", async () => {
+    const { client } = harnessOf(() =>
+      json({ error: "payment_method_unusable", message: "Payment method cannot be used" }, 403),
+    );
+    await expect(
+      client.paymentMethods.paymentMethod("cus_1", "pm_owned_elsewhere").revoke(),
+    ).rejects.toMatchObject({
+      code: ErrorCode.OPERATION_FAILED,
+      status: 403,
+      metadata: { apiError: "payment_method_unusable" },
+    });
+  });
+
+  it("surfaces billing capabilities without payments:read as a capability denial", async () => {
+    const { client } = harnessOf(() =>
+      json({ error: "application_capability_denied", message: "payments:read is required" }, 403),
+    );
+    await expect(client.billing.capabilities().get()).rejects.toMatchObject({
+      code: ErrorCode.APPLICATION_CAPABILITY_DENIED,
+      status: 403,
+    });
+  });
+
   it("never sends the environment as request data", async () => {
     const { client, calls } = harnessReturning({ data: [], nextCursor: null });
     await client.events.list().type("payment.succeeded").get();

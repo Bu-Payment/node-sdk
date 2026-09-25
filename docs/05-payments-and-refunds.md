@@ -26,7 +26,8 @@ default worth inheriting silently, so a caller who wants it must go through
 `client.request`.
 
 Allocations accumulate and are reachable only after a payment method, which is the API's
-own rule:
+own rule. The identifier comes from
+[the customer's stored payment methods](06-payment-methods-and-billing.md):
 
 ```ts
 await client.payments
@@ -73,4 +74,4 @@ not in the creation response. Read the refund back if the caller needs the custo
 
 ---
 
-Previous: [Checkout](04-checkout.md) · Next: [Subscriptions](06-subscriptions.md)
+Previous: [Checkout](04-checkout.md) · Next: [Payment methods and billing](06-payment-methods-and-billing.md)

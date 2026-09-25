@@ -58,13 +58,11 @@ every required field is set. `create()` is absent from a payment with no custome
 one with no price; `amount()` disappears once `priceId()` is called, and `priceId()` disappears
 once an amount is set, so a request can never override the price of a canonical resource.
 
-`catalogue`, `customers`, `checkout`, `payments`, `invoices`, `refunds`, `subscriptions`,
-`priceMigrations`, `events`, and `webhooks`. Each route needs its capability on the credential. See
-[the documentation](docs/00-index.md) for the whole surface.
+`catalogue`, `customers`, `checkout`, `payments`, `paymentMethods`, `billing`, `invoices`,
+`refunds`, `subscriptions`, `priceMigrations`, `events`, and `webhooks`. Each route needs its
+capability on the credential. See [the documentation](docs/00-index.md) for the whole surface.
 
-Two machine surfaces are not yet typed: payment methods, under
-`/v1/customers/{id}/payment-methods`, and billing capabilities. Reach them through `request` until
-they land. A `paymentMethodId` for payment allocations comes from there.
+`paymentMethods` also supplies the `paymentMethodId` that payment allocations require.
 
 ## Signed requests
 

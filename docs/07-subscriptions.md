@@ -103,4 +103,4 @@ await client.priceMigrations
 
 ---
 
-Previous: [Payments and refunds](05-payments-and-refunds.md) · Next: [Events and webhooks](07-events-and-webhooks.md)
+Previous: [Payment methods and billing](06-payment-methods-and-billing.md) · Next: [Events and webhooks](08-events-and-webhooks.md)

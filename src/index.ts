@@ -1,3 +1,6 @@
+export type { BillingClient } from "./billing/client";
+export { createBillingClient } from "./billing/client";
+export type * from "./billing/types";
 export type { CatalogueClient } from "./catalogue/client";
 export { createCatalogueClient } from "./catalogue/client";
 export type * from "./catalogue/types";
@@ -46,6 +49,9 @@ export type * from "./events/types";
 export type { InvoicesClient } from "./invoices/client";
 export { createInvoicesClient } from "./invoices/client";
 export type * from "./invoices/types";
+export type { PaymentMethodsClient } from "./payment-methods/client";
+export { createPaymentMethodsClient } from "./payment-methods/client";
+export type * from "./payment-methods/types";
 export type { PaymentsClient } from "./payments/client";
 export { createPaymentsClient } from "./payments/client";
 export type * from "./payments/types";

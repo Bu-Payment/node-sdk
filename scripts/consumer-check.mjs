@@ -3,6 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { typesCheck } from "./consumer-types-probe.mjs";
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 const vectors = JSON.parse(
@@ -150,6 +151,8 @@ for (const [domain, entry] of [
   ["customers", "create"],
   ["checkout", "subscriptionSession"],
   ["payments", "create"],
+  ["paymentMethods", "createSetup"],
+  ["billing", "capabilities"],
   ["invoices", "list"],
   ["refunds", "create"],
   ["subscriptions", "create"],
@@ -172,6 +175,17 @@ assert.equal(
   commerceClient.payments.create().priceId("price_1").amount,
   undefined,
   "an ad hoc amount must be absent once priced canonically",
+);
+assert.equal(
+  commerceClient.paymentMethods.createSetup("cus_1").currency("EUR").returnUrl("https://shop.test/r")
+    .create,
+  undefined,
+  "a payment method setup must be absent until the consent is set",
+);
+assert.equal(
+  commerceClient.paymentMethods.list("cus_1").all,
+  undefined,
+  "a payment method list must offer no walk",
 );
 
 async function assertScopeGuards() {
@@ -219,83 +233,4 @@ assert.equal(
   signCanonicalRequest(ConfidentialSecret.parse(${JSON.stringify(vector.confidentialSecret)}), canonicalRequest),
   ${JSON.stringify(vector.signature)},
 );`;
-}
-
-function typesCheck() {
-  return `import { createBuPaymentClient, ErrorCode, paginate } from "@bu-payment/node-sdk";
-import type {
-  ClientConfigInput,
-  OwnedRefund,
-  Page,
-  Product,
-  Refund,
-  TransportRequest,
-} from "@bu-payment/node-sdk/types";
-
-const input: ClientConfigInput = {
-  applicationId: "app_123",
-  keyId: "bup_ck_test_A12345678901234567890123",
-  secret: "bup_sec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
-  apiBaseUrl: "https://api.bupayment.test",
-};
-
-const request: TransportRequest = { method: "GET", path: "/v1/products" };
-
-export async function probe(): Promise<unknown> {
-  const client = createBuPaymentClient(input);
-  const code: typeof ErrorCode.RESOURCE_NOT_FOUND = ErrorCode.RESOURCE_NOT_FOUND;
-  void code;
-
-  const page = await client.catalogue.products().active(true).limit(20).get();
-  const name: string = page.data[0]?.name ?? "";
-  void name;
-
-  for await (const product of client.catalogue.products().active(true).all()) {
-    void product.id;
-  }
-
-  await client.payments.create().customerId("cus_1").priceId("price_1").create();
-  await client.payments.create().customerId("cus_1").amount(100).currency("EUR").create();
-
-  // @ts-expect-error a payment cannot be created with no pricing source
-  await client.payments.create().customerId("cus_1").create();
-
-  // @ts-expect-error an ad hoc amount must not reach a payment priced canonically
-  client.payments.create().priceId("price_1").amount(100);
-
-  // @ts-expect-error a customer cannot be created before an email is set
-  await client.customers.create().create();
-
-  const created: Refund = await client.refunds.create().paymentId("pay_1").create();
-  void created.id;
-  const owned: OwnedRefund = await client.refunds.refund("ref_1").get();
-  void owned.customerId;
-
-  await manualPaging(client);
-  await genericPaging(client);
-  return await client.request(request);
-}
-
-type Client = ReturnType<typeof createBuPaymentClient>;
-
-async function manualPaging(client: Client): Promise<void> {
-  let cursor: string | undefined;
-  do {
-    const builder = client.catalogue.products().active(true);
-    const page = await (cursor === undefined ? builder : builder.cursor(cursor)).get();
-    void page.data.length;
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor !== undefined);
-}
-
-async function genericPaging(client: Client): Promise<void> {
-  const products = paginate<Product, { cursor?: string; active?: boolean }>(
-    (query) => client.request<Page<Product>>({ method: "GET", path: "/v1/products", query }),
-    { active: true },
-  );
-  for await (const product of products) {
-    void product.id;
-  }
-}
-`;
 }

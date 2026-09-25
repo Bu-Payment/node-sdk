@@ -27,6 +27,11 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.payments.create().customerId("cus_1").priceId("price_1"),
     client.payments.list(),
     client.payments.payment("pay_1"),
+    client.paymentMethods.createSetup("cus_1"),
+    client.paymentMethods.createSetup("cus_1").currency("EUR").returnUrl("https://shop.test/r"),
+    client.paymentMethods.list("cus_1"),
+    client.paymentMethods.paymentMethod("cus_1", "pm_1"),
+    client.billing.capabilities(),
     client.invoices.list(),
     client.invoices.invoice("inv_1"),
     client.refunds.list(),
@@ -118,6 +123,22 @@ describe("builder contract", () => {
         { reference: "line_3", amount: 300, currency: "EUR" },
       ],
     });
+  });
+
+  it("does not let one branch of a payment method setup reach another", async () => {
+    const { client, calls } = harnessReturning({}, {});
+    const base = client.paymentMethods
+      .createSetup("cus_1")
+      .currency("EUR")
+      .returnUrl("https://shop.test/r")
+      .consentAcceptedAt("2026-01-01T00:00:00Z");
+    await base.replacesPaymentMethodId("pm_old").idempotencyKey("setup-a").create();
+    await base.create();
+    expect(calls).toHaveLength(2);
+    expect(callAt(calls, 0).headers["Idempotency-Key"]).toBe("setup-a");
+    expect(callAt(calls, 0).body).toMatchObject({ replacesPaymentMethodId: "pm_old" });
+    expect(callAt(calls, 1).headers["Idempotency-Key"]).not.toBe("setup-a");
+    expect(callAt(calls, 1).body).not.toHaveProperty("replacesPaymentMethodId");
   });
 
   it("does not let one branch of an accumulating webhook builder reach another", async () => {

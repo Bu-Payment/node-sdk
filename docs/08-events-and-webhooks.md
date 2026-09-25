@@ -68,4 +68,4 @@ Fanout reaches an endpoint only when the event and the endpoint share the same A
 
 ---
 
-Previous: [Subscriptions](06-subscriptions.md) · Next: [Pagination](08-pagination.md)
+Previous: [Subscriptions](07-subscriptions.md) · Next: [Pagination](09-pagination.md)
