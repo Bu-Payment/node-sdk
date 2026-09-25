@@ -8,7 +8,6 @@ import {
   type ScopeMethods,
   type Sender,
   scopeMethods,
-  writeRequest,
 } from "../core/builder";
 import type { PageWithMore } from "../core/pagination";
 import { encodePathSegment } from "../core/request-target";
