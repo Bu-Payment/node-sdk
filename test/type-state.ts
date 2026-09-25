@@ -195,3 +195,12 @@ export const accepted = [
   subscriptions.subscription("sub_1").scheduledChange().cancel(),
   priceMigrations.migration("mig_1").notificationPlan().version(3).channel("email").retry(),
 ];
+
+declare const verifyDelivery: typeof import("../src/webhooks/verification").verifyWebhookDelivery;
+
+verifyDelivery({
+  // @ts-expect-error a parsed body cannot be verified; the raw bytes were signed
+  body: { resourceId: "prod_1" },
+  headers: {},
+  secret: "whsec_x",
+});

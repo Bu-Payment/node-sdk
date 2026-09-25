@@ -10,6 +10,9 @@ const vectors = JSON.parse(
   readFileSync(join(packageRoot, "conformance/v1/conformance-vectors.json"), "utf8"),
 );
 const vector = vectors.success[0];
+const webhookVector = JSON.parse(
+  readFileSync(join(packageRoot, "test/fixtures/webhook-delivery.json"), "utf8"),
+);
 const esbuild = join(packageRoot, "node_modules/.bin/esbuild");
 const guardMessage = "must never be bundled for a browser";
 const workspace = mkdtempSync(join(tmpdir(), "bu-payment-node-sdk-consumer-"));
@@ -120,9 +123,10 @@ function expectGuard([command, args], label) {
 
 function esmCheck(vector) {
   return `import assert from "node:assert/strict";
-import { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret } from "@bu-payment/node-sdk";
+import { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret, verifyWebhookDelivery } from "@bu-payment/node-sdk";
 
 ${signatureAssertion(vector)}
+${webhookAssertion()}
 assert.equal(typeof createBuPaymentClient, "function");
 ${commerceAssertion(vector)}
 `;
@@ -130,12 +134,31 @@ ${commerceAssertion(vector)}
 
 function cjsCheck(vector) {
   return `const assert = require("node:assert/strict");
-const { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret } = require("@bu-payment/node-sdk");
+const { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret, verifyWebhookDelivery } = require("@bu-payment/node-sdk");
 
 ${signatureAssertion(vector)}
+${webhookAssertion()}
 assert.equal(typeof createBuPaymentClient, "function");
 ${commerceAssertion(vector)}
 `;
+}
+
+function webhookAssertion() {
+  return `const delivery = verifyWebhookDelivery({
+  body: Buffer.from(${JSON.stringify(webhookVector.body)}),
+  headers: {
+    "x-webhook-id": ${JSON.stringify(webhookVector.deliveryId)},
+    "x-webhook-timestamp": ${JSON.stringify(webhookVector.timestamp)},
+    "x-webhook-signature": ${JSON.stringify(webhookVector.signature)},
+  },
+  secret: ${JSON.stringify(webhookVector.secret)},
+  now: () => ${Number(webhookVector.timestamp)},
+});
+assert.equal(delivery.deliveryId, ${JSON.stringify(webhookVector.deliveryId)});
+assert.throws(
+  () => verifyWebhookDelivery({ body: {}, headers: {}, secret: "whsec_x" }),
+  (error) => error.code === "webhook_payload_invalid",
+);`;
 }
 
 function commerceAssertion(vector) {
