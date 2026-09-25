@@ -37,6 +37,10 @@ try {
 | `too_many_requests` | The credential is rate limited; read `metadata.retryAfter`. |
 | `application_auth_unavailable` | Authentication or ownership storage is unavailable. |
 | `operation_failed` | The API failed for a reason with no more specific code. |
+| `webhook_signature_missing` | A delivery lacks a single `x-webhook-id`, `x-webhook-timestamp` or `x-webhook-signature`. |
+| `webhook_signature_invalid` | A delivery was not signed with the endpoint secret given. |
+| `webhook_timestamp_expired` | A correctly signed delivery is outside the tolerance window. |
+| `webhook_payload_invalid` | A delivery body is not raw bytes or text, or is not a JSON object. |
 
 ## What a not-found does not tell you
 

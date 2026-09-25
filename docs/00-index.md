@@ -14,7 +14,7 @@ exist until every required field is set.
 5. [Payments and refunds](05-payments-and-refunds.md): charges, invoices, refunds.
 6. [Payment methods and billing](06-payment-methods-and-billing.md): stored payment methods, billing capabilities.
 7. [Subscriptions](07-subscriptions.md): lifecycle and price migrations.
-8. [Events and webhooks](08-events-and-webhooks.md): event reads, endpoints, deliveries.
+8. [Events and webhooks](08-events-and-webhooks.md): event reads, endpoints, deliveries, signature verification.
 9. [Pagination](09-pagination.md): cursor pages and the automatic walk.
 10. [Errors](10-errors.md): typed error envelopes and what each code means.
 
