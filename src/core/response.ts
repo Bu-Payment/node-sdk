@@ -3,6 +3,11 @@ import { BuPaymentError } from "../errors";
 
 const SERVER_ERROR_CODES = new Set<string>(Object.values(ErrorCode));
 
+const RESOURCE_BEARING_CODES = new Set<ErrorCode>([
+  ErrorCode.STALE_RESOURCE,
+  ErrorCode.LOOKUP_KEY_CONFLICT,
+]);
+
 const STATUS_ERROR_CODES: ReadonlyMap<number, ErrorCode> = new Map([
   [400, ErrorCode.REQUEST_INVALID],
   [404, ErrorCode.RESOURCE_NOT_FOUND],
@@ -42,12 +47,27 @@ function responseFailure(response: Response, text: string): BuPaymentError {
   if (retryAfter !== null) {
     metadata.retryAfter = retryAfter;
   }
+  const resource = RESOURCE_BEARING_CODES.has(code) ? resourceOf(envelope) : undefined;
   return new BuPaymentError(messageOf(envelope, code), {
     code,
     status: response.status,
     ...requestIdOf(response, envelope),
     ...(Object.keys(metadata).length === 0 ? {} : { metadata }),
+    ...(resource === undefined ? {} : { resource }),
   });
+}
+
+function resourceOf(
+  envelope: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  const resource = envelope?.resource;
+  if (typeof resource !== "object" || resource === null || Array.isArray(resource)) {
+    return undefined;
+  }
+  const { id, updatedAt } = resource as Record<string, unknown>;
+  return typeof id === "string" && typeof updatedAt === "string"
+    ? (resource as Record<string, unknown>)
+    : undefined;
 }
 
 function resolveErrorCode(serverCode: string | undefined, status: number): ErrorCode {

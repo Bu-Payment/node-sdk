@@ -30,4 +30,20 @@ describe("BuPaymentError", () => {
       code: ErrorCode.CONFIGURATION_INVALID,
     });
   });
+
+  it("serialises the resource only when the API sent one", () => {
+    const resource = { id: "prod_1", updatedAt: "2026-01-01T00:00:00.000Z" };
+    const error = new BuPaymentError("stale", {
+      code: ErrorCode.STALE_RESOURCE,
+      status: 409,
+      resource,
+    });
+    expect(error.resource).toBe(resource);
+    expect(error.toJSON()).toEqual({
+      name: "BuPaymentError",
+      code: ErrorCode.STALE_RESOURCE,
+      status: 409,
+      resource,
+    });
+  });
 });

@@ -32,8 +32,7 @@ The route refuses a setup without an idempotency key. The SDK always sends one, 
 replays the first attempt only when it carries the same key and the same body. The API
 fingerprints the whole body, consent timestamp included, so keep the `consentAcceptedAt()`
 value the buyer gave rather than recomputing it: the same key with a different body fails
-with `resource_conflict` and `metadata.apiError` set to `idempotency_conflict`. An unkeyed
-retry starts a second setup.
+with `idempotency_conflict`. An unkeyed retry starts a second setup.
 
 ## Setup states
 

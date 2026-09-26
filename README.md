@@ -64,6 +64,68 @@ capability on the credential. See [the documentation](docs/00-index.md) for the 
 
 `paymentMethods` also supplies the `paymentMethodId` that payment allocations require.
 
+## Catalogue writes
+
+A credential with `catalogue:write` creates and changes the catalogue of its own App. BuPayment is
+the source of truth for prices: when your application keeps a copy, change the price in BuPayment
+first and update your copy only once the API has answered. Your copy can then only lag behind the
+catalogue, never contradict it, and reconciliation repairs a lag.
+
+A price's amount is fixed when it is created, so changing a price means creating a replacement and
+archiving the old one. `replace()` does both in that order and reports each step:
+
+```ts
+const change = await client.catalogue
+  .createPrice(productId)
+  .unitAmount(1_200)
+  .currency("EUR")
+  .interval("month")
+  .replacing(currentPriceId)
+  .expectedUpdatedAt(observedUpdatedAt)
+  .idempotencyKey(`reprice-${productId}-${revision}`)
+  .replace();
+
+await localPrices.save(productId, change.replacement);
+if (change.outcome === "archive_failed") {
+  queueArchiveRetry(change.previousPriceId, change.error);
+}
+```
+
+A rejected `replace()` means the creation step failed; after a timeout or a network failure the
+replacement may still exist, so retry on the same builder, which replays the creation under the
+same key instead of creating a second price. A resolved one always carries the replacement, and
+`archive_failed` names the previous price and the error, so the application decides how to
+retry. The SDK stores nothing between requests: the last agreed amount, the local copy and what to
+do on a conflict belong to the application.
+
+A write that passes `expectedUpdatedAt()` is refused with `stale_resource` when the resource has
+changed since, and the error carries the current resource:
+
+```ts
+import { BuPaymentError, ErrorCode, type Product } from "@bu-payment/node-sdk";
+
+try {
+  await client.catalogue.updateProduct(id).name(name).expectedUpdatedAt(seen).update();
+} catch (error) {
+  if (error instanceof BuPaymentError && error.code === ErrorCode.STALE_RESOURCE) {
+    const current = (error as BuPaymentError<Product>).resource;
+  }
+}
+```
+
+The same write as a signed request through the low-level `request`:
+
+```ts
+const product = await client.request<Product>({
+  method: "PATCH",
+  path: `/v1/products/${encodeURIComponent(id)}`,
+  body: { name, expectedUpdatedAt: seen },
+  idempotencyKey: `rename-${id}-${revision}`,
+});
+```
+
+See [Catalogue](docs/02-catalogue.md) for every route.
+
 ## Signed requests
 
 ```ts
@@ -111,6 +173,11 @@ await draft.create();
 The second call makes the API replay the stored result of the first instead of performing the
 mutation twice. A key is valid when it is well-formed Unicode, has no surrounding whitespace, and
 is 1 to 255 characters long.
+
+The catalogue write builders are the exception to the fresh key per call: each keeps the key it
+generates, so calling the terminal again on the same builder, or on one that only changed
+`signal()` or `timeoutMs()`, is a replay. A method that changes the body returns a builder with a
+key of its own, because a changed body under an old key is refused as `idempotency_conflict`.
 
 ## Errors and cancellation
 
