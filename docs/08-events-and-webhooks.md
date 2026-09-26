@@ -55,6 +55,13 @@ it before acting on the body, and answer only once the work is done:
 import express from "express";
 import { BuPaymentError, ErrorCode, verifyWebhookDelivery } from "@bu-payment/node-sdk";
 
+const REJECTED = new Set<string>([
+  ErrorCode.WEBHOOK_SIGNATURE_MISSING,
+  ErrorCode.WEBHOOK_SIGNATURE_INVALID,
+  ErrorCode.WEBHOOK_TIMESTAMP_EXPIRED,
+  ErrorCode.WEBHOOK_PAYLOAD_INVALID,
+]);
+
 app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
   let delivery;
   try {
@@ -64,21 +71,22 @@ app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (r
       secret: process.env.BUPAYMENT_WEBHOOK_SECRET ?? "",
     });
   } catch (error) {
-    if (error instanceof BuPaymentError && error.code !== ErrorCode.CONFIGURATION_INVALID) {
+    if (error instanceof BuPaymentError && REJECTED.has(error.code)) {
       res.sendStatus(400);
       return;
     }
     throw error;
   }
-  await handle(delivery);
+  await handle(delivery.event);
   res.sendStatus(200);
 });
 ```
 
 A `2xx` marks the delivery as succeeded and it is never sent again. Answering before
 `handle` finishes loses the delivery whenever `handle` then fails; letting `handle` throw
-answers `500`, and the platform retries. Only a verification failure is answered `400`: a
-network or rate-limit error inside `handle` is not a bad delivery.
+answers `500`, and the platform retries. Only a delivery that failed verification is answered
+`400`: a network or rate-limit error inside `handle` is not a bad delivery, and neither is an
+authentic delivery this SDK cannot read (see [Typed events](#typed-events)).
 
 `body` must be the raw request body, as a string or bytes. The platform signs the exact
 bytes it sends; a body parsed by `express.json()` and serialized again is not guaranteed to
@@ -113,34 +121,66 @@ trust boundary:
   `x-webhook-id`, so a deduplication keyed on `deliveryId` alone lets the replay through.
   Key replay protection on `signature`, which is signed material and unique per attempt;
 - the platform re-signs every retry, so a retry has a new `signature`. Make the effect of a
-  delivery idempotent on what the signed payload says, such as a resource identifier and
-  its `updatedAt`, rather than on either identifier.
+  delivery idempotent on what the signed body says: the event `id`, which every retry and
+  every endpoint receives unchanged, and for catalogue events the resource and its
+  `updatedAt`.
 
-### What the body does not carry
+### Typed events
 
-The body is the event payload alone. It carries no event type, no event identifier and no
-occurrence time. When an endpoint subscribes to more than one type, read the type from the
-delivery record, and check that the record describes the payload you verified, since the
-identifier used to fetch it was not signed:
+The body is a versioned envelope, `{ version: 1, id, type, occurredAt, data }`, signed with
+the rest of the body. `delivery.event` is that envelope parsed into a union discriminated on
+`type`; `data` narrows with it.
 
 ```ts
-import { isDeepStrictEqual } from "node:util";
-
-const record = await client.webhooks.delivery(delivery.deliveryId).get();
-if (!isDeepStrictEqual(record.payload, delivery.payload)) {
-  throw new Error("delivery record does not match the verified payload");
+const { event } = delivery;
+if (event.type === "catalogue.product.default_price.updated.v1") {
+  event.data.resource.defaultPriceId;
 }
-record.eventType;
 ```
 
-Bu-Payment/api#435 tracks carrying the type and event identity in the signed delivery.
+| Field | Meaning |
+| --- | --- |
+| `id` | Platform event id, identical in every delivery of the event, to every endpoint and on every retry. |
+| `type` | The event type, or `"unknown"` for a type this SDK does not know. |
+| `occurredAt` | When the event happened, ISO 8601 in UTC. It does not change on retries. |
+| `data` | The payload of that type. |
+
+Catalogue events carry `data` as `{ resourceType, resourceId, occurredAt, updatedAt,
+resource }`. `resource` is the resource after the mutation: a `Price`, or a `Product` with
+`defaultPriceId`, typed as `CatalogueEventProduct`. The README lists the thirteen types and
+which of them advance `data.updatedAt`.
+
+Order the events of one resource by `data.updatedAt`, then by `occurredAt` when
+`data.updatedAt` is equal. An assignment, an unassignment and a default price change caused by
+one leave `data.updatedAt` unchanged, so only `occurredAt` tells them apart. Every timestamp
+is ISO 8601 in UTC with milliseconds, exactly as `toISOString()` writes it, and anything else
+is refused, so the values compare correctly as strings.
+
+- **An unknown type is a value.** A type the SDK does not know yet comes back as
+  `{ type: "unknown", receivedType, data }` with `data` as sent, so a type the platform adds
+  later never throws. Handle the `"unknown"` case and answer `2xx` for the types you do not
+  consume.
+- **Only version 1 is read.** Any other `version`, or a body with none, is refused with
+  `webhook_event_version_unsupported`, never read as version 1. It means the platform sends
+  a format this SDK predates: upgrade the SDK, then retry the failed deliveries.
+- **A known type is checked field by field.** `data` that does not match its type's shape,
+  including a `resourceId` or an `updatedAt` that disagrees with `resource` and an
+  `occurredAt` that disagrees with the envelope, is refused with
+  `webhook_event_invalid`; `metadata.field` names the field and `metadata.eventId` the event.
+
+Both errors are raised only after the signature and the timestamp have passed, so they come
+from the platform, not from a forger. Let them answer `500` and alert on them: the platform
+keeps retrying, and the delivery stays retryable once the mismatch is fixed.
+
+Payment and subscription events are not typed yet and arrive as `"unknown"`.
 
 ### What stays with the application
 
 Deliveries are at least once and unordered. The SDK keeps no state between calls, so the
-replay store, the idempotency on the payload and the ordering by `updatedAt` described
-above are the application's, as is reconciling periodically with the list reads: a
-delivery that exhausted its attempts is not sent again unless retried.
+replay store, the deduplication on the event `id`, the last `updatedAt` and `occurredAt`
+applied per resource and applying the event are the application's, as is reconciling
+periodically with the list reads: a delivery that exhausted its attempts is not sent again
+unless retried.
 
 ## Deliveries
 

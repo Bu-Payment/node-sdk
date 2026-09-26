@@ -54,18 +54,14 @@ describe("verifyWebhookDelivery", () => {
     expect(delivery.deliveryId).toBe("whd_1");
     expect(delivery.signature).toBe(SIGNATURE);
     expect(delivery.timestamp.getTime()).toBe(Number(TIMESTAMP));
-    expect(delivery.payload).toEqual({
-      resourceType: "product",
-      resourceId: "prod_1",
-      name: "Bilhete",
-    });
+    expect(delivery.event).toEqual(JSON.parse(BODY));
   });
 
   it.each([
     ["a Buffer", Buffer.from(BODY, "utf8")],
     ["a Uint8Array", new Uint8Array(Buffer.from(BODY, "utf8"))],
   ])("verifies the raw body given as %s", (_name, body) => {
-    expect(verify({ body }).payload).toMatchObject({ resourceId: "prod_1" });
+    expect(verify({ body }).event.id).toBe("evt_02");
   });
 
   it.each([
