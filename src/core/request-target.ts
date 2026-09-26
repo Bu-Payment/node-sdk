@@ -33,6 +33,9 @@ export function encodePathSegment(value: string): string {
   if (value === "") {
     throw invalidTarget("Path segment must not be empty");
   }
+  if (value === "." || value === "..") {
+    throw invalidTarget("Path segment must not be a dot segment");
+  }
   return percentEncode(value);
 }
 
