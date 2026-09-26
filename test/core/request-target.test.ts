@@ -82,7 +82,7 @@ describe("encodePathSegment", () => {
 
   it("sends nothing when a builder identifier is a dot segment", async () => {
     const { client, calls } = harnessReturning({ id: "cus_1" });
-    await expect(async () => client.customers.customer("..").get()).rejects.toMatchObject({
+    await expect(client.customers.customer("..").get()).rejects.toMatchObject({
       code: ErrorCode.REQUEST_INVALID,
     });
     expect(calls).toHaveLength(0);
