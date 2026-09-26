@@ -30,12 +30,20 @@ export function stateChange<TResource, TTerminal extends StateChangeTerminal>(
   path: () => string,
   terminal: TTerminal,
   state: StateChangeState,
+  idempotencyKeyFor = stableIdempotencyKey(),
 ): StateChangeBuilder<TResource, TTerminal> {
-  const idempotencyKeyFor = stableIdempotencyKey();
   const next = (update: Partial<StateChangeState>) =>
     stateChange<TResource, TTerminal>(send, path, terminal, { ...state, ...update });
   return Object.freeze({
-    ...scopeMethods(next),
+    ...scopeMethods((scope) =>
+      stateChange<TResource, TTerminal>(
+        send,
+        path,
+        terminal,
+        { ...state, ...scope },
+        idempotencyKeyFor,
+      ),
+    ),
     expectedUpdatedAt: (expectedUpdatedAt: string) => next({ expectedUpdatedAt }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
     [terminal]: async () =>

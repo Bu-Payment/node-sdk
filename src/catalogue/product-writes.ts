@@ -54,11 +54,11 @@ export type ProductUpdate<TState extends ProductWriteState = ProductWriteState> 
 export function productDraft<TState extends ProductWriteState>(
   send: Sender,
   state: TState,
+  idempotencyKeyFor = stableIdempotencyKey(),
 ): ProductDraft<TState> {
-  const idempotencyKeyFor = stableIdempotencyKey();
   const next = (update: Partial<ProductWriteState>) => productDraft(send, { ...state, ...update });
   const builder: Record<string, unknown> = {
-    ...scopeMethods(next),
+    ...scopeMethods((scope) => productDraft(send, { ...state, ...scope }, idempotencyKeyFor)),
     name: (name: string) => next({ name }),
     description: (description: string) => next({ description }),
     lookupKey: (lookupKey: string) => next({ lookupKey }),
@@ -82,12 +82,14 @@ export function productUpdate<TState extends ProductWriteState>(
   send: Sender,
   path: () => string,
   state: TState,
+  idempotencyKeyFor = stableIdempotencyKey(),
 ): ProductUpdate<TState> {
-  const idempotencyKeyFor = stableIdempotencyKey();
   const next = (update: Partial<ProductWriteState>) =>
     productUpdate(send, path, { ...state, ...update });
   const builder: Record<string, unknown> = {
-    ...scopeMethods(next),
+    ...scopeMethods((scope) =>
+      productUpdate(send, path, { ...state, ...scope }, idempotencyKeyFor),
+    ),
     name: (name: string) => next({ name }),
     description: (description: string | null) => next({ description }),
     lookupKey: (lookupKey: string | null) => next({ lookupKey }),

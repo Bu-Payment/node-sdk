@@ -136,7 +136,8 @@ This is two requests, not a transaction. Recover from `archive_failed` by callin
 `replace()` again on the same builder, which replays the creation and retries the archive,
 or with `archivePrice(previousPriceId).archive()`. After a `stale_resource`, call
 `expectedUpdatedAt()` with the `updatedAt` of `error.resource` and `replace()` on that
-builder: it keeps the creation's key, so the replacement is replayed, not duplicated.
+builder: it keeps the creation's key, so the replacement is replayed, not duplicated, and
+takes a new key for the archive, whose body changed.
 A replacement that transfers the previous price's lookup key changes that price, so its
 archive with an `expectedUpdatedAt` observed before the transfer is always stale.
 
@@ -148,7 +149,8 @@ set to `default_price_in_use`.
 ### Idempotency
 
 Every write sends an `Idempotency-Key`. The builder generates it once and resends it when
-the same builder's terminal is called again, so a retry after a timeout is a replay. A key
+the same builder's terminal is called again, or on a copy that only changed `signal()` or
+`timeoutMs()`, so a retry after a timeout is a replay. A key
 passed to `idempotencyKey()` is sent as given, on both steps of a replacement: the API
 keeps a key per operation, so the creation and the archive do not collide. The same key
 with a different body fails with `idempotency_conflict`; a write the API refused leaves no

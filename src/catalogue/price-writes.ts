@@ -90,7 +90,7 @@ export function priceDraft<TState extends PriceDraftState>(
   const create = (path: string, idempotencyKey: string) =>
     send<Price>(writeRequest("POST", path, { ...state, idempotencyKey }, bodyOf(state)));
   const builder: Record<string, unknown> = {
-    ...scopeMethods(next),
+    ...scopeMethods((scope) => priceDraft(send, productId, { ...state, ...scope }, keys)),
     unitAmount: (unitAmount: number) => next({ unitAmount }),
     currency: (currency: string) => next({ currency }),
     description: (description: string) => next({ description }),
@@ -108,7 +108,12 @@ export function priceDraft<TState extends PriceDraftState>(
   const previousPriceId = state.previousPriceId;
   if (previousPriceId !== undefined) {
     builder.expectedUpdatedAt = (expectedUpdatedAt: string) =>
-      priceDraft(send, productId, { ...state, expectedUpdatedAt }, keys);
+      priceDraft(
+        send,
+        productId,
+        { ...state, expectedUpdatedAt },
+        { create: keys.create, archive: stableIdempotencyKey() },
+      );
   }
   if (state.unitAmount !== undefined && state.currency !== undefined) {
     if (previousPriceId === undefined) {

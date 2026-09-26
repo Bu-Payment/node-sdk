@@ -98,6 +98,47 @@ describe("catalogue writes", () => {
     expect(keys[2]).not.toBe(keys[0]);
   });
 
+  it("reuses a price draft's key on retry and gives each branch its own", async () => {
+    const { client, calls } = harnessOf((_call, index) =>
+      index === 0 ? json({ error: "operation_failed" }, 503) : json({}),
+    );
+    const base = client.catalogue.createPrice("prod_1").unitAmount(1_000).currency("EUR");
+    await expect(base.create()).rejects.toBeInstanceOf(BuPaymentError);
+    await base.create();
+    await base.interval("month").create();
+    const keys = calls.map((call) => call.headers[Header.IDEMPOTENCY_KEY]);
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it("keeps the generated key when only the signal or timeout changes", async () => {
+    const { client, calls } = harnessReturning({}, {}, {}, {}, {}, {});
+    const draft = client.catalogue.createProduct().name("Gold");
+    const update = client.catalogue.updateProduct("prod_1").name("Gold");
+    const archive = client.catalogue.archivePrice("price_1");
+    await draft.create();
+    await draft.signal(new AbortController().signal).create();
+    await update.update();
+    await update.timeoutMs(1_000).update();
+    await archive.archive();
+    await archive.signal(new AbortController().signal).archive();
+    const keys = calls.map((call) => call.headers[Header.IDEMPOTENCY_KEY]);
+    expect([keys[1], keys[3], keys[5]]).toEqual([keys[0], keys[2], keys[4]]);
+  });
+
+  it("offers no terminal at runtime until the required input is set", () => {
+    const { client } = harnessReturning();
+    const price = client.catalogue.createPrice("prod_1") as Record<string, unknown>;
+    const priced = client.catalogue.createPrice("prod_1").unitAmount(1).currency("EUR");
+    expect("create" in client.catalogue.createProduct()).toBe(false);
+    expect("update" in client.catalogue.updateProduct("prod_1").expectedUpdatedAt("x")).toBe(false);
+    expect(
+      ["create", "replace", "intervalCount", "transferLookupKey"].some((m) => m in price),
+    ).toBe(false);
+    expect("replace" in priced).toBe(false);
+    expect("create" in priced.replacing("price_1")).toBe(false);
+  });
+
   it("overwrites unconditionally when no version was observed", async () => {
     const { client, calls } = harnessReturning(product);
     await client.catalogue.updateProduct("prod_1").name("Gold").update();

@@ -94,8 +94,9 @@ if (change.outcome === "archive_failed") {
 A rejected `replace()` means the creation step failed; after a timeout or a network failure the
 replacement may still exist, so retry on the same builder, which replays the creation under the
 same key instead of creating a second price. A resolved one always carries the replacement, and
-`archive_failed` names the previous price and the error, so the application decides how to retry. The SDK stores nothing between requests: the last agreed amount,
-the local copy and what to do on a conflict belong to the application.
+`archive_failed` names the previous price and the error, so the application decides how to
+retry. The SDK stores nothing between requests: the last agreed amount, the local copy and what to
+do on a conflict belong to the application.
 
 A write that passes `expectedUpdatedAt()` is refused with `stale_resource` when the resource has
 changed since, and the error carries the current resource:
@@ -170,13 +171,13 @@ await draft.create();
 ```
 
 The second call makes the API replay the stored result of the first instead of performing the
-mutation twice.
-
-The catalogue write builders also keep the key they generate: calling the terminal again on the
-same builder resends the same key, so retrying after a timeout is a replay. Every configuration
-method returns a new builder with a key of its own, because a changed body under an old key is
-refused as `idempotency_conflict`. A key is valid when it is well-formed Unicode, has no surrounding whitespace, and
+mutation twice. A key is valid when it is well-formed Unicode, has no surrounding whitespace, and
 is 1 to 255 characters long.
+
+The catalogue write builders are the exception to the fresh key per call: each keeps the key it
+generates, so calling the terminal again on the same builder, or on one that only changed
+`signal()` or `timeoutMs()`, is a replay. A method that changes the body returns a builder with a
+key of its own, because a changed body under an old key is refused as `idempotency_conflict`.
 
 ## Errors and cancellation
 

@@ -85,6 +85,7 @@ describe("price replacement", () => {
     await replacing.expectedUpdatedAt(current?.updatedAt ?? "").replace();
     const keys = calls.map((call) => call.headers[Header.IDEMPOTENCY_KEY]);
     expect(keys[2]).toBe(keys[0]);
+    expect(keys[3]).not.toBe(keys[1]);
     expect(callAt(calls, 3).body).toEqual({ expectedUpdatedAt: productUpdatedAt });
   });
 
