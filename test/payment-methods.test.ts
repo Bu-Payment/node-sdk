@@ -174,19 +174,19 @@ describe("stored payment methods", () => {
     expect(calls.map(queryOf)).toEqual(["", "", ""]);
   });
 
-  it("refuses an empty identifier before anything is signed", () => {
+  it("refuses an empty identifier before anything is signed", async () => {
     const { client, calls } = harnessReturning(activeMethod);
-    expect(() => client.paymentMethods.paymentMethod("cus_1", "").get()).toThrowError(
-      expect.objectContaining({ code: ErrorCode.REQUEST_INVALID }),
-    );
+    await expect(client.paymentMethods.paymentMethod("cus_1", "").get()).rejects.toMatchObject({
+      code: ErrorCode.REQUEST_INVALID,
+    });
     const emptyCustomerSetup = client.paymentMethods
       .createSetup("")
       .currency("EUR")
       .returnUrl(returnUrl)
       .consentAcceptedAt(consentAcceptedAt);
-    expect(() => emptyCustomerSetup.create()).toThrowError(
-      expect.objectContaining({ code: ErrorCode.REQUEST_INVALID }),
-    );
+    await expect(emptyCustomerSetup.create()).rejects.toMatchObject({
+      code: ErrorCode.REQUEST_INVALID,
+    });
     expect(calls).toHaveLength(0);
   });
 });

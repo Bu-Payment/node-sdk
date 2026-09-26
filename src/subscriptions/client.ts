@@ -1,5 +1,7 @@
 import {
   type CursorScope,
+  type DeferredSender,
+  deferSender,
   type PageMethods,
   pageMethods,
   pageQuery,
@@ -66,7 +68,8 @@ export interface SubscriptionsClient {
   create(): SubscriptionDraft<Record<never, never>>;
 }
 
-export function createSubscriptionsClient(send: Sender): SubscriptionsClient {
+export function createSubscriptionsClient(dispatch: Sender): SubscriptionsClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     list: () => subscriptionList(send, {}),
     subscription: (subscriptionId: string) => subscriptionBuilder(send, subscriptionId, {}),
@@ -74,11 +77,14 @@ export function createSubscriptionsClient(send: Sender): SubscriptionsClient {
   });
 }
 
-function subscriptionList(send: Sender, state: SubscriptionListState): SubscriptionListBuilder {
+function subscriptionList(
+  send: DeferredSender,
+  state: SubscriptionListState,
+): SubscriptionListBuilder {
   const next = (update: Partial<SubscriptionListState>) =>
     subscriptionList(send, { ...state, ...update });
   const read = (page: SubscriptionListState) =>
-    send<PageWithMore<Subscription>>(
+    send<PageWithMore<Subscription>>(() =>
       readRequest(
         "/v1/subscriptions",
         page,
@@ -104,7 +110,7 @@ function subscriptionList(send: Sender, state: SubscriptionListState): Subscript
 }
 
 function subscriptionBuilder(
-  send: Sender,
+  send: DeferredSender,
   subscriptionId: string,
   state: RequestScope,
 ): SubscriptionBuilder {
@@ -113,14 +119,14 @@ function subscriptionBuilder(
     subscriptionBuilder(send, subscriptionId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<SubscriptionDetail>(readRequest(path(), state)),
-    cancellation: () => cancellation(send, path(), state),
-    pauseSubscription: () => pauseSubscription(send, path(), state),
-    pausePaymentCollection: () => pauseCollection(send, path(), state),
-    resumePendingCancellation: () => plainResume(send, path(), "pending_cancellation", state),
-    resumePausedSubscription: () => resumePaused(send, path(), state),
-    resumePaymentCollection: () => plainResume(send, path(), "payment_collection", state),
-    scheduledChange: () => scheduledChange(send, path(), state),
-    priceMigration: () => migrationDraft(send, path(), state),
+    get: () => send<SubscriptionDetail>(() => readRequest(path(), state)),
+    cancellation: () => cancellation(send, path, state),
+    pauseSubscription: () => pauseSubscription(send, path, state),
+    pausePaymentCollection: () => pauseCollection(send, path, state),
+    resumePendingCancellation: () => plainResume(send, path, "pending_cancellation", state),
+    resumePausedSubscription: () => resumePaused(send, path, state),
+    resumePaymentCollection: () => plainResume(send, path, "payment_collection", state),
+    scheduledChange: () => scheduledChange(send, path, state),
+    priceMigration: () => migrationDraft(send, path, state),
   });
 }

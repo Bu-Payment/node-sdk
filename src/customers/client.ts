@@ -1,5 +1,7 @@
 import {
   type CursorScope,
+  type DeferredSender,
+  deferSender,
   type PageMethods,
   pageMethods,
   pageQuery,
@@ -62,7 +64,8 @@ export interface CustomersClient {
   create(): CustomerDraft<Record<never, never>>;
 }
 
-export function createCustomersClient(send: Sender): CustomersClient {
+export function createCustomersClient(dispatch: Sender): CustomersClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     list: () => customerList(send, {}),
     customer: (customerId: string) => customerBuilder(send, customerId, {}),
@@ -70,10 +73,10 @@ export function createCustomersClient(send: Sender): CustomersClient {
   });
 }
 
-function customerList(send: Sender, state: CustomerListState): CustomerListBuilder {
+function customerList(send: DeferredSender, state: CustomerListState): CustomerListBuilder {
   const next = (update: Partial<CustomerListState>) => customerList(send, { ...state, ...update });
   const read = (page: CustomerListState) =>
-    send<Page<Customer>>(
+    send<Page<Customer>>(() =>
       readRequest(
         "/v1/customers",
         page,
@@ -87,7 +90,7 @@ function customerList(send: Sender, state: CustomerListState): CustomerListBuild
 }
 
 function customerDraft<TState extends DraftState>(
-  send: Sender,
+  send: DeferredSender,
   state: TState,
 ): CustomerDraft<TState> {
   const next = (update: Partial<DraftState>) => customerDraft(send, { ...state, ...update });
@@ -99,13 +102,13 @@ function customerDraft<TState extends DraftState>(
   };
   if (state.email !== undefined) {
     builder.create = () =>
-      send<Customer>(writeRequest("POST", "/v1/customers", state, fieldsOf(state)));
+      send<Customer>(() => writeRequest("POST", "/v1/customers", state, fieldsOf(state)));
   }
   return Object.freeze(builder) as CustomerDraft<TState>;
 }
 
 function customerBuilder<TState extends DraftState>(
-  send: Sender,
+  send: DeferredSender,
   customerId: string,
   state: TState,
 ): CustomerBuilder<TState> {
@@ -117,10 +120,11 @@ function customerBuilder<TState extends DraftState>(
     email: (email: string) => next({ email }),
     name: (name: string | null) => next({ name }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<Customer>(readRequest(path(), state)),
+    get: () => send<Customer>(() => readRequest(path(), state)),
   };
   if (state.email !== undefined || state.name !== undefined) {
-    builder.update = () => send<Customer>(writeRequest("PATCH", path(), state, fieldsOf(state)));
+    builder.update = () =>
+      send<Customer>(() => writeRequest("PATCH", path(), state, fieldsOf(state)));
   }
   return Object.freeze(builder) as CustomerBuilder<TState>;
 }

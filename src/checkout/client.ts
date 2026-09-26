@@ -1,4 +1,4 @@
-import type { Sender } from "../core/builder";
+import { deferSender, type Sender } from "../core/builder";
 import { type CouponBuilder, couponBuilder } from "./coupons";
 import { type SubscriptionSessionBuilder, subscriptionSession } from "./sessions";
 import { type ShippingRatesBuilder, shippingRatesBuilder } from "./shipping-rates";
@@ -17,7 +17,8 @@ export interface CheckoutClient {
   subscriptionSession(): SubscriptionSessionBuilder<Record<never, never>>;
 }
 
-export function createCheckoutClient(send: Sender): CheckoutClient {
+export function createCheckoutClient(dispatch: Sender): CheckoutClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     coupon: (code: string) => couponBuilder(send, { code }),
     taxRates: () => taxRateList(send, {}),

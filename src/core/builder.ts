@@ -27,6 +27,12 @@ export interface PageMethods<TBuilder, TItem, TPage = Page<TItem>> extends Scope
 
 export type Sender = <T>(request: TransportRequest) => Promise<T>;
 
+export type DeferredSender = <T>(build: () => TransportRequest) => Promise<T>;
+
+export function deferSender(dispatch: Sender): DeferredSender {
+  return async <T>(build: () => TransportRequest) => await dispatch<T>(build());
+}
+
 export function stableIdempotencyKey(): (supplied: string | undefined) => string {
   let generated: string | undefined;
   return (supplied) => {

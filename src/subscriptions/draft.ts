@@ -1,4 +1,4 @@
-import type { RequestScope, ScopeMethods, Sender } from "../core/builder";
+import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { SubscriptionDetail } from "./types";
 
@@ -48,7 +48,7 @@ export type SubscriptionDraft<TState extends DraftState = DraftState> = DraftMet
   (TState extends DraftReady ? CreatableSubscription : object);
 
 export function subscriptionDraft<TState extends DraftState>(
-  send: Sender,
+  send: DeferredSender,
   state: TState,
 ): SubscriptionDraft<TState> {
   const next = (update: Partial<DraftState>) => subscriptionDraft(send, { ...state, ...update });
@@ -70,7 +70,7 @@ export function subscriptionDraft<TState extends DraftState>(
   }
   if (isReady(state)) {
     builder.create = () =>
-      send<SubscriptionDetail>(
+      send<SubscriptionDetail>(() =>
         writeRequest("POST", "/v1/subscriptions", state, {
           customerId: state.customerId,
           name: state.name,

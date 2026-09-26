@@ -1,4 +1,4 @@
-import type { RequestScope, ScopeMethods, Sender } from "../core/builder";
+import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { readRequest, scopeMethods, writeRequest } from "../core/builder";
 import type { Collection } from "../core/pagination";
 import { encodePathSegment } from "../core/request-target";
@@ -56,7 +56,7 @@ export type TaxRateBuilder<TState extends CalculationState = CalculationState> =
     (TState extends { amount: number; productId: string } ? CalculableTaxRate : object);
 
 export function taxRateList<TState extends PlaceState>(
-  send: Sender,
+  send: DeferredSender,
   state: TState,
 ): TaxRateListBuilder<TState> {
   const next = (update: Partial<PlaceState>) => taxRateList(send, { ...state, ...update });
@@ -70,13 +70,13 @@ export function taxRateList<TState extends PlaceState>(
   }
   if (state.productId !== undefined) {
     builder.get = () =>
-      send<Collection<TaxRate>>(readRequest("/v1/tax-rates", state, placeQuery(state)));
+      send<Collection<TaxRate>>(() => readRequest("/v1/tax-rates", state, placeQuery(state)));
   }
   return Object.freeze(builder) as TaxRateListBuilder<TState>;
 }
 
 export function taxRateBuilder<TState extends CalculationState>(
-  send: Sender,
+  send: DeferredSender,
   taxRateId: string,
   state: TState,
 ): TaxRateBuilder<TState> {
@@ -94,7 +94,7 @@ export function taxRateBuilder<TState extends CalculationState>(
   }
   if (state.amount !== undefined && state.productId !== undefined) {
     builder.calculate = () =>
-      send<TaxCalculation>(
+      send<TaxCalculation>(() =>
         writeRequest("POST", `/v1/tax-rates/${encodePathSegment(taxRateId)}/calculate`, state, {
           amount: state.amount,
           ...placeQuery(state),

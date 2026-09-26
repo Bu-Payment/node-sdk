@@ -1,4 +1,4 @@
-import type { RequestScope, ScopeMethods, Sender } from "../core/builder";
+import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type {
   MigrationPaymentFailurePolicy,
@@ -49,8 +49,8 @@ export type MigrationDraft<TState extends MigrationDraftState = MigrationDraftSt
   DraftMethods<TState> & (TState extends MigrationReady ? CreatableMigration : object);
 
 export function migrationDraft<TState extends MigrationDraftState>(
-  send: Sender,
-  subscriptionPath: string,
+  send: DeferredSender,
+  subscriptionPath: () => string,
   state: TState,
 ): MigrationDraft<TState> {
   const next = (update: Partial<MigrationDraftState>) =>
@@ -70,8 +70,8 @@ export function migrationDraft<TState extends MigrationDraftState>(
   };
   if (isReady(state)) {
     builder.create = () =>
-      send<SubscriptionPriceMigration>(
-        writeRequest("POST", `${subscriptionPath}/price-migrations`, state, {
+      send<SubscriptionPriceMigration>(() =>
+        writeRequest("POST", `${subscriptionPath()}/price-migrations`, state, {
           targetPriceId: state.targetPriceId,
           ...(state.itemId === undefined ? {} : { itemId: state.itemId }),
           ...(state.quantity === undefined ? {} : { quantity: state.quantity }),

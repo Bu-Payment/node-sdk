@@ -1,5 +1,7 @@
 import {
   type CursorScope,
+  type DeferredSender,
+  deferSender,
   type PageMethods,
   pageMethods,
   pageQuery,
@@ -47,18 +49,19 @@ export interface PriceMigrationsClient {
   migration(migrationId: string): MigrationBuilder;
 }
 
-export function createPriceMigrationsClient(send: Sender): PriceMigrationsClient {
+export function createPriceMigrationsClient(dispatch: Sender): PriceMigrationsClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     list: () => migrationList(send, {}),
     migration: (migrationId: string) => migrationBuilder(send, migrationId, {}),
   });
 }
 
-function migrationList(send: Sender, state: MigrationListState): MigrationListBuilder {
+function migrationList(send: DeferredSender, state: MigrationListState): MigrationListBuilder {
   const next = (update: Partial<MigrationListState>) =>
     migrationList(send, { ...state, ...update });
   const read = (page: MigrationListState) =>
-    send<PageWithMore<SubscriptionPriceMigration>>(
+    send<PageWithMore<SubscriptionPriceMigration>>(() =>
       readRequest(
         BASE_PATH,
         page,
@@ -76,7 +79,7 @@ function migrationList(send: Sender, state: MigrationListState): MigrationListBu
 }
 
 function migrationBuilder(
-  send: Sender,
+  send: DeferredSender,
   migrationId: string,
   state: RequestScope & { idempotencyKey?: string },
 ): MigrationBuilder {
@@ -84,15 +87,15 @@ function migrationBuilder(
   const next = (update: Partial<RequestScope & { idempotencyKey?: string }>) =>
     migrationBuilder(send, migrationId, { ...state, ...update });
   const mutate = (operation: string) =>
-    send<SubscriptionPriceMigration>(writeRequest("POST", `${path()}/${operation}`, state));
+    send<SubscriptionPriceMigration>(() => writeRequest("POST", `${path()}/${operation}`, state));
   return Object.freeze({
     ...scopeMethods(next),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<SubscriptionPriceMigration>(readRequest(path(), state)),
+    get: () => send<SubscriptionPriceMigration>(() => readRequest(path(), state)),
     approve: () => mutate("approve"),
     cancel: () => mutate("cancel"),
     retry: () => mutate("retry"),
     settle: () => mutate("settle"),
-    notificationPlan: () => notificationPlan(send, path(), state),
+    notificationPlan: () => notificationPlan(send, path, state),
   });
 }

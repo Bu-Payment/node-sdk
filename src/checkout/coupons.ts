@@ -1,4 +1,4 @@
-import type { RequestScope, ScopeMethods, Sender } from "../core/builder";
+import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { CouponEvaluation, CouponRedemption } from "./types";
 
@@ -45,7 +45,7 @@ export type CouponBuilder<TState extends CouponState = CouponState> = CouponMeth
     : object);
 
 export function couponBuilder<TState extends CouponState>(
-  send: Sender,
+  send: DeferredSender,
   state: TState,
 ): CouponBuilder<TState> {
   const next = (update: Partial<CouponState>) => couponBuilder(send, { ...state, ...update });
@@ -60,12 +60,12 @@ export function couponBuilder<TState extends CouponState>(
   };
   if (state.unitAmount !== undefined && state.currency !== undefined) {
     builder.evaluate = () =>
-      send<CouponEvaluation>(
+      send<CouponEvaluation>(() =>
         writeRequest("POST", "/v1/coupons/evaluate", state, evaluationBody(state)),
       );
     if (state.reference !== undefined) {
       builder.redeem = () =>
-        send<CouponRedemption>(
+        send<CouponRedemption>(() =>
           writeRequest("POST", "/v1/coupons/redeem", state, {
             ...evaluationBody(state),
             reference: state.reference,

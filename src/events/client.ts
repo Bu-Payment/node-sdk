@@ -1,5 +1,7 @@
 import {
   type CursorScope,
+  type DeferredSender,
+  deferSender,
   type PageMethods,
   pageMethods,
   pageQuery,
@@ -30,17 +32,18 @@ export interface EventsClient {
   event(eventId: string): EventBuilder;
 }
 
-export function createEventsClient(send: Sender): EventsClient {
+export function createEventsClient(dispatch: Sender): EventsClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     list: () => eventList(send, {}),
     event: (eventId: string) => singleEvent(send, eventId, {}),
   });
 }
 
-function eventList(send: Sender, state: EventListState): EventListBuilder {
+function eventList(send: DeferredSender, state: EventListState): EventListBuilder {
   const next = (update: Partial<EventListState>) => eventList(send, { ...state, ...update });
   const read = (page: EventListState) =>
-    send<Page<PlatformEvent>>(
+    send<Page<PlatformEvent>>(() =>
       readRequest(
         "/v1/events",
         page,
@@ -53,11 +56,12 @@ function eventList(send: Sender, state: EventListState): EventListBuilder {
   });
 }
 
-function singleEvent(send: Sender, eventId: string, state: RequestScope): EventBuilder {
+function singleEvent(send: DeferredSender, eventId: string, state: RequestScope): EventBuilder {
   const next = (update: Partial<RequestScope>) =>
     singleEvent(send, eventId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<PlatformEvent>(readRequest(`/v1/events/${encodePathSegment(eventId)}`, state)),
+    get: () =>
+      send<PlatformEvent>(() => readRequest(`/v1/events/${encodePathSegment(eventId)}`, state)),
   });
 }

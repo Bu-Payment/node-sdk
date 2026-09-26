@@ -1,5 +1,7 @@
 import {
   type CursorScope,
+  type DeferredSender,
+  deferSender,
   type PageMethods,
   pageMethods,
   pageQuery,
@@ -73,7 +75,8 @@ export interface CatalogueClient {
   reactivatePrice(priceId: string): StateChangeBuilder<Price, "reactivate">;
 }
 
-export function createCatalogueClient(send: Sender): CatalogueClient {
+export function createCatalogueClient(dispatch: Sender): CatalogueClient {
+  const send = deferSender(dispatch);
   const productPath = (productId: string) => () => `/v1/products/${encodePathSegment(productId)}`;
   const pricePath = (priceId: string) => () => `/v1/prices/${encodePathSegment(priceId)}`;
   return Object.freeze({
@@ -97,10 +100,10 @@ export function createCatalogueClient(send: Sender): CatalogueClient {
   });
 }
 
-function productList(send: Sender, state: ProductListState): ProductListBuilder {
+function productList(send: DeferredSender, state: ProductListState): ProductListBuilder {
   const next = (update: Partial<ProductListState>) => productList(send, { ...state, ...update });
   const read = (page: ProductListState) =>
-    send<Page<Product>>(
+    send<Page<Product>>(() =>
       readRequest(
         "/v1/products",
         page,
@@ -117,19 +120,24 @@ function productList(send: Sender, state: ProductListState): ProductListBuilder 
   });
 }
 
-function singleProduct(send: Sender, productId: string, state: RequestScope): ProductBuilder {
+function singleProduct(
+  send: DeferredSender,
+  productId: string,
+  state: RequestScope,
+): ProductBuilder {
   const next = (update: Partial<RequestScope>) =>
     singleProduct(send, productId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<Product>(readRequest(`/v1/products/${encodePathSegment(productId)}`, state)),
+    get: () =>
+      send<Product>(() => readRequest(`/v1/products/${encodePathSegment(productId)}`, state)),
   });
 }
 
-function priceList(send: Sender, state: PriceListState): PriceListBuilder {
+function priceList(send: DeferredSender, state: PriceListState): PriceListBuilder {
   const next = (update: Partial<PriceListState>) => priceList(send, { ...state, ...update });
   const read = (page: PriceListState) =>
-    send<Page<Price>>(
+    send<Page<Price>>(() =>
       readRequest(
         "/v1/prices",
         page,
@@ -148,20 +156,24 @@ function priceList(send: Sender, state: PriceListState): PriceListBuilder {
   });
 }
 
-function singlePrice(send: Sender, priceId: string, state: RequestScope): PriceBuilder {
+function singlePrice(send: DeferredSender, priceId: string, state: RequestScope): PriceBuilder {
   const next = (update: Partial<RequestScope>) =>
     singlePrice(send, priceId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<Price>(readRequest(`/v1/prices/${encodePathSegment(priceId)}`, state)),
+    get: () => send<Price>(() => readRequest(`/v1/prices/${encodePathSegment(priceId)}`, state)),
   });
 }
 
-function crossSellList(send: Sender, productId: string, state: CursorScope): CrossSellListBuilder {
+function crossSellList(
+  send: DeferredSender,
+  productId: string,
+  state: CursorScope,
+): CrossSellListBuilder {
   const next = (update: Partial<CursorScope>) =>
     crossSellList(send, productId, { ...state, ...update });
   const read = (page: CursorScope) =>
-    send<Page<ProductCrossSell>>(
+    send<Page<ProductCrossSell>>(() =>
       readRequest(
         `/v1/products/${encodePathSegment(productId)}/cross-sells`,
         page,
@@ -171,13 +183,17 @@ function crossSellList(send: Sender, productId: string, state: CursorScope): Cro
   return Object.freeze(pageMethods(state, next, read));
 }
 
-function entitlements(send: Sender, productId: string, state: RequestScope): EntitlementsBuilder {
+function entitlements(
+  send: DeferredSender,
+  productId: string,
+  state: RequestScope,
+): EntitlementsBuilder {
   const next = (update: Partial<RequestScope>) =>
     entitlements(send, productId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
     get: () =>
-      send<ProductEntitlementResolution>(
+      send<ProductEntitlementResolution>(() =>
         readRequest(`/v1/products/${encodePathSegment(productId)}/entitlements`, state),
       ),
   });

@@ -1,4 +1,4 @@
-import type { RequestScope, ScopeMethods, Sender } from "../core/builder";
+import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { PaymentMethodSetup } from "./types";
 
@@ -32,7 +32,7 @@ export type PaymentMethodSetupDraft<
     : object);
 
 export function paymentMethodSetupDraft<TState extends PaymentMethodSetupState>(
-  send: Sender,
+  send: DeferredSender,
   path: () => string,
   state: TState,
 ): PaymentMethodSetupDraft<TState> {
@@ -48,7 +48,7 @@ export function paymentMethodSetupDraft<TState extends PaymentMethodSetupState>(
   };
   if (isCreatable(state)) {
     builder.create = () =>
-      send<PaymentMethodSetup>(writeRequest("POST", path(), state, bodyOf(state)));
+      send<PaymentMethodSetup>(() => writeRequest("POST", path(), state, bodyOf(state)));
   }
   return Object.freeze(builder) as PaymentMethodSetupDraft<TState>;
 }

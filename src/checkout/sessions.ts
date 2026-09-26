@@ -1,4 +1,4 @@
-import type { RequestScope, ScopeMethods, Sender } from "../core/builder";
+import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { CheckoutSession } from "./types";
 
@@ -46,7 +46,7 @@ export type SubscriptionSessionBuilder<TState extends SessionState = SessionStat
   SessionMethods<TState> & (TState extends SessionReady ? CreatableSession : object);
 
 export function subscriptionSession<TState extends SessionState>(
-  send: Sender,
+  send: DeferredSender,
   state: TState,
 ): SubscriptionSessionBuilder<TState> {
   const next = (update: Partial<SessionState>) =>
@@ -65,7 +65,7 @@ export function subscriptionSession<TState extends SessionState>(
   };
   if (isReady(state)) {
     builder.create = () =>
-      send<CheckoutSession>(
+      send<CheckoutSession>(() =>
         writeRequest("POST", "/v1/subscription-checkouts", state, {
           name: state.name,
           priceId: state.priceId,
