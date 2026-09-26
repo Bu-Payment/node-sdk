@@ -27,6 +27,9 @@ try {
 | `response_invalid` | The API answered something that is not JSON. |
 | `resource_not_found` | The resource is unknown, unassigned, or owned by another App. |
 | `resource_conflict` | The mutation conflicts with current App-owned state. |
+| `stale_resource` | The resource changed after the `expectedUpdatedAt` given; `resource` holds it now. |
+| `lookup_key_conflict` | Another product holds the lookup key; `resource` holds it when it is assigned to the App. |
+| `idempotency_conflict` | The `Idempotency-Key` was already used with a different request. |
 | `application_auth_required` | The request carried no credential. |
 | `application_auth_malformed` | The signed request is not well formed. |
 | `application_auth_version_unsupported` | The signature version is not accepted. |
@@ -41,6 +44,13 @@ try {
 | `webhook_signature_invalid` | A delivery was not signed with the endpoint secret given. |
 | `webhook_timestamp_expired` | A correctly signed delivery is outside the tolerance window. |
 | `webhook_payload_invalid` | A delivery body is not raw bytes or text, or is not a JSON object. |
+
+## Conflicts that carry the current resource
+
+`stale_resource` and `lookup_key_conflict` set `error.resource` to the resource the API
+returned, typed with a parameter: `BuPaymentError<Product>` or `BuPaymentError<Price>`. It
+is `undefined` when the API sent none,
+and it appears in `toJSON()` only when the API sent it. No other code carries a resource.
 
 ## What a not-found does not tell you
 
