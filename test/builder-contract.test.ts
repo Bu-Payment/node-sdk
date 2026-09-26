@@ -12,6 +12,19 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.catalogue.price("price_1"),
     client.catalogue.crossSells("prod_1"),
     client.catalogue.entitlements("prod_1"),
+    client.catalogue.products().lookupKey("gold"),
+    client.catalogue.createProduct(),
+    client.catalogue.createProduct().name("Gold"),
+    client.catalogue.updateProduct("prod_1"),
+    client.catalogue.updateProduct("prod_1").name("Gold").expectedUpdatedAt("2026-01-01T00:00:00Z"),
+    client.catalogue.archiveProduct("prod_1"),
+    client.catalogue.archiveProduct("prod_1").expectedUpdatedAt("2026-01-01T00:00:00Z"),
+    client.catalogue.reactivateProduct("prod_1"),
+    client.catalogue.createPrice("prod_1"),
+    client.catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").interval("month"),
+    client.catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").replacing("price_1"),
+    client.catalogue.archivePrice("price_1"),
+    client.catalogue.reactivatePrice("price_1").idempotencyKey("k-1"),
     client.customers.list(),
     client.customers.create(),
     client.customers.create().email("buyer@example.test"),
@@ -139,6 +152,23 @@ describe("builder contract", () => {
     expect(callAt(calls, 0).body).toMatchObject({ replacesPaymentMethodId: "pm_old" });
     expect(callAt(calls, 1).headers["Idempotency-Key"]).not.toBe("setup-a");
     expect(callAt(calls, 1).body).not.toHaveProperty("replacesPaymentMethodId");
+  });
+
+  it("does not let one branch of a price draft reach another", async () => {
+    const { client, calls } = harnessReturning({}, {});
+    const base = client.catalogue.createPrice("prod_1").unitAmount(1_000).currency("EUR");
+    await base.interval("month").create();
+    await base.lookupKey("gold").create();
+    expect(callAt(calls, 0).body).toEqual({
+      unitAmount: 1_000,
+      currency: "EUR",
+      recurring: { interval: "month" },
+    });
+    expect(callAt(calls, 1).body).toEqual({
+      unitAmount: 1_000,
+      currency: "EUR",
+      lookupKey: "gold",
+    });
   });
 
   it("does not let one branch of an accumulating webhook builder reach another", async () => {

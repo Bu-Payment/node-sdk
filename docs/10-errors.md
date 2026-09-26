@@ -48,8 +48,8 @@ try {
 ## Conflicts that carry the current resource
 
 `stale_resource` and `lookup_key_conflict` set `error.resource` to the resource the API
-returned, typed with a parameter: `BuPaymentError<Product>` or `BuPaymentError<Price>`. It
-is `undefined` when the API sent none,
+returned, typed with a parameter: `BuPaymentError<Product>` or `BuPaymentError<Price>`, also
+exported as `ProductConflict` and `PriceConflict`. It is `undefined` when the API sent none,
 and it appears in `toJSON()` only when the API sent it. No other code carries a resource.
 
 ## What a not-found does not tell you

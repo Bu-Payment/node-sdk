@@ -1,3 +1,4 @@
+import type { createCatalogueClient } from "../src/catalogue/client";
 import type { createCheckoutClient } from "../src/checkout/client";
 import type { createCustomersClient } from "../src/customers/client";
 import type { createPaymentMethodsClient } from "../src/payment-methods/client";
@@ -7,6 +8,7 @@ import type { createRefundsClient } from "../src/refunds/client";
 import type { createSubscriptionsClient } from "../src/subscriptions/client";
 import type { createWebhooksClient } from "../src/webhooks/client";
 
+declare const catalogue: ReturnType<typeof createCatalogueClient>;
 declare const customers: ReturnType<typeof createCustomersClient>;
 declare const payments: ReturnType<typeof createPaymentsClient>;
 declare const paymentMethods: ReturnType<typeof createPaymentMethodsClient>;
@@ -15,6 +17,47 @@ declare const checkout: ReturnType<typeof createCheckoutClient>;
 declare const refunds: ReturnType<typeof createRefundsClient>;
 declare const subscriptions: ReturnType<typeof createSubscriptionsClient>;
 declare const priceMigrations: ReturnType<typeof createPriceMigrationsClient>;
+
+// @ts-expect-error a product cannot be created before its name is set
+catalogue.createProduct().lookupKey("gold").create();
+
+// @ts-expect-error a product cannot be updated before a field is set
+catalogue.updateProduct("prod_1").expectedUpdatedAt("2026-01-01T00:00:00Z").update();
+
+// @ts-expect-error a product draft has no observed version to assert
+catalogue.createProduct().expectedUpdatedAt("2026-01-01T00:00:00Z");
+
+// @ts-expect-error a price cannot be created before its currency is set
+catalogue.createPrice("prod_1").unitAmount(1_000).create();
+
+// @ts-expect-error a price cannot be created before its amount is set
+catalogue.createPrice("prod_1").currency("EUR").create();
+
+// @ts-expect-error a new price has no observed version to assert
+catalogue.createPrice("prod_1").unitAmount(1_000).currency("EUR").expectedUpdatedAt("x");
+
+// @ts-expect-error an interval count needs an interval
+catalogue.createPrice("prod_1").intervalCount(3);
+
+// @ts-expect-error a lookup key transfer needs a lookup key
+catalogue.createPrice("prod_1").transferLookupKey();
+
+const replacingWithoutCurrency = catalogue.createPrice("prod_1").unitAmount(1).replacing("p_1");
+// @ts-expect-error a replacement price cannot be sent before its currency is set
+replacingWithoutCurrency.replace();
+
+const replacingPrice = catalogue.createPrice("prod_1").unitAmount(1).currency("EUR");
+// @ts-expect-error a price that replaces another is not created on its own
+replacingPrice.replacing("price_1").create();
+
+// @ts-expect-error a price with nothing to replace has no replace step
+replacingPrice.replace();
+
+// @ts-expect-error archiving a product does not reactivate it
+catalogue.archiveProduct("prod_1").reactivate();
+
+// @ts-expect-error reactivating a price does not archive it
+catalogue.reactivatePrice("price_1").archive();
 
 // @ts-expect-error a customer cannot be created before an email is set
 customers.create().create();
@@ -156,6 +199,14 @@ const rescheduleWithoutVersion = priceMigrations
 rescheduleWithoutVersion.reschedule();
 
 export const accepted = [
+  catalogue.createProduct().name("Gold").create(),
+  catalogue.updateProduct("prod_1").lookupKey(null).expectedUpdatedAt("x").update(),
+  catalogue.archiveProduct("prod_1").expectedUpdatedAt("x").archive(),
+  catalogue.reactivateProduct("prod_1").reactivate(),
+  catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").create(),
+  catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").replacing("p_1").replace(),
+  catalogue.archivePrice("price_1").archive(),
+  catalogue.reactivatePrice("price_1").expectedUpdatedAt("x").reactivate(),
   customers.create().email("buyer@example.test").create(),
   customers.customer("cus_1").name("Renamed").update(),
   payments.create().customerId("cus_1").priceId("price_1").create(),

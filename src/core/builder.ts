@@ -1,4 +1,5 @@
 import type { TransportRequest } from "./http";
+import { generateIdempotencyKey } from "./idempotency";
 import { type Page, paginate } from "./pagination";
 import type { QueryInput } from "./request-target";
 
@@ -25,6 +26,17 @@ export interface PageMethods<TBuilder, TItem, TPage = Page<TItem>> extends Scope
 }
 
 export type Sender = <T>(request: TransportRequest) => Promise<T>;
+
+export function stableIdempotencyKey(): (supplied: string | undefined) => string {
+  let generated: string | undefined;
+  return (supplied) => {
+    if (supplied !== undefined) {
+      return supplied;
+    }
+    generated ??= generateIdempotencyKey();
+    return generated;
+  };
+}
 
 export function scopeMethods<TBuilder>(
   next: (update: Partial<RequestScope>) => TBuilder,

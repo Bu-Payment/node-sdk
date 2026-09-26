@@ -11,6 +11,14 @@ import {
 } from "../core/builder";
 import type { Page } from "../core/pagination";
 import { encodePathSegment } from "../core/request-target";
+import { type PriceDraft, priceDraft } from "./price-writes";
+import {
+  type ProductDraft,
+  type ProductUpdate,
+  productDraft,
+  productUpdate,
+} from "./product-writes";
+import { type StateChangeBuilder, stateChange } from "./state-change";
 import type { Price, Product, ProductCrossSell, ProductEntitlementResolution } from "./types";
 
 interface ProductListState extends CursorScope {
@@ -56,9 +64,18 @@ export interface CatalogueClient {
   price(priceId: string): PriceBuilder;
   crossSells(productId: string): CrossSellListBuilder;
   entitlements(productId: string): EntitlementsBuilder;
+  createProduct(): ProductDraft<Record<never, never>>;
+  updateProduct(productId: string): ProductUpdate<Record<never, never>>;
+  archiveProduct(productId: string): StateChangeBuilder<Product, "archive">;
+  reactivateProduct(productId: string): StateChangeBuilder<Product, "reactivate">;
+  createPrice(productId: string): PriceDraft<Record<never, never>>;
+  archivePrice(priceId: string): StateChangeBuilder<Price, "archive">;
+  reactivatePrice(priceId: string): StateChangeBuilder<Price, "reactivate">;
 }
 
 export function createCatalogueClient(send: Sender): CatalogueClient {
+  const productPath = (productId: string) => () => `/v1/products/${encodePathSegment(productId)}`;
+  const pricePath = (priceId: string) => () => `/v1/prices/${encodePathSegment(priceId)}`;
   return Object.freeze({
     products: () => productList(send, {}),
     product: (productId: string) => singleProduct(send, productId, {}),
@@ -66,6 +83,17 @@ export function createCatalogueClient(send: Sender): CatalogueClient {
     price: (priceId: string) => singlePrice(send, priceId, {}),
     crossSells: (productId: string) => crossSellList(send, productId, {}),
     entitlements: (productId: string) => entitlements(send, productId, {}),
+    createProduct: () => productDraft(send, {}),
+    updateProduct: (productId: string) => productUpdate(send, productPath(productId), {}),
+    archiveProduct: (productId: string) =>
+      stateChange<Product, "archive">(send, productPath(productId), "archive", {}),
+    reactivateProduct: (productId: string) =>
+      stateChange<Product, "reactivate">(send, productPath(productId), "reactivate", {}),
+    createPrice: (productId: string) => priceDraft(send, productId, {}),
+    archivePrice: (priceId: string) =>
+      stateChange<Price, "archive">(send, pricePath(priceId), "archive", {}),
+    reactivatePrice: (priceId: string) =>
+      stateChange<Price, "reactivate">(send, pricePath(priceId), "reactivate", {}),
   });
 }
 

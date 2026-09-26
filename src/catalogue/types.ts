@@ -1,3 +1,5 @@
+import type { BuPaymentError } from "../errors";
+
 export interface Product {
   id: string;
   name: string;
@@ -62,3 +64,11 @@ export interface ProductEntitlementResolution {
   productId: string;
   entitlements: ProductEntitlement[];
 }
+
+export type ProductConflict = BuPaymentError<Product>;
+
+export type PriceConflict = BuPaymentError<Price>;
+
+export type PriceChange =
+  | { outcome: "replaced"; replacement: Price; archived: Price }
+  | { outcome: "archive_failed"; replacement: Price; previousPriceId: string; error: unknown };
