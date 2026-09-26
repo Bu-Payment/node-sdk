@@ -43,6 +43,8 @@ describe("conflict responses", () => {
 
   it.each([
     [{ id: "prod_1" }],
+    [{ updatedAt: "2026-01-02T00:00:00.000Z" }],
+    [null],
     [[current]],
     ["prod_1"],
   ])("drops a resource the API sent in an undocumented shape: %j", async (resource) => {
