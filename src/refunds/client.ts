@@ -1,5 +1,7 @@
 import {
   type CursorScope,
+  type DeferredSender,
+  deferSender,
   type PageMethods,
   pageMethods,
   pageQuery,
@@ -58,7 +60,8 @@ export interface RefundsClient {
   create(): RefundDraft<Record<never, never>>;
 }
 
-export function createRefundsClient(send: Sender): RefundsClient {
+export function createRefundsClient(dispatch: Sender): RefundsClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     list: () => refundList(send, {}),
     refund: (refundId: string) => singleRefund(send, refundId, {}),
@@ -66,23 +69,27 @@ export function createRefundsClient(send: Sender): RefundsClient {
   });
 }
 
-function refundList(send: Sender, state: CursorScope): RefundListBuilder {
+function refundList(send: DeferredSender, state: CursorScope): RefundListBuilder {
   const next = (update: Partial<CursorScope>) => refundList(send, { ...state, ...update });
   const read = (page: CursorScope) =>
-    send<PageWithMore<OwnedRefund>>(readRequest("/v1/refunds", page, pageQuery(page)));
+    send<PageWithMore<OwnedRefund>>(() => readRequest("/v1/refunds", page, pageQuery(page)));
   return Object.freeze(pageMethods(state, next, read));
 }
 
-function singleRefund(send: Sender, refundId: string, state: RequestScope): RefundBuilder {
+function singleRefund(send: DeferredSender, refundId: string, state: RequestScope): RefundBuilder {
   const next = (update: Partial<RequestScope>) =>
     singleRefund(send, refundId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<OwnedRefund>(readRequest(`/v1/refunds/${encodePathSegment(refundId)}`, state)),
+    get: () =>
+      send<OwnedRefund>(() => readRequest(`/v1/refunds/${encodePathSegment(refundId)}`, state)),
   });
 }
 
-function refundDraft<TState extends RefundState>(send: Sender, state: TState): RefundDraft<TState> {
+function refundDraft<TState extends RefundState>(
+  send: DeferredSender,
+  state: TState,
+): RefundDraft<TState> {
   const next = (update: Partial<RefundState>) => refundDraft(send, { ...state, ...update });
   const builder: Record<string, unknown> = {
     ...scopeMethods(next),
@@ -93,7 +100,8 @@ function refundDraft<TState extends RefundState>(send: Sender, state: TState): R
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
   };
   if (isRefundable(state)) {
-    builder.create = () => send<Refund>(writeRequest("POST", "/v1/refunds", state, bodyOf(state)));
+    builder.create = () =>
+      send<Refund>(() => writeRequest("POST", "/v1/refunds", state, bodyOf(state)));
   }
   return Object.freeze(builder) as RefundDraft<TState>;
 }

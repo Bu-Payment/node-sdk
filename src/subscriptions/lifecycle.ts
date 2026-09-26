@@ -1,4 +1,4 @@
-import type { RequestScope, ScopeMethods, Sender } from "../core/builder";
+import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { PaymentCollectionBehavior, ResumeBillingPolicy, SubscriptionDetail } from "./types";
 
@@ -116,18 +116,22 @@ export interface ScheduledChangeBuilder extends ScopeMethods<ScheduledChangeBuil
   cancel(): Promise<SubscriptionDetail>;
 }
 
-export function scheduledChange(send: Sender, path: string, state: Keyed): ScheduledChangeBuilder {
+export function scheduledChange(
+  send: DeferredSender,
+  path: () => string,
+  state: Keyed,
+): ScheduledChangeBuilder {
   const next = (update: Partial<Keyed>) => scheduledChange(send, path, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    cancel: () => post(send, `${path}/scheduled-change/cancel`, state, undefined),
+    cancel: () => post(send, path, "scheduled-change/cancel", state, undefined),
   });
 }
 
 export function cancellation<TState extends CancellationState>(
-  send: Sender,
-  path: string,
+  send: DeferredSender,
+  path: () => string,
   state: TState,
 ): CancellationBuilder<TState> {
   const next = (update: Partial<CancellationState>) =>
@@ -138,14 +142,14 @@ export function cancellation<TState extends CancellationState>(
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
   };
   if (state.timing !== undefined) {
-    builder.cancel = () => post(send, `${path}/cancel`, state, { timing: state.timing });
+    builder.cancel = () => post(send, path, "cancel", state, { timing: state.timing });
   }
   return Object.freeze(builder) as CancellationBuilder<TState>;
 }
 
 export function pauseSubscription<TState extends PauseSubscriptionState>(
-  send: Sender,
-  path: string,
+  send: DeferredSender,
+  path: () => string,
   state: TState,
 ): PauseSubscriptionBuilder<TState> {
   const next = (update: Partial<PauseSubscriptionState>) =>
@@ -160,7 +164,7 @@ export function pauseSubscription<TState extends PauseSubscriptionState>(
   };
   if (state.effectiveTiming !== undefined && state.resumeBillingPolicy !== undefined) {
     builder.pause = () =>
-      post(send, `${path}/pause`, state, {
+      post(send, path, "pause", state, {
         target: "subscription",
         effectiveTiming: state.effectiveTiming,
         resumeBillingPolicy: state.resumeBillingPolicy,
@@ -171,8 +175,8 @@ export function pauseSubscription<TState extends PauseSubscriptionState>(
 }
 
 export function pauseCollection<TState extends PauseCollectionState>(
-  send: Sender,
-  path: string,
+  send: DeferredSender,
+  path: () => string,
   state: TState,
 ): PauseCollectionBuilder<TState> {
   const next = (update: Partial<PauseCollectionState>) =>
@@ -185,7 +189,7 @@ export function pauseCollection<TState extends PauseCollectionState>(
   };
   if (state.behavior !== undefined) {
     builder.pause = () =>
-      post(send, `${path}/pause`, state, {
+      post(send, path, "pause", state, {
         target: "payment_collection",
         behavior: state.behavior,
         ...(state.resumesAt === undefined ? {} : { resumesAt: state.resumesAt }),
@@ -195,8 +199,8 @@ export function pauseCollection<TState extends PauseCollectionState>(
 }
 
 export function resumePaused<TState extends ResumePausedState>(
-  send: Sender,
-  path: string,
+  send: DeferredSender,
+  path: () => string,
   state: TState,
 ): ResumePausedBuilder<TState> {
   const next = (update: Partial<ResumePausedState>) =>
@@ -210,7 +214,7 @@ export function resumePaused<TState extends ResumePausedState>(
   };
   if (state.effectiveTiming !== undefined && state.billingPolicy !== undefined) {
     builder.resume = () =>
-      post(send, `${path}/resume`, state, {
+      post(send, path, "resume", state, {
         target: "paused_subscription",
         effectiveTiming: state.effectiveTiming,
         ...(state.effectiveAt === undefined ? {} : { effectiveAt: state.effectiveAt }),
@@ -221,8 +225,8 @@ export function resumePaused<TState extends ResumePausedState>(
 }
 
 export function plainResume(
-  send: Sender,
-  path: string,
+  send: DeferredSender,
+  path: () => string,
   target: "pending_cancellation" | "payment_collection",
   state: Keyed,
 ): PlainResumeBuilder {
@@ -230,15 +234,18 @@ export function plainResume(
   return Object.freeze({
     ...scopeMethods(next),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    resume: () => post(send, `${path}/resume`, state, { target }),
+    resume: () => post(send, path, "resume", state, { target }),
   });
 }
 
 function post(
-  send: Sender,
-  path: string,
+  send: DeferredSender,
+  path: () => string,
+  operation: string,
   state: Keyed,
   body: Record<string, unknown> | undefined,
 ): Promise<SubscriptionDetail> {
-  return send<SubscriptionDetail>(writeRequest("POST", path, state, body));
+  return send<SubscriptionDetail>(() =>
+    writeRequest("POST", `${path()}/${operation}`, state, body),
+  );
 }

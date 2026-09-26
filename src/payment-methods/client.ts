@@ -1,4 +1,6 @@
 import {
+  type DeferredSender,
+  deferSender,
   type RequestScope,
   readRequest,
   type ScopeMethods,
@@ -28,7 +30,8 @@ export interface PaymentMethodsClient {
   createSetup(customerId: string): PaymentMethodSetupDraft<Record<never, never>>;
 }
 
-export function createPaymentMethodsClient(send: Sender): PaymentMethodsClient {
+export function createPaymentMethodsClient(dispatch: Sender): PaymentMethodsClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     list: (customerId: string) => paymentMethodList(send, customerId, {}),
     paymentMethod: (customerId: string, paymentMethodId: string) =>
@@ -39,7 +42,7 @@ export function createPaymentMethodsClient(send: Sender): PaymentMethodsClient {
 }
 
 function paymentMethodList(
-  send: Sender,
+  send: DeferredSender,
   customerId: string,
   state: RequestScope,
 ): PaymentMethodListBuilder {
@@ -47,12 +50,13 @@ function paymentMethodList(
     paymentMethodList(send, customerId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<PaymentMethodList>(readRequest(customerPaymentMethodsPath(customerId), state)),
+    get: () =>
+      send<PaymentMethodList>(() => readRequest(customerPaymentMethodsPath(customerId), state)),
   });
 }
 
 function singlePaymentMethod(
-  send: Sender,
+  send: DeferredSender,
   customerId: string,
   paymentMethodId: string,
   state: PaymentMethodState,
@@ -64,8 +68,8 @@ function singlePaymentMethod(
   return Object.freeze({
     ...scopeMethods(next),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<PaymentMethod>(readRequest(path(), state)),
-    revoke: () => send<PaymentMethod>(writeRequest("DELETE", path(), state)),
+    get: () => send<PaymentMethod>(() => readRequest(path(), state)),
+    revoke: () => send<PaymentMethod>(() => writeRequest("DELETE", path(), state)),
   });
 }
 

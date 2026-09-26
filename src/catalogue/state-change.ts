@@ -1,7 +1,7 @@
 import {
+  type DeferredSender,
   type RequestScope,
   type ScopeMethods,
-  type Sender,
   scopeMethods,
   stableIdempotencyKey,
   writeRequest,
@@ -26,7 +26,7 @@ export type StateChangeBuilder<
 > = StateChangeMethods<TResource, TTerminal> & Record<TTerminal, () => Promise<TResource>>;
 
 export function stateChange<TResource, TTerminal extends StateChangeTerminal>(
-  send: Sender,
+  send: DeferredSender,
   path: () => string,
   terminal: TTerminal,
   state: StateChangeState,
@@ -47,7 +47,7 @@ export function stateChange<TResource, TTerminal extends StateChangeTerminal>(
     expectedUpdatedAt: (expectedUpdatedAt: string) => next({ expectedUpdatedAt }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
     [terminal]: async () =>
-      await send<TResource>(
+      await send<TResource>(() =>
         writeRequest(
           "POST",
           `${path()}/${terminal}`,

@@ -1,5 +1,7 @@
 import {
   type CursorScope,
+  type DeferredSender,
+  deferSender,
   type PageMethods,
   pageMethods,
   pageQuery,
@@ -37,17 +39,18 @@ export interface InvoicesClient {
   invoice(invoiceId: string): InvoiceBuilder;
 }
 
-export function createInvoicesClient(send: Sender): InvoicesClient {
+export function createInvoicesClient(dispatch: Sender): InvoicesClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     list: () => invoiceList(send, {}),
     invoice: (invoiceId: string) => singleInvoice(send, invoiceId, {}),
   });
 }
 
-function invoiceList(send: Sender, state: InvoiceListState): InvoiceListBuilder {
+function invoiceList(send: DeferredSender, state: InvoiceListState): InvoiceListBuilder {
   const next = (update: Partial<InvoiceListState>) => invoiceList(send, { ...state, ...update });
   const read = (page: InvoiceListState) =>
-    send<PageWithMore<Invoice>>(
+    send<PageWithMore<Invoice>>(() =>
       readRequest(
         "/v1/invoices",
         page,
@@ -68,11 +71,16 @@ function invoiceList(send: Sender, state: InvoiceListState): InvoiceListBuilder 
   });
 }
 
-function singleInvoice(send: Sender, invoiceId: string, state: RequestScope): InvoiceBuilder {
+function singleInvoice(
+  send: DeferredSender,
+  invoiceId: string,
+  state: RequestScope,
+): InvoiceBuilder {
   const next = (update: Partial<RequestScope>) =>
     singleInvoice(send, invoiceId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<Invoice>(readRequest(`/v1/invoices/${encodePathSegment(invoiceId)}`, state)),
+    get: () =>
+      send<Invoice>(() => readRequest(`/v1/invoices/${encodePathSegment(invoiceId)}`, state)),
   });
 }

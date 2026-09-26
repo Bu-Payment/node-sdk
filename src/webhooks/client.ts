@@ -1,4 +1,6 @@
 import {
+  type DeferredSender,
+  deferSender,
   type RequestScope,
   readRequest,
   type ScopeMethods,
@@ -96,7 +98,8 @@ export interface WebhooksClient {
   delivery(deliveryId: string): DeliveryBuilder;
 }
 
-export function createWebhooksClient(send: Sender): WebhooksClient {
+export function createWebhooksClient(dispatch: Sender): WebhooksClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     endpoints: () => endpointList(send, {}),
     endpoint: (endpointId: string) => endpointBuilder(send, endpointId, {}),
@@ -106,16 +109,16 @@ export function createWebhooksClient(send: Sender): WebhooksClient {
   });
 }
 
-function endpointList(send: Sender, state: RequestScope): EndpointListBuilder {
+function endpointList(send: DeferredSender, state: RequestScope): EndpointListBuilder {
   const next = (update: Partial<RequestScope>) => endpointList(send, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<WebhookEndpoint[]>(readRequest("/v1/webhook-endpoints", state)),
+    get: () => send<WebhookEndpoint[]>(() => readRequest("/v1/webhook-endpoints", state)),
   });
 }
 
 function endpointDraft<TState extends EndpointState>(
-  send: Sender,
+  send: DeferredSender,
   state: TState,
 ): EndpointDraft<TState> {
   const next = (update: Partial<EndpointState>) => endpointDraft(send, { ...state, ...update });
@@ -128,7 +131,7 @@ function endpointDraft<TState extends EndpointState>(
   };
   if (state.url !== undefined) {
     builder.create = () =>
-      send<CreatedWebhookEndpoint>(
+      send<CreatedWebhookEndpoint>(() =>
         writeRequest("POST", "/v1/webhook-endpoints", state, endpointFields(state)),
       );
   }
@@ -136,7 +139,7 @@ function endpointDraft<TState extends EndpointState>(
 }
 
 function endpointBuilder<TState extends EndpointState>(
-  send: Sender,
+  send: DeferredSender,
   endpointId: string,
   state: TState,
 ): EndpointBuilder<TState> {
@@ -150,24 +153,24 @@ function endpointBuilder<TState extends EndpointState>(
     event: (eventType: string) => next({ enabledEvents: appendEvent(state, eventType) }),
     status: (status: WebhookEndpointStatus) => next({ status }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<WebhookEndpoint>(readRequest(path(), state)),
-    remove: () => send<DeletedWebhookEndpoint>(writeRequest("DELETE", path(), state)),
+    get: () => send<WebhookEndpoint>(() => readRequest(path(), state)),
+    remove: () => send<DeletedWebhookEndpoint>(() => writeRequest("DELETE", path(), state)),
   };
   if (hasEndpointField(state)) {
     builder.update = () =>
-      send<WebhookEndpoint>(writeRequest("PATCH", path(), state, endpointFields(state)));
+      send<WebhookEndpoint>(() => writeRequest("PATCH", path(), state, endpointFields(state)));
   }
   return Object.freeze(builder) as EndpointBuilder<TState>;
 }
 
-function deliveryList(send: Sender, state: DeliveryListState): DeliveryListBuilder {
+function deliveryList(send: DeferredSender, state: DeliveryListState): DeliveryListBuilder {
   const next = (update: Partial<DeliveryListState>) => deliveryList(send, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
     status: (status: WebhookDeliveryStatus) => next({ status }),
     limit: (limit: number) => next({ limit }),
     get: () =>
-      send<WebhookDelivery[]>(
+      send<WebhookDelivery[]>(() =>
         readRequest("/v1/webhook-deliveries", state, {
           ...(state.status === undefined ? {} : { status: state.status }),
           ...(state.limit === undefined ? {} : { limit: state.limit }),
@@ -177,7 +180,7 @@ function deliveryList(send: Sender, state: DeliveryListState): DeliveryListBuild
 }
 
 function deliveryBuilder(
-  send: Sender,
+  send: DeferredSender,
   deliveryId: string,
   state: RequestScope & { idempotencyKey?: string },
 ): DeliveryBuilder {
@@ -187,8 +190,8 @@ function deliveryBuilder(
   return Object.freeze({
     ...scopeMethods(next),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
-    get: () => send<WebhookDelivery>(readRequest(path(), state)),
-    retry: () => send<WebhookDeliveryRetry>(writeRequest("POST", `${path()}/retry`, state)),
+    get: () => send<WebhookDelivery>(() => readRequest(path(), state)),
+    retry: () => send<WebhookDeliveryRetry>(() => writeRequest("POST", `${path()}/retry`, state)),
   });
 }
 

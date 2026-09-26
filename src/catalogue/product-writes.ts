@@ -1,7 +1,7 @@
 import {
+  type DeferredSender,
   type RequestScope,
   type ScopeMethods,
-  type Sender,
   scopeMethods,
   stableIdempotencyKey,
   writeRequest,
@@ -52,7 +52,7 @@ export type ProductUpdate<TState extends ProductWriteState = ProductWriteState> 
       : object);
 
 export function productDraft<TState extends ProductWriteState>(
-  send: Sender,
+  send: DeferredSender,
   state: TState,
   idempotencyKeyFor = stableIdempotencyKey(),
 ): ProductDraft<TState> {
@@ -66,7 +66,7 @@ export function productDraft<TState extends ProductWriteState>(
   };
   if (state.name !== undefined) {
     builder.create = async () =>
-      await send<Product>(
+      await send<Product>(() =>
         writeRequest(
           "POST",
           "/v1/products",
@@ -79,7 +79,7 @@ export function productDraft<TState extends ProductWriteState>(
 }
 
 export function productUpdate<TState extends ProductWriteState>(
-  send: Sender,
+  send: DeferredSender,
   path: () => string,
   state: TState,
   idempotencyKeyFor = stableIdempotencyKey(),
@@ -98,7 +98,7 @@ export function productUpdate<TState extends ProductWriteState>(
   };
   if (Object.keys(fieldsOf(state)).length > 0) {
     builder.update = async () =>
-      await send<Product>(
+      await send<Product>(() =>
         writeRequest(
           "PATCH",
           path(),

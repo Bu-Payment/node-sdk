@@ -1,11 +1,11 @@
 import { ErrorCode } from "../constants";
 import {
   type CursorScope,
+  type DeferredSender,
   pageMethods,
   pageQuery,
   readRequest,
   type ScopeMethods,
-  type Sender,
   scopeMethods,
 } from "../core/builder";
 import type { Page } from "../core/pagination";
@@ -41,13 +41,13 @@ export type ShippingRatesBuilder<TState extends ShippingState = ShippingState> =
       : object);
 
 export function shippingRatesBuilder<TState extends ShippingState>(
-  send: Sender,
+  send: DeferredSender,
   state: TState,
 ): ShippingRatesBuilder<TState> {
   const next = (update: Partial<ShippingState>) =>
     shippingRatesBuilder(send, { ...state, ...update });
   const read = async (page: ShippingState) =>
-    await send<Page<ShippingRate>>(readRequest("/v1/shipping-rates", page, wireQuery(page)));
+    await send<Page<ShippingRate>>(() => readRequest("/v1/shipping-rates", page, wireQuery(page)));
   const builder: Record<string, unknown> = {
     ...scopeMethods(next),
     currency: (currency: string) => next({ currency }),

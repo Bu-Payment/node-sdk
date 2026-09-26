@@ -1,4 +1,4 @@
-import type { RequestScope, ScopeMethods, Sender } from "../core/builder";
+import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { readRequest, scopeMethods, writeRequest } from "../core/builder";
 import { encodePathSegment } from "../core/request-target";
 import type { MigrationNotificationPlan } from "./types";
@@ -32,14 +32,14 @@ export type NotificationPlanBuilder<TState extends PlanState = PlanState> = Plan
   (TState extends { version: number; availableAt: string } ? ReschedulableNotification : object);
 
 export function notificationPlan<TState extends PlanState>(
-  send: Sender,
-  migrationPath: string,
+  send: DeferredSender,
+  migrationPath: () => string,
   state: TState,
 ): NotificationPlanBuilder<TState> {
   const next = (update: Partial<PlanState>) =>
     notificationPlan(send, migrationPath, { ...state, ...update });
   const versioned = () =>
-    `${migrationPath}/notification-plans/${encodePathSegment(String(state.version))}`;
+    `${migrationPath()}/notification-plans/${encodePathSegment(String(state.version))}`;
   const builder: Record<string, unknown> = {
     ...scopeMethods(next),
     version: (version: number) => next({ version }),
@@ -47,18 +47,20 @@ export function notificationPlan<TState extends PlanState>(
     availableAt: (availableAt: string) => next({ availableAt }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
     get: () =>
-      send<MigrationNotificationPlan>(readRequest(`${migrationPath}/notification-plan`, state)),
+      send<MigrationNotificationPlan>(() =>
+        readRequest(`${migrationPath()}/notification-plan`, state),
+      ),
   };
   const channel = state.channel;
   if (state.version !== undefined && channel !== undefined) {
     builder.retry = () =>
-      send<MigrationNotificationPlan>(
+      send<MigrationNotificationPlan>(() =>
         writeRequest("POST", `${versioned()}/channels/${encodePathSegment(channel)}/retry`, state),
       );
   }
   if (state.version !== undefined && state.availableAt !== undefined) {
     builder.reschedule = () =>
-      send<MigrationNotificationPlan>(
+      send<MigrationNotificationPlan>(() =>
         writeRequest("POST", `${versioned()}/reschedule`, state, {
           availableAt: state.availableAt,
         }),

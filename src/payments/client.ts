@@ -1,5 +1,7 @@
 import {
   type CursorScope,
+  type DeferredSender,
+  deferSender,
   type PageMethods,
   pageMethods,
   pageQuery,
@@ -27,7 +29,8 @@ export interface PaymentsClient {
   create(): PaymentDraft<Record<never, never>>;
 }
 
-export function createPaymentsClient(send: Sender): PaymentsClient {
+export function createPaymentsClient(dispatch: Sender): PaymentsClient {
+  const send = deferSender(dispatch);
   return Object.freeze({
     list: () => paymentList(send, {}),
     payment: (paymentId: string) => singlePayment(send, paymentId, {}),
@@ -35,18 +38,23 @@ export function createPaymentsClient(send: Sender): PaymentsClient {
   });
 }
 
-function paymentList(send: Sender, state: CursorScope): PaymentListBuilder {
+function paymentList(send: DeferredSender, state: CursorScope): PaymentListBuilder {
   const next = (update: Partial<CursorScope>) => paymentList(send, { ...state, ...update });
   const read = (page: CursorScope) =>
-    send<PageWithMore<Payment>>(readRequest("/v1/payments", page, pageQuery(page)));
+    send<PageWithMore<Payment>>(() => readRequest("/v1/payments", page, pageQuery(page)));
   return Object.freeze(pageMethods(state, next, read));
 }
 
-function singlePayment(send: Sender, paymentId: string, state: RequestScope): PaymentBuilder {
+function singlePayment(
+  send: DeferredSender,
+  paymentId: string,
+  state: RequestScope,
+): PaymentBuilder {
   const next = (update: Partial<RequestScope>) =>
     singlePayment(send, paymentId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<Payment>(readRequest(`/v1/payments/${encodePathSegment(paymentId)}`, state)),
+    get: () =>
+      send<Payment>(() => readRequest(`/v1/payments/${encodePathSegment(paymentId)}`, state)),
   });
 }

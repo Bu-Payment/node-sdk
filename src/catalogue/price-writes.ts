@@ -1,7 +1,7 @@
 import {
+  type DeferredSender,
   type RequestScope,
   type ScopeMethods,
-  type Sender,
   scopeMethods,
   stableIdempotencyKey,
   writeRequest,
@@ -79,7 +79,7 @@ interface ReplacementKeys {
 }
 
 export function priceDraft<TState extends PriceDraftState>(
-  send: Sender,
+  send: DeferredSender,
   productId: string,
   state: TState,
   keys: ReplacementKeys = { create: stableIdempotencyKey(), archive: stableIdempotencyKey() },
@@ -88,7 +88,7 @@ export function priceDraft<TState extends PriceDraftState>(
     priceDraft(send, productId, { ...state, ...update });
   const createPath = () => `/v1/products/${encodePathSegment(productId)}/prices`;
   const create = (path: string, idempotencyKey: string) =>
-    send<Price>(writeRequest("POST", path, { ...state, idempotencyKey }, bodyOf(state)));
+    send<Price>(() => writeRequest("POST", path, { ...state, idempotencyKey }, bodyOf(state)));
   const builder: Record<string, unknown> = {
     ...scopeMethods((scope) => priceDraft(send, productId, { ...state, ...scope }, keys)),
     unitAmount: (unitAmount: number) => next({ unitAmount }),
@@ -124,7 +124,7 @@ export function priceDraft<TState extends PriceDraftState>(
         const archivePath = `/v1/prices/${encodePathSegment(previousPriceId)}/archive`;
         const replacement = await create(replacementPath, keys.create(state.idempotencyKey));
         try {
-          const archived = await send<Price>(
+          const archived = await send<Price>(() =>
             writeRequest(
               "POST",
               archivePath,
