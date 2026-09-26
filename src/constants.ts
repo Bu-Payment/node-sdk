@@ -32,6 +32,10 @@ export const ErrorCode = {
   TOO_MANY_REQUESTS: "too_many_requests",
   APPLICATION_AUTH_UNAVAILABLE: "application_auth_unavailable",
   OPERATION_FAILED: "operation_failed",
+  WEBHOOK_SIGNATURE_MISSING: "webhook_signature_missing",
+  WEBHOOK_SIGNATURE_INVALID: "webhook_signature_invalid",
+  WEBHOOK_TIMESTAMP_EXPIRED: "webhook_timestamp_expired",
+  WEBHOOK_PAYLOAD_INVALID: "webhook_payload_invalid",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

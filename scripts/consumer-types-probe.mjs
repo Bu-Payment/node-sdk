@@ -1,5 +1,5 @@
 export function typesCheck() {
-  return `import { createBuPaymentClient, ErrorCode, paginate } from "@bu-payment/node-sdk";
+  return `import { createBuPaymentClient, ErrorCode, paginate, verifyWebhookDelivery } from "@bu-payment/node-sdk";
 import type {
   BillingCapabilities,
   ClientConfigInput,
@@ -9,6 +9,7 @@ import type {
   Product,
   Refund,
   TransportRequest,
+  VerifiedWebhookDelivery,
 } from "@bu-payment/node-sdk/types";
 
 const input: ClientConfigInput = {
@@ -49,6 +50,16 @@ export async function probe(): Promise<unknown> {
   void created.id;
   const owned: OwnedRefund = await client.refunds.refund("ref_1").get();
   void owned.customerId;
+
+  const delivery: VerifiedWebhookDelivery = verifyWebhookDelivery({
+    body: "{}",
+    headers: new Headers(),
+    secret: "whsec_x",
+  });
+  void delivery.deliveryId;
+
+  // @ts-expect-error a parsed body cannot be verified
+  verifyWebhookDelivery({ body: {}, headers: {}, secret: "whsec_x" });
 
   await paymentMethodSetup(client);
   await manualPaging(client);
