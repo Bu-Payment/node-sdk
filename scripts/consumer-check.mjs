@@ -155,6 +155,7 @@ function webhookAssertion() {
   now: () => ${Number(webhookVector.timestamp)},
 });
 assert.equal(delivery.deliveryId, ${JSON.stringify(webhookVector.deliveryId)});
+assert.equal(delivery.event.type, ${JSON.stringify(JSON.parse(webhookVector.body).type)});
 assert.throws(
   () => verifyWebhookDelivery({ body: {}, headers: {}, secret: ${JSON.stringify(webhookVector.secret)} }),
   (error) => error.code === "webhook_payload_invalid",

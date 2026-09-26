@@ -1,0 +1,321 @@
+[
+  {
+    "version": 1,
+    "id": "evt_01",
+    "type": "catalogue.product.created.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "product",
+      "resourceId": "0b9c0000-0000-4000-8000-000000000001",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "0b9c0000-0000-4000-8000-000000000001",
+        "name": "Starter",
+        "description": null,
+        "lookupKey": "starter",
+        "active": true,
+        "defaultPriceId": "5f1e0000-0000-4000-8000-000000000002",
+        "createdAt": "2026-09-24T10:00:05.120Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_02",
+    "type": "catalogue.product.updated.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "product",
+      "resourceId": "0b9c0000-0000-4000-8000-000000000001",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "0b9c0000-0000-4000-8000-000000000001",
+        "name": "Starter Plus",
+        "description": null,
+        "lookupKey": "starter",
+        "active": true,
+        "defaultPriceId": "5f1e0000-0000-4000-8000-000000000002",
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_03",
+    "type": "catalogue.product.archived.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "product",
+      "resourceId": "0b9c0000-0000-4000-8000-000000000001",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "0b9c0000-0000-4000-8000-000000000001",
+        "name": "Starter",
+        "description": null,
+        "lookupKey": "starter",
+        "active": false,
+        "defaultPriceId": "5f1e0000-0000-4000-8000-000000000002",
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_04",
+    "type": "catalogue.product.reactivated.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "product",
+      "resourceId": "0b9c0000-0000-4000-8000-000000000001",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "0b9c0000-0000-4000-8000-000000000001",
+        "name": "Starter",
+        "description": null,
+        "lookupKey": "starter",
+        "active": true,
+        "defaultPriceId": "5f1e0000-0000-4000-8000-000000000002",
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_05",
+    "type": "catalogue.product.default_price.updated.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "product",
+      "resourceId": "0b9c0000-0000-4000-8000-000000000001",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "0b9c0000-0000-4000-8000-000000000001",
+        "name": "Starter",
+        "description": null,
+        "lookupKey": "starter",
+        "active": true,
+        "defaultPriceId": "5f1e0000-0000-4000-8000-000000000003",
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_06",
+    "type": "catalogue.product.assigned.v1",
+    "occurredAt": "2026-09-25T09:30:00.000Z",
+    "data": {
+      "resourceType": "product",
+      "resourceId": "0b9c0000-0000-4000-8000-000000000001",
+      "occurredAt": "2026-09-25T09:30:00.000Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "0b9c0000-0000-4000-8000-000000000001",
+        "name": "Starter",
+        "description": null,
+        "lookupKey": "starter",
+        "active": true,
+        "defaultPriceId": "5f1e0000-0000-4000-8000-000000000002",
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_07",
+    "type": "catalogue.product.unassigned.v1",
+    "occurredAt": "2026-09-25T09:30:00.000Z",
+    "data": {
+      "resourceType": "product",
+      "resourceId": "0b9c0000-0000-4000-8000-000000000001",
+      "occurredAt": "2026-09-25T09:30:00.000Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "0b9c0000-0000-4000-8000-000000000001",
+        "name": "Starter",
+        "description": null,
+        "lookupKey": "starter",
+        "active": true,
+        "defaultPriceId": null,
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_08",
+    "type": "catalogue.price.created.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "price",
+      "resourceId": "5f1e0000-0000-4000-8000-000000000002",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "5f1e0000-0000-4000-8000-000000000002",
+        "productId": "0b9c0000-0000-4000-8000-000000000001",
+        "unitAmount": 1500,
+        "currency": "EUR",
+        "type": "recurring",
+        "recurring": {
+          "interval": "month",
+          "intervalCount": 1
+        },
+        "description": null,
+        "lookupKey": "starter-monthly",
+        "active": true,
+        "createdAt": "2026-09-24T10:00:05.120Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_09",
+    "type": "catalogue.price.updated.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "price",
+      "resourceId": "5f1e0000-0000-4000-8000-000000000002",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "5f1e0000-0000-4000-8000-000000000002",
+        "productId": "0b9c0000-0000-4000-8000-000000000001",
+        "unitAmount": 1500,
+        "currency": "EUR",
+        "type": "recurring",
+        "recurring": {
+          "interval": "month",
+          "intervalCount": 1
+        },
+        "description": null,
+        "lookupKey": null,
+        "active": true,
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_10",
+    "type": "catalogue.price.archived.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "price",
+      "resourceId": "5f1e0000-0000-4000-8000-000000000002",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "5f1e0000-0000-4000-8000-000000000002",
+        "productId": "0b9c0000-0000-4000-8000-000000000001",
+        "unitAmount": 1500,
+        "currency": "EUR",
+        "type": "recurring",
+        "recurring": {
+          "interval": "month",
+          "intervalCount": 1
+        },
+        "description": null,
+        "lookupKey": "starter-monthly",
+        "active": false,
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_11",
+    "type": "catalogue.price.reactivated.v1",
+    "occurredAt": "2026-09-24T10:00:05.123Z",
+    "data": {
+      "resourceType": "price",
+      "resourceId": "5f1e0000-0000-4000-8000-000000000002",
+      "occurredAt": "2026-09-24T10:00:05.123Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "5f1e0000-0000-4000-8000-000000000002",
+        "productId": "0b9c0000-0000-4000-8000-000000000001",
+        "unitAmount": 1500,
+        "currency": "EUR",
+        "type": "one_time",
+        "recurring": null,
+        "description": null,
+        "lookupKey": "starter-monthly",
+        "active": true,
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_12",
+    "type": "catalogue.price.assigned.v1",
+    "occurredAt": "2026-09-25T09:30:00.000Z",
+    "data": {
+      "resourceType": "price",
+      "resourceId": "5f1e0000-0000-4000-8000-000000000002",
+      "occurredAt": "2026-09-25T09:30:00.000Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "5f1e0000-0000-4000-8000-000000000002",
+        "productId": "0b9c0000-0000-4000-8000-000000000001",
+        "unitAmount": 1500,
+        "currency": "EUR",
+        "type": "recurring",
+        "recurring": {
+          "interval": "month",
+          "intervalCount": 1
+        },
+        "description": null,
+        "lookupKey": "starter-monthly",
+        "active": true,
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_13",
+    "type": "catalogue.price.unassigned.v1",
+    "occurredAt": "2026-09-25T09:30:00.000Z",
+    "data": {
+      "resourceType": "price",
+      "resourceId": "5f1e0000-0000-4000-8000-000000000002",
+      "occurredAt": "2026-09-25T09:30:00.000Z",
+      "updatedAt": "2026-09-24T10:00:05.120Z",
+      "resource": {
+        "id": "5f1e0000-0000-4000-8000-000000000002",
+        "productId": "0b9c0000-0000-4000-8000-000000000001",
+        "unitAmount": 1500,
+        "currency": "EUR",
+        "type": "recurring",
+        "recurring": {
+          "interval": "month",
+          "intervalCount": 1
+        },
+        "description": null,
+        "lookupKey": "starter-monthly",
+        "active": true,
+        "createdAt": "2026-09-01T08:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:05.120Z"
+      }
+    }
+  }
+]

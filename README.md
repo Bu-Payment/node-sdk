@@ -126,6 +126,69 @@ const product = await client.request<Product>({
 
 See [Catalogue](docs/02-catalogue.md) for every route.
 
+## Webhook events
+
+`verifyWebhookDelivery` checks the signature and the timestamp, then parses the signed body into
+a typed event. Every delivery is the envelope `{ version: 1, id, type, occurredAt, data }`, and
+`event` is a union discriminated on `type`, so `data` narrows with it:
+
+```ts
+const { event } = verifyWebhookDelivery({ body: req.body, headers: req.headers, secret });
+
+switch (event.type) {
+  case "catalogue.product.updated.v1":
+    await products.applyIfNewer(event.data.resource, event.data.updatedAt);
+    break;
+  case "catalogue.price.assigned.v1":
+    await prices.assignIfNewer(event.data.resource, event.occurredAt);
+    break;
+  case "unknown":
+    logger.info({ type: event.receivedType, id: event.id }, "unhandled BuPayment event");
+    break;
+}
+```
+
+| Type | `data.resource` | Advances `data.updatedAt` |
+| --- | --- | --- |
+| `catalogue.product.created.v1` | product | yes |
+| `catalogue.product.updated.v1` | product | yes |
+| `catalogue.product.archived.v1` | product | yes |
+| `catalogue.product.reactivated.v1` | product | yes |
+| `catalogue.product.default_price.updated.v1` | product | yes, unless an assignment caused it |
+| `catalogue.product.assigned.v1` | product | no |
+| `catalogue.product.unassigned.v1` | product | no |
+| `catalogue.price.created.v1` | price | yes |
+| `catalogue.price.updated.v1` | price | yes |
+| `catalogue.price.archived.v1` | price | yes |
+| `catalogue.price.reactivated.v1` | price | yes |
+| `catalogue.price.assigned.v1` | price | no |
+| `catalogue.price.unassigned.v1` | price | no |
+
+A product in an event is the `Product` the catalogue reads return plus `defaultPriceId`, which is
+`null` when the product has no default price or the default price is not assigned to your App. A
+price is the `Price` the catalogue reads return. `data` always carries `resourceType`,
+`resourceId`, `occurredAt`, `updatedAt` and `resource`, and `data.updatedAt` repeats
+`resource.updatedAt`.
+
+Deliveries are at least once and unordered. Order the events of one resource by
+`data.updatedAt`, then by `occurredAt` when `data.updatedAt` is equal: a mutation advances
+`data.updatedAt`, while an assignment, an unassignment and a default price change caused by one
+keep it and differ only in `occurredAt`. Store that pair for each resource and ignore an event
+whose pair is not newer. Every timestamp is ISO 8601 in UTC with milliseconds, as
+`Date.prototype.toISOString` writes it, and the SDK refuses any other form, so two of them
+compare correctly as strings. `occurredAt` is the same in the envelope and in `data`.
+
+Deduplicate on `event.id`, which is signed and identical across endpoints and retries;
+`deliveryId` comes from an unsigned header. The SDK stores none of this: the ordering state, the
+deduplication and applying the event are your application's.
+
+A type the SDK does not know yet comes back as `type: "unknown"` with the type in `receivedType`
+and the raw `data`, so a new platform event type never throws. An envelope that is not version `1` is
+refused with `webhook_event_version_unsupported`, and a known type whose `data` does not match its
+shape with `webhook_event_invalid`. Neither is a forged delivery: both mean this SDK and the
+platform disagree, so alert on them instead of answering them as a bad signature. See
+[Events and webhooks](docs/08-events-and-webhooks.md) for the full handler.
+
 ## Signed requests
 
 ```ts

@@ -10,6 +10,7 @@ import type {
   Refund,
   TransportRequest,
   VerifiedWebhookDelivery,
+  WebhookEvent,
 } from "@bu-payment/node-sdk/types";
 
 const input: ClientConfigInput = {
@@ -57,6 +58,17 @@ export async function probe(): Promise<unknown> {
     secret: "whsec_x",
   });
   void delivery.deliveryId;
+  const event: WebhookEvent = delivery.event;
+  if (event.type === "catalogue.product.default_price.updated.v1") {
+    const defaultPriceId: string | null = event.data.resource.defaultPriceId;
+    const product: Product = event.data.resource;
+    void defaultPriceId;
+    void product;
+  }
+  if (event.type === "unknown") {
+    const receivedType: string = event.receivedType;
+    void receivedType;
+  }
 
   // @ts-expect-error a parsed body cannot be verified
   verifyWebhookDelivery({ body: {}, headers: {}, secret: "whsec_x" });

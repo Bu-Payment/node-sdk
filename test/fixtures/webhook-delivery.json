@@ -2,6 +2,6 @@
   "secret": "whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYX",
   "deliveryId": "whd_1",
   "timestamp": "1790000000000",
-  "body": "{\"resourceType\":\"product\",\"resourceId\":\"prod_1\",\"name\":\"Bilhete\"}",
-  "signature": "692a0d72dbf90189c7daa0ca27ac0db4a64e7b93cb7e3898a5d04a8313cc6898"
+  "body": "{\"version\":1,\"id\":\"evt_02\",\"type\":\"catalogue.product.updated.v1\",\"occurredAt\":\"2026-09-24T10:00:05.123Z\",\"data\":{\"resourceType\":\"product\",\"resourceId\":\"0b9c0000-0000-4000-8000-000000000001\",\"occurredAt\":\"2026-09-24T10:00:05.123Z\",\"updatedAt\":\"2026-09-24T10:00:05.120Z\",\"resource\":{\"id\":\"0b9c0000-0000-4000-8000-000000000001\",\"name\":\"Bilhete\",\"description\":null,\"lookupKey\":\"starter\",\"active\":true,\"defaultPriceId\":\"5f1e0000-0000-4000-8000-000000000002\",\"createdAt\":\"2026-09-01T08:00:00.000Z\",\"updatedAt\":\"2026-09-24T10:00:05.120Z\"}}}",
+  "signature": "2cf3149255a15fb55516d6ec34e2bc6cee277838234c524835df33638cbfad0c"
 }

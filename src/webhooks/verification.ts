@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
+import { parseWebhookEvent } from "./events";
 import type {
   VerifiedWebhookDelivery,
   WebhookDeliveryInput,
@@ -44,7 +45,7 @@ export function verifyWebhookDelivery(input: WebhookDeliveryInput): VerifiedWebh
     deliveryId,
     signature,
     timestamp: new Date(sentAt),
-    payload: parsePayload(body),
+    event: parseWebhookEvent(parsePayload(body)),
   };
 }
 

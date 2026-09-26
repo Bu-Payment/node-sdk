@@ -39,6 +39,8 @@ export const ErrorCode = {
   WEBHOOK_SIGNATURE_INVALID: "webhook_signature_invalid",
   WEBHOOK_TIMESTAMP_EXPIRED: "webhook_timestamp_expired",
   WEBHOOK_PAYLOAD_INVALID: "webhook_payload_invalid",
+  WEBHOOK_EVENT_VERSION_UNSUPPORTED: "webhook_event_version_unsupported",
+  WEBHOOK_EVENT_INVALID: "webhook_event_invalid",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
