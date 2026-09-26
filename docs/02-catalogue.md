@@ -22,6 +22,13 @@ only and archived ones are absent without any signal. The filter is an exact mat
 both. Reconciling a local catalogue means two walks, or `product(id).get()`, which returns a
 product whatever its state.
 
+`lookupKey(key)` finds a product by the natural key it was given, which survives a
+reinstall or a repeated import after the original idempotency key is gone:
+
+```ts
+const [existing] = (await client.catalogue.products().lookupKey("gold").get()).data;
+```
+
 ```ts
 for await (const product of client.catalogue.products().active(true).all()) {
   console.log(product.name);

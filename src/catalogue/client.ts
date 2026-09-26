@@ -15,6 +15,7 @@ import type { Price, Product, ProductCrossSell, ProductEntitlementResolution } f
 
 interface ProductListState extends CursorScope {
   active?: boolean;
+  lookupKey?: string;
 }
 
 interface PriceListState extends CursorScope {
@@ -25,6 +26,7 @@ interface PriceListState extends CursorScope {
 
 export interface ProductListBuilder extends PageMethods<ProductListBuilder, Product> {
   active(active: boolean): ProductListBuilder;
+  lookupKey(lookupKey: string): ProductListBuilder;
 }
 
 export interface ProductBuilder extends ScopeMethods<ProductBuilder> {
@@ -74,12 +76,16 @@ function productList(send: Sender, state: ProductListState): ProductListBuilder 
       readRequest(
         "/v1/products",
         page,
-        pageQuery(page, page.active === undefined ? {} : { active: page.active }),
+        pageQuery(page, {
+          ...(page.active === undefined ? {} : { active: page.active }),
+          ...(page.lookupKey === undefined ? {} : { lookupKey: page.lookupKey }),
+        }),
       ),
     );
   return Object.freeze({
     ...pageMethods(state, next, read),
     active: (active: boolean) => next({ active }),
+    lookupKey: (lookupKey: string) => next({ lookupKey }),
   });
 }
 

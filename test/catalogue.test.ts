@@ -13,6 +13,16 @@ describe("catalogue", () => {
     expect(callAt(calls, 0).headers["Idempotency-Key"]).toBeUndefined();
   });
 
+  it("finds a product by its lookup key", async () => {
+    const { client, calls } = harnessReturning({
+      data: [{ id: "prod_1", lookupKey: "gold" }],
+      nextCursor: null,
+    });
+    const page = await client.catalogue.products().lookupKey("gold").active(true).get();
+    expect(page.data[0]?.lookupKey).toBe("gold");
+    expect(queryOf(callAt(calls, 0))).toBe("?active=true&lookupKey=gold");
+  });
+
   it("percent-encodes an identifier into the path", async () => {
     const { client, calls } = harnessReturning({ id: "prod/1" });
     await client.catalogue.product("prod/1").get();
