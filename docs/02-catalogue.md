@@ -140,7 +140,7 @@ any other fails with `default_price_not_owned`. Choosing the current default cha
 ### Changing a price
 
 The amount of a price is fixed at creation. `replacing(priceId)` turns a price draft into a
-replacement, whose `replace()` creates the new price and then archives the old one:
+replacement, whose `replace()` swaps the new price in for the old one:
 
 ```ts
 const change = await client.catalogue
@@ -151,36 +151,52 @@ const change = await client.catalogue
   .replace();
 ```
 
-Creating first means a failure never leaves the product without an active price. The
-outcome says which step failed:
+The API refuses to archive a product's default price with `default_price_in_use`, and the
+first price of a product is always its default, so `replace()` takes up to three steps. It
+reads the product first, then:
 
-- the promise rejects: the creation step failed. After a timeout or a network failure the
-  replacement may exist anyway, so retry on the same builder rather than a new one;
-- `{ outcome: "replaced", replacement, archived }`: both steps succeeded;
+1. creates the replacement;
+2. when the product's `defaultPriceId` is the price being replaced, makes the replacement
+   the default;
+3. archives the previous price.
+
+Creating first means a failure never leaves the product without an active price, and moving
+the default before the archive means it never points at an archived price. The outcome says
+which step failed:
+
+- the promise rejects: the product could not be read or the replacement could not be
+  created. After a timeout or a network failure the replacement may exist anyway, so retry
+  on the same builder rather than a new one;
+- `{ outcome: "replaced", replacement, archived }`: every step succeeded;
+- `{ outcome: "default_failed", replacement, previousPriceId, error }`: the replacement is
+  active, the previous price is still active and still the default, and `error` is why the
+  default did not move. Nothing was archived;
 - `{ outcome: "archive_failed", replacement, previousPriceId, error }`: the replacement is
-  active, the previous price is still active, and `error` is why the archive failed.
+  active and, if the previous price was the default, is the default now; the previous price
+  is still active, and `error` is why the archive failed.
 
-This is two requests, not a transaction. Recover from `archive_failed` by calling
-`replace()` again on the same builder, which replays the creation and retries the archive,
-or with `archivePrice(previousPriceId).archive()`. After a `stale_resource`, call
+These are separate requests, not a transaction. Recover from either failure by calling
+`replace()` again on the same builder: it replays the creation, reads the product again, moves
+the default only if it still points at the previous price, and retries the archive. Or finish
+by hand with `setDefaultPrice(productId).priceId(replacement.id).update()` and then
+`archivePrice(previousPriceId).archive()`. After a `stale_resource` on the archive, call
 `expectedUpdatedAt()` with the `updatedAt` of `error.resource` and `replace()` on that
-builder: it keeps the creation's key, so the replacement is replayed, not duplicated, and
-takes a new key for the archive, whose body changed.
+builder: it keeps the keys of the creation and of the move, so neither is duplicated, and
+takes a new key for the archive, whose body changed. `expectedUpdatedAt()` on a replacement
+asserts the previous price's version, never the product's: the default is moved only after
+the SDK has just read that it points at the previous price.
 A replacement that transfers the previous price's lookup key changes that price, so its
 archive with an `expectedUpdatedAt` observed before the transfer is always stale.
-
-The API refuses to archive a product's default price, and the first price created on a
-product becomes its default. `replace()` does not move it yet,
-so replacing it ends in `archive_failed` with `default_price_in_use`; move the default with
-`setDefaultPrice()` first.
 
 ### Idempotency
 
 Every write sends an `Idempotency-Key`. The builder generates it once and resends it when
 the same builder's terminal is called again, or on a copy that only changed `signal()` or
 `timeoutMs()`, so a retry after a timeout is a replay. A key
-passed to `idempotencyKey()` is sent as given, on both steps of a replacement: the API
-keeps a key per operation, so the creation and the archive do not collide. The same key
+passed to `idempotencyKey()` is sent as given, on every write of a replacement: the API
+keeps a key per operation, so the creation, the move of the default and the archive do not
+collide. Retrying the same logical change with the same key, even from a new builder after a
+restart, replays each step instead of creating a second replacement. The same key
 with a different body fails with `idempotency_conflict`; a write the API refused leaves no
 record under its key, so a corrected retry may reuse it.
 

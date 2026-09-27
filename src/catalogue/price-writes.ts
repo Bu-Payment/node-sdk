@@ -1,13 +1,15 @@
 import {
   type DeferredSender,
   type RequestScope,
+  readRequest,
   type ScopeMethods,
   scopeMethods,
   stableIdempotencyKey,
   writeRequest,
 } from "../core/builder";
 import { encodePathSegment } from "../core/request-target";
-import type { Price, PriceChange, PriceInterval } from "./types";
+import { defaultPriceRequest } from "./default-price";
+import type { Price, PriceChange, PriceInterval, Product } from "./types";
 
 interface PriceFields {
   unitAmount?: number;
@@ -75,14 +77,23 @@ export type PriceDraft<TState extends PriceDraftState = PriceDraftState> =
 
 interface ReplacementKeys {
   create: (supplied: string | undefined) => string;
+  moveDefault: (supplied: string | undefined) => string;
   archive: (supplied: string | undefined) => string;
+}
+
+function replacementKeys(): ReplacementKeys {
+  return {
+    create: stableIdempotencyKey(),
+    moveDefault: stableIdempotencyKey(),
+    archive: stableIdempotencyKey(),
+  };
 }
 
 export function priceDraft<TState extends PriceDraftState>(
   send: DeferredSender,
   productId: string,
   state: TState,
-  keys: ReplacementKeys = { create: stableIdempotencyKey(), archive: stableIdempotencyKey() },
+  keys: ReplacementKeys = replacementKeys(),
 ): PriceDraft<TState> {
   const next = (update: Partial<PriceDraftState>) =>
     priceDraft(send, productId, { ...state, ...update });
@@ -112,7 +123,7 @@ export function priceDraft<TState extends PriceDraftState>(
         send,
         productId,
         { ...state, expectedUpdatedAt },
-        { create: keys.create, archive: stableIdempotencyKey() },
+        { ...keys, archive: stableIdempotencyKey() },
       );
   }
   if (state.unitAmount !== undefined && state.currency !== undefined) {
@@ -120,9 +131,24 @@ export function priceDraft<TState extends PriceDraftState>(
       builder.create = async () => await create(createPath(), keys.create(state.idempotencyKey));
     } else {
       builder.replace = async (): Promise<PriceChange> => {
+        const productPath = `/v1/products/${encodePathSegment(productId)}`;
         const replacementPath = createPath();
         const archivePath = `/v1/prices/${encodePathSegment(previousPriceId)}/archive`;
+        const product = await send<Product>(() => readRequest(productPath, state));
         const replacement = await create(replacementPath, keys.create(state.idempotencyKey));
+        if (product.defaultPriceId === previousPriceId) {
+          try {
+            await send<Product>(() =>
+              defaultPriceRequest(
+                productId,
+                { priceId: replacement.id },
+                { ...state, idempotencyKey: keys.moveDefault(state.idempotencyKey) },
+              ),
+            );
+          } catch (error) {
+            return { outcome: "default_failed", replacement, previousPriceId, error };
+          }
+        }
         try {
           const archived = await send<Price>(() =>
             writeRequest(

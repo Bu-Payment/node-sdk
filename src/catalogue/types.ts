@@ -87,4 +87,5 @@ export type PriceConflict = BuPaymentError<Price>;
 
 export type PriceChange =
   | { outcome: "replaced"; replacement: Price; archived: Price }
+  | { outcome: "default_failed"; replacement: Price; previousPriceId: string; error: unknown }
   | { outcome: "archive_failed"; replacement: Price; previousPriceId: string; error: unknown };
