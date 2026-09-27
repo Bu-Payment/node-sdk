@@ -1,5 +1,6 @@
 import {
   type DeferredSender,
+  expectedUpdatedAtOf,
   type RequestScope,
   type ScopeMethods,
   scopeMethods,
@@ -67,9 +68,7 @@ export function defaultPriceChange<TState extends DefaultPriceState>(
           productId,
           {
             priceId,
-            ...(state.expectedUpdatedAt === undefined
-              ? {}
-              : { expectedUpdatedAt: state.expectedUpdatedAt }),
+            ...expectedUpdatedAtOf(state),
           },
           { ...state, idempotencyKey: idempotencyKeyFor(state.idempotencyKey) },
         ),
