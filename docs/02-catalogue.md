@@ -36,10 +36,11 @@ for await (const product of client.catalogue.products().active(true).all()) {
 }
 ```
 
-Every product, read or written, carries `defaultPriceId`: the price the product defaults to,
+Every product read or written through the product routes carries `defaultPriceId`: the price the product defaults to,
 or `null` when it has none or that price is not assigned to your App. Product events carry
 the same field, so a sweep and an event agree on it. When the price a link points to is
-archived, repoint the link to `defaultPriceId`.
+archived, repoint the link to `defaultPriceId`. The product a cross-sell suggests carries no
+default price and is typed as `SuggestedProduct`.
 
 ## Prices
 

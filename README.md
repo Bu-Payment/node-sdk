@@ -124,7 +124,8 @@ const product = await client.request<Product>({
 });
 ```
 
-A product carries `defaultPriceId` on every read and write, and in the `resource` of a conflict.
+A product carries `defaultPriceId` on every product read and write, and in the `resource` of a
+conflict. The product a cross-sell suggests does not, and is typed as `SuggestedProduct`.
 It is `null` when the product has no default price or its default price is not assigned to your
 App. When the price a link points to is archived, a sweep of `products().all()` finds the default
 price to repoint it to, without waiting for an event.
