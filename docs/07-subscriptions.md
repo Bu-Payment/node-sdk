@@ -22,6 +22,8 @@ const one = await client.subscriptions.subscription("sub_1").get();
 Activation is a set of named methods rather than a union the caller assembles: `pending()`,
 `activeFrom(startsAt)`, or `trialingFrom(startsAt)` followed by `trialEndsAt(endsAt)`, which
 only appears once a trial start is set. One of them must complete before `create()` exists.
+`expectedPrice({ unitAmount, currency })` asserts the price the customer was shown; see
+[Errors](10-errors.md#a-price-that-changed).
 Reads answer `{ subscription, capabilities }`.
 
 ## Lifecycle
@@ -80,6 +82,8 @@ await client.priceMigrations.migration(migration.id).approve();
 Timing is `immediately()`, `atNextRenewal()` or `scheduledAt(effectiveAt)`. The created
 migration is a preview: it carries the immediate adjustment, the next renewal, warnings and
 provider limitations, and expires. Approve, cancel, retry and settle drive it from there.
+`expectedPrice({ unitAmount, currency })` asserts the target price the customer was shown,
+and the migration is refused with `price_changed` when it differs.
 
 ```ts
 const migrations = await client.priceMigrations.list().status("scheduled").get();

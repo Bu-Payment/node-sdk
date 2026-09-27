@@ -1,3 +1,5 @@
+import { expectedPriceField, pinExpectedPrice } from "../catalogue/expected-price";
+import type { ExpectedPrice } from "../catalogue/types";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { Payment, PaymentAllocation } from "./types";
@@ -5,6 +7,7 @@ import type { Payment, PaymentAllocation } from "./types";
 export interface PaymentState extends RequestScope {
   customerId?: string;
   priceId?: string;
+  expectedPrice?: ExpectedPrice;
   amount?: number;
   currency?: string;
   paymentMethodId?: string;
@@ -24,6 +27,10 @@ interface PaymentCore<TState extends PaymentState> extends ScopeMethods<PaymentD
 
 interface CanonicalPricing<TState extends PaymentState> {
   priceId(priceId: string): PaymentDraft<TState & { priceId: string }>;
+}
+
+interface PriceAsserting<TState extends PaymentState> {
+  expectedPrice(expected: ExpectedPrice): PaymentDraft<TState & { expectedPrice: ExpectedPrice }>;
 }
 
 interface AdHocPricing<TState extends PaymentState> {
@@ -51,7 +58,7 @@ type Priced<TState extends PaymentState> = TState extends { priceId: string }
 
 export type PaymentDraft<TState extends PaymentState = PaymentState> = PaymentCore<TState> &
   (TState extends { amount: number } | { currency: string } ? object : CanonicalPricing<TState>) &
-  (TState extends { priceId: string } ? object : AdHocPricing<TState>) &
+  (TState extends { priceId: string } ? PriceAsserting<TState> : AdHocPricing<TState>) &
   (TState extends { paymentMethodId: string } ? Allocating<TState> : object) &
   (TState extends { customerId: string }
     ? Priced<TState> extends true
@@ -74,6 +81,10 @@ export function paymentDraft<TState extends PaymentState>(
   };
   if (state.amount === undefined && state.currency === undefined) {
     builder.priceId = (priceId: string) => next({ priceId });
+  }
+  if (state.priceId !== undefined) {
+    builder.expectedPrice = (expected: ExpectedPrice) =>
+      next({ expectedPrice: pinExpectedPrice(expected) });
   }
   if (state.priceId === undefined) {
     builder.amount = (amount: number) => next({ amount });
@@ -103,6 +114,7 @@ function bodyOf(state: PaymentState): Record<string, unknown> {
   return {
     customerId: state.customerId,
     ...(state.priceId === undefined ? {} : { priceId: state.priceId }),
+    ...expectedPriceField(state.expectedPrice),
     ...(state.amount === undefined ? {} : { amount: state.amount }),
     ...(state.currency === undefined ? {} : { currency: state.currency }),
     ...(state.paymentMethodId === undefined ? {} : { paymentMethodId: state.paymentMethodId }),

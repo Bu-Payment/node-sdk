@@ -124,7 +124,48 @@ const product = await client.request<Product>({
 });
 ```
 
+A product carries `defaultPriceId` on every read and write, and in the `resource` of a conflict.
+It is `null` when the product has no default price or its default price is not assigned to your
+App. When the price a link points to is archived, a sweep of `products().all()` finds the default
+price to repoint it to, without waiting for an event.
+
 See [Catalogue](docs/02-catalogue.md) for every route.
+
+## Charging the price the customer saw
+
+Every builder that charges a canonical price accepts the price the customer was shown. When the
+price in BuPayment no longer matches, the API refuses the request with `price_changed` before
+anything is created, so the customer is never charged an amount they did not see:
+
+```ts
+const draft = client.payments
+  .create()
+  .customerId(customerId)
+  .priceId(priceId)
+  .idempotencyKey(orderId);
+
+try {
+  await draft.expectedPrice({ unitAmount: 1_500, currency: "EUR" }).create();
+} catch (error) {
+  if (error instanceof BuPaymentError && error.code === ErrorCode.PRICE_CHANGED && error.price) {
+    const confirmed = await askCustomerToConfirm(error.price);
+    if (confirmed) {
+      await draft.expectedPrice(error.price).create();
+    }
+  }
+}
+```
+
+`error.price` is the current price: `{ id, unitAmount, currency, active, updatedAt }`. Show it
+to the customer, ask them to confirm, and retry with the new amount. A `price_changed` is never
+stored against the `Idempotency-Key`, so the retry may reuse the same key. After a success, the
+key is bound to the price it asserted, and a different `expectedPrice` under it is
+`idempotency_conflict`.
+
+`expectedPrice()` takes any object with `unitAmount` and `currency`, including a `Price` read from
+the catalogue; only those two fields are sent. It exists on `payments.create()` once `priceId()`
+is set, on `subscriptions.create()`, on `checkout.subscriptionSession()` and on a subscription's
+`priceMigration()`, where it is compared with `targetPriceId`. Omitting it changes nothing.
 
 ## Webhook events
 
@@ -164,8 +205,7 @@ switch (event.type) {
 | `catalogue.price.assigned.v1` | price | no |
 | `catalogue.price.unassigned.v1` | price | no |
 
-A product in an event is the `Product` the catalogue reads return plus `defaultPriceId`, which is
-`null` when the product has no default price or the default price is not assigned to your App. A
+A product in an event is the `Product` the catalogue reads return, `defaultPriceId` included. A
 price is the `Price` the catalogue reads return. `data` always carries `resourceType`,
 `resourceId`, `occurredAt`, `updatedAt` and `resource`, and `data.updatedAt` repeats
 `resource.updatedAt`.

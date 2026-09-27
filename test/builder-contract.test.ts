@@ -36,8 +36,14 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.checkout.shippingRates(),
     client.checkout.shippingRates().currency("EUR").destinationCountry("PT").product("prod_1"),
     client.checkout.subscriptionSession(),
+    client.checkout.subscriptionSession().expectedPrice({ unitAmount: 1, currency: "EUR" }),
     client.payments.create(),
     client.payments.create().customerId("cus_1").priceId("price_1"),
+    client.payments
+      .create()
+      .customerId("cus_1")
+      .priceId("price_1")
+      .expectedPrice({ unitAmount: 1, currency: "EUR" }),
     client.payments.list(),
     client.payments.payment("pay_1"),
     client.paymentMethods.createSetup("cus_1"),
@@ -52,6 +58,7 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.refunds.create(),
     client.subscriptions.list(),
     client.subscriptions.create(),
+    client.subscriptions.create().expectedPrice({ unitAmount: 1, currency: "EUR" }),
     subscription,
     subscription.cancellation(),
     subscription.cancellation().timing("immediate"),
@@ -62,6 +69,7 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     subscription.resumePaymentCollection(),
     subscription.scheduledChange(),
     subscription.priceMigration(),
+    subscription.priceMigration().expectedPrice({ unitAmount: 1, currency: "EUR" }),
     client.priceMigrations.list(),
     migration,
     migration.notificationPlan(),
@@ -136,6 +144,17 @@ describe("builder contract", () => {
         { reference: "line_3", amount: 300, currency: "EUR" },
       ],
     });
+  });
+
+  it("does not let one branch's asserted price reach another", async () => {
+    const { client, calls } = harnessReturning({}, {});
+    const base = client.subscriptions.create().customerId("cus_1").name("Gold").priceId("p_1");
+    await base.expectedPrice({ unitAmount: 100, currency: "EUR" }).pending().create();
+    await base.pending().create();
+    expect(callAt(calls, 0).body).toMatchObject({
+      expectedPrice: { unitAmount: 100, currency: "EUR" },
+    });
+    expect(callAt(calls, 1).body).not.toHaveProperty("expectedPrice");
   });
 
   it("does not let one branch of a payment method setup reach another", async () => {

@@ -12,6 +12,7 @@ const product: Product = {
   active: true,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-02T00:00:00.000Z",
+  defaultPriceId: "price_1",
 };
 
 const UUID = /^[0-9a-f-]{36}$/u;

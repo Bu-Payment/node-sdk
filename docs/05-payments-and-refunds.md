@@ -20,6 +20,23 @@ a canonical resource, and the compiler says so rather than the server.
 `create()` appears only when a customer is set and the payment is priced, so a payment with
 an amount and no currency cannot be sent at all.
 
+A payment priced canonically can assert the price the customer was shown:
+
+```ts
+await client.payments
+  .create()
+  .customerId("cus_1")
+  .priceId("price_1")
+  .expectedPrice({ unitAmount: 1500, currency: "EUR" })
+  .idempotencyKey(orderId)
+  .create();
+```
+
+`expectedPrice()` exists only after `priceId()`, because an ad hoc amount is already the
+amount charged and the API refuses the assertion beside it. When the price has changed, the
+payment is refused with `price_changed` and nothing is charged; see
+[Errors](10-errors.md#a-price-that-changed).
+
 The SDK is deliberately stricter than the API here: the API accepts an amount with no
 currency and charges in its default currency. An implicit currency on a charge is not a
 default worth inheriting silently, so a caller who wants it must go through

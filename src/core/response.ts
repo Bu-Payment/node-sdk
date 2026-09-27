@@ -1,3 +1,4 @@
+import type { CurrentPrice } from "../catalogue/types";
 import { ErrorCode, Header } from "../constants";
 import { BuPaymentError } from "../errors";
 
@@ -48,13 +49,33 @@ function responseFailure(response: Response, text: string): BuPaymentError {
     metadata.retryAfter = retryAfter;
   }
   const resource = RESOURCE_BEARING_CODES.has(code) ? resourceOf(envelope) : undefined;
+  const price = code === ErrorCode.PRICE_CHANGED ? currentPriceOf(envelope) : undefined;
   return new BuPaymentError(messageOf(envelope, code), {
     code,
     status: response.status,
     ...requestIdOf(response, envelope),
     ...(Object.keys(metadata).length === 0 ? {} : { metadata }),
     ...(resource === undefined ? {} : { resource }),
+    ...(price === undefined ? {} : { price }),
   });
+}
+
+function currentPriceOf(envelope: Record<string, unknown> | undefined): CurrentPrice | undefined {
+  const price = envelope?.price;
+  if (typeof price !== "object" || price === null || Array.isArray(price)) {
+    return undefined;
+  }
+  const { id, unitAmount, currency, active, updatedAt } = price as Record<string, unknown>;
+  if (
+    typeof id !== "string" ||
+    typeof unitAmount !== "number" ||
+    typeof currency !== "string" ||
+    typeof active !== "boolean" ||
+    typeof updatedAt !== "string"
+  ) {
+    return undefined;
+  }
+  return { id, unitAmount, currency, active, updatedAt };
 }
 
 function resourceOf(

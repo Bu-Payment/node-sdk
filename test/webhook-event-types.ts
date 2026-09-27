@@ -28,7 +28,6 @@ switch (verifiedEvent.type) {
     exactly<string>()(verifiedEvent.receivedType);
     break;
   case "catalogue.product.unassigned.v1":
-    // @ts-expect-error the event product is wider than the catalogue product
     exactly<CatalogueProduct>()(verifiedEvent.data.resource);
     break;
   default:

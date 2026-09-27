@@ -23,6 +23,7 @@ export const ErrorCode = {
   RESOURCE_NOT_FOUND: "resource_not_found",
   RESOURCE_CONFLICT: "resource_conflict",
   STALE_RESOURCE: "stale_resource",
+  PRICE_CHANGED: "price_changed",
   LOOKUP_KEY_CONFLICT: "lookup_key_conflict",
   IDEMPOTENCY_CONFLICT: "idempotency_conflict",
   APPLICATION_AUTH_REQUIRED: "application_auth_required",

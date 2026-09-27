@@ -146,8 +146,9 @@ if (event.type === "catalogue.product.default_price.updated.v1") {
 | `data` | The payload of that type. |
 
 Catalogue events carry `data` as `{ resourceType, resourceId, occurredAt, updatedAt,
-resource }`. `resource` is the resource after the mutation: a `Price`, or a `Product` with
-`defaultPriceId`, typed as `CatalogueEventProduct`. The README lists the thirteen types and
+resource }`. `resource` is the resource after the mutation: a `Price`, or a `Product`, which
+carries `defaultPriceId` here as it does on catalogue reads. `CatalogueEventProduct` remains
+as an alias of `Product`. The README lists the thirteen types and
 which of them advance `data.updatedAt`.
 
 Order the events of one resource by `data.updatedAt`, then by `occurredAt` when
