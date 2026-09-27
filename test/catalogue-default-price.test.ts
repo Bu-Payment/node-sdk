@@ -35,7 +35,7 @@ describe("default price on catalogue products", () => {
 
   it("reads the default price from a product write", async () => {
     const { client } = harnessReturning(product, product, product);
-    const created = await client.catalogue.createProduct().name("Gold").create();
+    const created = await client.catalogue.productDraft().name("Gold").create();
     const updated = await client.catalogue.updateProduct(product.id).name("Gold").update();
     const archived = await client.catalogue.archiveProduct(product.id).archive();
     expect([created, updated, archived].map((written) => written.defaultPriceId)).toEqual([

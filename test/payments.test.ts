@@ -4,7 +4,7 @@ import { callAt, harnessReturning, pathOf, queryOf } from "./support/harness";
 describe("payments, invoices and refunds", () => {
   it("charges against a canonical price", async () => {
     const { client, calls } = harnessReturning({ id: "pay_1" });
-    await client.payments.create().customerId("cus_1").priceId("price_1").create();
+    await client.payments.draft().customerId("cus_1").priceId("price_1").create();
     expect(calls).toHaveLength(1);
     expect(callAt(calls, 0).method).toBe("POST");
     expect(pathOf(callAt(calls, 0))).toBe("/v1/payments");
@@ -15,7 +15,7 @@ describe("payments, invoices and refunds", () => {
   it("charges an ad hoc amount with its currency", async () => {
     const { client, calls } = harnessReturning({ id: "pay_1" });
     await client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .amount(5_000)
       .currency("EUR")
@@ -32,7 +32,7 @@ describe("payments, invoices and refunds", () => {
   it("carries the accumulated allocations beside the payment method", async () => {
     const { client, calls } = harnessReturning({ id: "pay_1" });
     await client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId("price_1")
       .paymentMethodId("pm_1")
@@ -111,7 +111,7 @@ describe("payments, invoices and refunds", () => {
   it("creates a partial refund carrying its currency", async () => {
     const { client, calls } = harnessReturning({ id: "ref_1" });
     await client.refunds
-      .create()
+      .draft()
       .paymentId("pay_1")
       .amount(2_500)
       .currency("EUR")
@@ -128,7 +128,7 @@ describe("payments, invoices and refunds", () => {
 
   it("refunds in full with no amount at all", async () => {
     const { client, calls } = harnessReturning({ id: "ref_1" });
-    await client.refunds.create().paymentId("pay_1").create();
+    await client.refunds.draft().paymentId("pay_1").create();
     expect(callAt(calls, 0).body).toEqual({ paymentId: "pay_1" });
   });
 

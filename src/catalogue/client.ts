@@ -66,11 +66,11 @@ export interface CatalogueClient {
   price(priceId: string): PriceBuilder;
   crossSells(productId: string): CrossSellListBuilder;
   entitlements(productId: string): EntitlementsBuilder;
-  createProduct(): ProductDraft<Record<never, never>>;
+  productDraft(): ProductDraft<Record<never, never>>;
   updateProduct(productId: string): ProductUpdate<Record<never, never>>;
   archiveProduct(productId: string): StateChangeBuilder<Product, "archive">;
   reactivateProduct(productId: string): StateChangeBuilder<Product, "reactivate">;
-  createPrice(productId: string): PriceDraft<Record<never, never>>;
+  priceDraft(productId: string): PriceDraft<Record<never, never>>;
   archivePrice(priceId: string): StateChangeBuilder<Price, "archive">;
   reactivatePrice(priceId: string): StateChangeBuilder<Price, "reactivate">;
 }
@@ -86,13 +86,13 @@ export function createCatalogueClient(dispatch: Sender): CatalogueClient {
     price: (priceId: string) => singlePrice(send, priceId, {}),
     crossSells: (productId: string) => crossSellList(send, productId, {}),
     entitlements: (productId: string) => entitlements(send, productId, {}),
-    createProduct: () => productDraft(send, {}),
+    productDraft: () => productDraft(send, {}),
     updateProduct: (productId: string) => productUpdate(send, productPath(productId), {}),
     archiveProduct: (productId: string) =>
       stateChange<Product, "archive">(send, productPath(productId), "archive", {}),
     reactivateProduct: (productId: string) =>
       stateChange<Product, "reactivate">(send, productPath(productId), "reactivate", {}),
-    createPrice: (productId: string) => priceDraft(send, productId, {}),
+    priceDraft: (productId: string) => priceDraft(send, productId, {}),
     archivePrice: (priceId: string) =>
       stateChange<Price, "archive">(send, pricePath(priceId), "archive", {}),
     reactivatePrice: (priceId: string) =>

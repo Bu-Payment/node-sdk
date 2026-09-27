@@ -18,35 +18,44 @@ declare const refunds: ReturnType<typeof createRefundsClient>;
 declare const subscriptions: ReturnType<typeof createSubscriptionsClient>;
 declare const priceMigrations: ReturnType<typeof createPriceMigrationsClient>;
 
+// @ts-expect-error a payment is drafted at the entry and created only by the terminal
+payments.create();
+
+// @ts-expect-error a product is drafted at the entry and created only by the terminal
+catalogue.createProduct();
+
+// @ts-expect-error an endpoint is drafted at the entry and created only by the terminal
+webhooks.createEndpoint();
+
 // @ts-expect-error a product cannot be created before its name is set
-catalogue.createProduct().lookupKey("gold").create();
+catalogue.productDraft().lookupKey("gold").create();
 
 // @ts-expect-error a product cannot be updated before a field is set
 catalogue.updateProduct("prod_1").expectedUpdatedAt("2026-01-01T00:00:00Z").update();
 
 // @ts-expect-error a product draft has no observed version to assert
-catalogue.createProduct().expectedUpdatedAt("2026-01-01T00:00:00Z");
+catalogue.productDraft().expectedUpdatedAt("2026-01-01T00:00:00Z");
 
 // @ts-expect-error a price cannot be created before its currency is set
-catalogue.createPrice("prod_1").unitAmount(1_000).create();
+catalogue.priceDraft("prod_1").unitAmount(1_000).create();
 
 // @ts-expect-error a price cannot be created before its amount is set
-catalogue.createPrice("prod_1").currency("EUR").create();
+catalogue.priceDraft("prod_1").currency("EUR").create();
 
 // @ts-expect-error a new price has no observed version to assert
-catalogue.createPrice("prod_1").unitAmount(1_000).currency("EUR").expectedUpdatedAt("x");
+catalogue.priceDraft("prod_1").unitAmount(1_000).currency("EUR").expectedUpdatedAt("x");
 
 // @ts-expect-error an interval count needs an interval
-catalogue.createPrice("prod_1").intervalCount(3);
+catalogue.priceDraft("prod_1").intervalCount(3);
 
 // @ts-expect-error a lookup key transfer needs a lookup key
-catalogue.createPrice("prod_1").transferLookupKey();
+catalogue.priceDraft("prod_1").transferLookupKey();
 
-const replacingWithoutCurrency = catalogue.createPrice("prod_1").unitAmount(1).replacing("p_1");
+const replacingWithoutCurrency = catalogue.priceDraft("prod_1").unitAmount(1).replacing("p_1");
 // @ts-expect-error a replacement price cannot be sent before its currency is set
 replacingWithoutCurrency.replace();
 
-const replacingPrice = catalogue.createPrice("prod_1").unitAmount(1).currency("EUR");
+const replacingPrice = catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR");
 // @ts-expect-error a price that replaces another is not created on its own
 replacingPrice.replacing("price_1").create();
 
@@ -60,61 +69,61 @@ catalogue.archiveProduct("prod_1").reactivate();
 catalogue.reactivatePrice("price_1").archive();
 
 // @ts-expect-error a customer cannot be created before an email is set
-customers.create().create();
+customers.draft().create();
 
 // @ts-expect-error a customer cannot be updated before a field is set
 customers.customer("cus_1").update();
 
 // @ts-expect-error a payment cannot be created before a customer is set
-payments.create().priceId("price_1").create();
+payments.draft().priceId("price_1").create();
 
 // @ts-expect-error a payment cannot be created with no pricing source
-payments.create().customerId("cus_1").create();
+payments.draft().customerId("cus_1").create();
 
 // @ts-expect-error an ad hoc amount cannot be created without its currency
-payments.create().customerId("cus_1").amount(1_000).create();
+payments.draft().customerId("cus_1").amount(1_000).create();
 
 // @ts-expect-error a currency cannot be created without its amount
-payments.create().customerId("cus_1").currency("EUR").create();
+payments.draft().customerId("cus_1").currency("EUR").create();
 
 // @ts-expect-error an ad hoc amount must not reach a payment priced canonically
-payments.create().priceId("price_1").amount(1_000);
+payments.draft().priceId("price_1").amount(1_000);
 
 // @ts-expect-error a canonical price must not reach a payment priced ad hoc
-payments.create().amount(1_000).priceId("price_1");
+payments.draft().amount(1_000).priceId("price_1");
 
 // @ts-expect-error a currency must not reach a payment priced canonically
-payments.create().priceId("price_1").currency("EUR");
+payments.draft().priceId("price_1").currency("EUR");
 
 const displayedPrice = { unitAmount: 1_000, currency: "EUR" };
 
 // @ts-expect-error a displayed price is asserted against a canonical price only
-payments.create().customerId("cus_1").expectedPrice(displayedPrice);
+payments.draft().customerId("cus_1").expectedPrice(displayedPrice);
 
 // @ts-expect-error an ad hoc amount has no canonical price to assert
-payments.create().amount(1_000).currency("EUR").expectedPrice(displayedPrice);
+payments.draft().amount(1_000).currency("EUR").expectedPrice(displayedPrice);
 
 // @ts-expect-error an asserted payment cannot turn ad hoc
-payments.create().priceId("price_1").expectedPrice(displayedPrice).amount(1);
+payments.draft().priceId("price_1").expectedPrice(displayedPrice).amount(1);
 
 // @ts-expect-error an asserted payment cannot take a currency either
-payments.create().priceId("price_1").expectedPrice(displayedPrice).currency("EUR");
+payments.draft().priceId("price_1").expectedPrice(displayedPrice).currency("EUR");
 
 // @ts-expect-error allocations require a payment method
-payments.create().customerId("cus_1").priceId("price_1").allocation("line_1", 100, "EUR");
+payments.draft().customerId("cus_1").priceId("price_1").allocation("line_1", 100, "EUR");
 
 // @ts-expect-error a payment method setup cannot be created before the buyer's consent
-paymentMethods.createSetup("cus_1").currency("EUR").returnUrl("https://shop.test/r").create();
+paymentMethods.setupDraft("cus_1").currency("EUR").returnUrl("https://shop.test/r").create();
 
 const setupWithoutReturnUrl = paymentMethods
-  .createSetup("cus_1")
+  .setupDraft("cus_1")
   .currency("EUR")
   .consentAcceptedAt("2026-01-01T00:00:00Z");
 // @ts-expect-error a payment method setup cannot be created before its return url
 setupWithoutReturnUrl.create();
 
 const setupWithoutCurrency = paymentMethods
-  .createSetup("cus_1")
+  .setupDraft("cus_1")
   .returnUrl("https://shop.test/r")
   .consentAcceptedAt("2026-01-01T00:00:00Z");
 // @ts-expect-error a payment method setup cannot be created before its currency
@@ -124,7 +133,7 @@ setupWithoutCurrency.create();
 paymentMethods.list("cus_1").cursor("cur_2");
 
 // @ts-expect-error a webhook endpoint cannot be created before its url is set
-webhooks.createEndpoint().event("payment.succeeded").create();
+webhooks.endpointDraft().event("payment.succeeded").create();
 
 // @ts-expect-error a webhook endpoint cannot be updated before a field is set
 webhooks.endpoint("whe_1").update();
@@ -163,13 +172,13 @@ const sessionWithoutUrls = checkout
 sessionWithoutUrls.create();
 
 // @ts-expect-error a refund cannot be created before a payment is named
-refunds.create().amount(100).currency("EUR").create();
+refunds.draft().amount(100).currency("EUR").create();
 
 // @ts-expect-error a partial refund cannot be created without its currency
-refunds.create().paymentId("pay_1").amount(100).create();
+refunds.draft().paymentId("pay_1").amount(100).create();
 
 const subscriptionWithoutActivation = subscriptions
-  .create()
+  .draft()
   .customerId("cus_1")
   .name("Gold")
   .priceId("price_1");
@@ -177,7 +186,7 @@ const subscriptionWithoutActivation = subscriptions
 subscriptionWithoutActivation.create();
 
 // @ts-expect-error a trial cannot end before it is given a start
-subscriptions.create().trialEndsAt("2026-01-15T00:00:00Z");
+subscriptions.draft().trialEndsAt("2026-01-15T00:00:00Z");
 
 // @ts-expect-error a cancellation cannot be sent before its timing
 subscriptions.subscription("sub_1").cancellation().cancel();
@@ -213,43 +222,43 @@ const rescheduleWithoutVersion = priceMigrations
 rescheduleWithoutVersion.reschedule();
 
 export const accepted = [
-  catalogue.createProduct().name("Gold").create(),
+  catalogue.productDraft().name("Gold").create(),
   catalogue.updateProduct("prod_1").lookupKey(null).expectedUpdatedAt("x").update(),
   catalogue.archiveProduct("prod_1").expectedUpdatedAt("x").archive(),
   catalogue.reactivateProduct("prod_1").reactivate(),
-  catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").create(),
-  catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").replacing("p_1").replace(),
+  catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").create(),
+  catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").replacing("p_1").replace(),
   catalogue.archivePrice("price_1").archive(),
   catalogue.reactivatePrice("price_1").expectedUpdatedAt("x").reactivate(),
-  customers.create().email("buyer@example.test").create(),
+  customers.draft().email("buyer@example.test").create(),
   customers.customer("cus_1").name("Renamed").update(),
-  payments.create().customerId("cus_1").priceId("price_1").create(),
-  payments.create().customerId("cus_1").amount(1_000).currency("EUR").create(),
+  payments.draft().customerId("cus_1").priceId("price_1").create(),
+  payments.draft().customerId("cus_1").amount(1_000).currency("EUR").create(),
   payments
-    .create()
+    .draft()
     .customerId("cus_1")
     .priceId("price_1")
     .paymentMethodId("pm_1")
     .allocation("line_1", 100, "EUR")
     .create(),
   paymentMethods
-    .createSetup("cus_1")
+    .setupDraft("cus_1")
     .currency("EUR")
     .returnUrl("https://shop.test/r")
     .consentAcceptedAt("2026-01-01T00:00:00Z")
     .create(),
   paymentMethods.paymentMethod("cus_1", "pm_1").revoke(),
-  webhooks.createEndpoint().url("https://shop.test/hooks").create(),
+  webhooks.endpointDraft().url("https://shop.test/hooks").create(),
   webhooks.endpoint("whe_1").status("disabled").update(),
   checkout.coupon("WELCOME").unitAmount(1_000).currency("EUR").evaluate(),
   checkout.coupon("WELCOME").unitAmount(1_000).currency("EUR").reference("order_1").redeem(),
   checkout.taxRates().productId("prod_1").country("PT").state("LIS").get(),
   checkout.taxRate("txr_1").amount(1_000).productId("prod_1").calculate(),
   checkout.shippingRates().currency("EUR").destinationCountry("PT").product("prod_1").get(),
-  refunds.create().paymentId("pay_1").create(),
-  refunds.create().paymentId("pay_1").amount(100).currency("EUR").create(),
+  refunds.draft().paymentId("pay_1").create(),
+  refunds.draft().paymentId("pay_1").amount(100).currency("EUR").create(),
   subscriptions
-    .create()
+    .draft()
     .customerId("cus_1")
     .name("Gold")
     .priceId("price_1")

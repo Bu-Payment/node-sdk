@@ -35,19 +35,19 @@ export async function probe(): Promise<unknown> {
     void product.id;
   }
 
-  await client.payments.create().customerId("cus_1").priceId("price_1").create();
-  await client.payments.create().customerId("cus_1").amount(100).currency("EUR").create();
+  await client.payments.draft().customerId("cus_1").priceId("price_1").create();
+  await client.payments.draft().customerId("cus_1").amount(100).currency("EUR").create();
 
   // @ts-expect-error a payment cannot be created with no pricing source
-  await client.payments.create().customerId("cus_1").create();
+  await client.payments.draft().customerId("cus_1").create();
 
   // @ts-expect-error an ad hoc amount must not reach a payment priced canonically
-  client.payments.create().priceId("price_1").amount(100);
+  client.payments.draft().priceId("price_1").amount(100);
 
   // @ts-expect-error a customer cannot be created before an email is set
-  await client.customers.create().create();
+  await client.customers.draft().create();
 
-  const created: Refund = await client.refunds.create().paymentId("pay_1").create();
+  const created: Refund = await client.refunds.draft().paymentId("pay_1").create();
   void created.id;
   const owned: OwnedRefund = await client.refunds.refund("ref_1").get();
   void owned.customerId;
@@ -83,7 +83,7 @@ type Client = ReturnType<typeof createBuPaymentClient>;
 
 async function paymentMethodSetup(client: Client): Promise<void> {
   const setup: PaymentMethodSetup = await client.paymentMethods
-    .createSetup("cus_1")
+    .setupDraft("cus_1")
     .currency("EUR")
     .returnUrl("https://shop.test/r")
     .consentAcceptedAt("2026-09-24T10:00:00Z")
@@ -99,7 +99,7 @@ async function paymentMethodSetup(client: Client): Promise<void> {
   const method = (await client.paymentMethods.list("cus_1").get()).data[0];
   if (method !== undefined) {
     await client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId("price_1")
       .paymentMethodId(method.id)

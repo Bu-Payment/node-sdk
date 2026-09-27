@@ -14,10 +14,10 @@ const TERMINALS_ON_AN_EMPTY_SEGMENT: Record<string, (client: BuPaymentClient) =>
     "catalogue.updateProduct.update": (c) => c.catalogue.updateProduct("").name("Plan").update(),
     "catalogue.archiveProduct.archive": (c) => c.catalogue.archiveProduct("").archive(),
     "catalogue.reactivateProduct.reactivate": (c) => c.catalogue.reactivateProduct("").reactivate(),
-    "catalogue.createPrice.create": (c) =>
-      c.catalogue.createPrice("").unitAmount(1_000).currency("EUR").create(),
-    "catalogue.createPrice.replace": (c) =>
-      c.catalogue.createPrice("prod_1").unitAmount(1_000).currency("EUR").replacing("").replace(),
+    "catalogue.priceDraft.create": (c) =>
+      c.catalogue.priceDraft("").unitAmount(1_000).currency("EUR").create(),
+    "catalogue.priceDraft.replace": (c) =>
+      c.catalogue.priceDraft("prod_1").unitAmount(1_000).currency("EUR").replacing("").replace(),
     "catalogue.archivePrice.archive": (c) => c.catalogue.archivePrice("").archive(),
     "catalogue.reactivatePrice.reactivate": (c) => c.catalogue.reactivatePrice("").reactivate(),
     "customers.customer.get": (c) => c.customers.customer("").get(),
@@ -31,9 +31,9 @@ const TERMINALS_ON_AN_EMPTY_SEGMENT: Record<string, (client: BuPaymentClient) =>
     "paymentMethods.paymentMethod.get": (c) => c.paymentMethods.paymentMethod("cus_1", "").get(),
     "paymentMethods.paymentMethod.revoke": (c) =>
       c.paymentMethods.paymentMethod("cus_1", "").revoke(),
-    "paymentMethods.createSetup.create": (c) =>
+    "paymentMethods.setupDraft.create": (c) =>
       c.paymentMethods
-        .createSetup("")
+        .setupDraft("")
         .currency("EUR")
         .returnUrl("https://shop.test/r")
         .consentAcceptedAt("2026-01-01T00:00:00Z")

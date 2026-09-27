@@ -43,7 +43,7 @@ const setupSucceeded = {
 
 function readySetup(client: ReturnType<typeof harnessReturning>["client"]) {
   return client.paymentMethods
-    .createSetup("cus_1")
+    .setupDraft("cus_1")
     .currency("EUR")
     .returnUrl(returnUrl)
     .consentAcceptedAt(consentAcceptedAt);
@@ -88,7 +88,7 @@ describe("payment method setups", () => {
 
   it("offers create only once currency, return url and consent are set", () => {
     const { client } = harnessReturning();
-    const setup = client.paymentMethods.createSetup("cus_1");
+    const setup = client.paymentMethods.setupDraft("cus_1");
     const withoutConsent = setup.currency("EUR").returnUrl(returnUrl);
     const withoutReturnUrl = setup.currency("EUR").consentAcceptedAt(consentAcceptedAt);
     const withoutCurrency = setup.returnUrl(returnUrl).consentAcceptedAt(consentAcceptedAt);
@@ -162,7 +162,7 @@ describe("stored payment methods", () => {
     await client.paymentMethods.paymentMethod("cus/1", "pm?1").get();
     await client.paymentMethods.list("cus/1").get();
     await client.paymentMethods
-      .createSetup("cus/1")
+      .setupDraft("cus/1")
       .currency("EUR")
       .returnUrl(returnUrl)
       .consentAcceptedAt(consentAcceptedAt)
@@ -180,7 +180,7 @@ describe("stored payment methods", () => {
       code: ErrorCode.REQUEST_INVALID,
     });
     const emptyCustomerSetup = client.paymentMethods
-      .createSetup("")
+      .setupDraft("")
       .currency("EUR")
       .returnUrl(returnUrl)
       .consentAcceptedAt(consentAcceptedAt);
@@ -258,7 +258,7 @@ describe("payment allocations through the typed surface", () => {
       throw new Error("no active payment method was listed");
     }
     await client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId("price_1")
       .paymentMethodId(method.id)

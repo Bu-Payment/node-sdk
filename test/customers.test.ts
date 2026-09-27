@@ -24,7 +24,7 @@ describe("customers", () => {
 
   it("creates a customer with a generated key", async () => {
     const { client, calls } = harnessReturning({ id: "cus_1" });
-    await client.customers.create().email("buyer@example.test").name("Buyer").create();
+    await client.customers.draft().email("buyer@example.test").name("Buyer").create();
     expect(calls).toHaveLength(1);
     expect(callAt(calls, 0).method).toBe("POST");
     expect(pathOf(callAt(calls, 0))).toBe("/v1/customers");
@@ -34,7 +34,7 @@ describe("customers", () => {
 
   it("replays the key the caller pinned", async () => {
     const { client, calls } = harnessReturning({ id: "cus_1" });
-    await client.customers.create().email("buyer@example.test").idempotencyKey("order-1").create();
+    await client.customers.draft().email("buyer@example.test").idempotencyKey("order-1").create();
     expect(callAt(calls, 0).headers["Idempotency-Key"]).toBe("order-1");
   });
 

@@ -27,7 +27,7 @@ export interface PaymentMethodBuilder extends ScopeMethods<PaymentMethodBuilder>
 export interface PaymentMethodsClient {
   list(customerId: string): PaymentMethodListBuilder;
   paymentMethod(customerId: string, paymentMethodId: string): PaymentMethodBuilder;
-  createSetup(customerId: string): PaymentMethodSetupDraft<Record<never, never>>;
+  setupDraft(customerId: string): PaymentMethodSetupDraft<Record<never, never>>;
 }
 
 export function createPaymentMethodsClient(dispatch: Sender): PaymentMethodsClient {
@@ -36,7 +36,7 @@ export function createPaymentMethodsClient(dispatch: Sender): PaymentMethodsClie
     list: (customerId: string) => paymentMethodList(send, customerId, {}),
     paymentMethod: (customerId: string, paymentMethodId: string) =>
       singlePaymentMethod(send, customerId, paymentMethodId, {}),
-    createSetup: (customerId: string) =>
+    setupDraft: (customerId: string) =>
       paymentMethodSetupDraft(send, () => `${customerPaymentMethodsPath(customerId)}/setups`, {}),
   });
 }

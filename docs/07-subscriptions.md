@@ -7,7 +7,7 @@ bound to the App that owns the subscription.
 
 ```ts
 const detail = await client.subscriptions
-  .create()
+  .draft()
   .customerId("cus_1")
   .name("Gold")
   .priceId("price_1")

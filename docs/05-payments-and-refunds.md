@@ -8,9 +8,9 @@ App answers as not found.
 A payment is priced one of two ways, and the type makes the other unreachable:
 
 ```ts
-await client.payments.create().customerId("cus_1").priceId("price_1").create();
+await client.payments.draft().customerId("cus_1").priceId("price_1").create();
 
-await client.payments.create().customerId("cus_1").amount(5000).currency("EUR").create();
+await client.payments.draft().customerId("cus_1").amount(5000).currency("EUR").create();
 ```
 
 Once `priceId()` is called, `amount()` and `currency()` are gone from the builder; once an
@@ -24,7 +24,7 @@ A payment priced canonically can assert the price the customer was shown:
 
 ```ts
 await client.payments
-  .create()
+  .draft()
   .customerId("cus_1")
   .priceId("price_1")
   .expectedPrice({ unitAmount: 1500, currency: "EUR" })
@@ -48,7 +48,7 @@ own rule. The identifier comes from
 
 ```ts
 await client.payments
-  .create()
+  .draft()
   .customerId("cus_1")
   .priceId("price_1")
   .paymentMethodId("pm_1")
@@ -78,7 +78,7 @@ Both require `payments:read` and answer `{ data, nextCursor, hasMore }`.
 const refunds = await client.refunds.list().get();
 const refund = await client.refunds.refund("ref_1").get();
 
-await client.refunds.create().paymentId("pay_1").amount(2500).currency("EUR").create();
+await client.refunds.draft().paymentId("pay_1").amount(2500).currency("EUR").create();
 ```
 
 Reads require `payments:read`; creation requires `refunds:write`. `create()` disappears when

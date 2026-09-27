@@ -27,7 +27,7 @@ Requires `webhooks:manage`.
 
 ```ts
 const endpoint = await client.webhooks
-  .createEndpoint()
+  .endpointDraft()
   .url("https://shop.example/hooks")
   .event("payment.succeeded")
   .event("payment.failed")
@@ -48,7 +48,7 @@ paginates nor filters that list. `update()` does not exist until a field is set.
 
 ## Verifying deliveries
 
-Every delivery is signed with the endpoint `secret` returned by `createEndpoint()`. Verify
+Every delivery is signed with the endpoint `secret` returned by `endpointDraft()`. Verify
 it before acting on the body, and answer only once the work is done:
 
 ```ts

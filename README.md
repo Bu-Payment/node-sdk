@@ -42,7 +42,7 @@ configured builder is safe to hold and branch from.
 const products = await client.catalogue.products().active(true).limit(20).get();
 
 const payment = await client.payments
-  .create()
+  .draft()
   .customerId("cus_123")
   .priceId("price_123")
   .idempotencyKey(orderId)
@@ -76,7 +76,7 @@ archiving the old one. `replace()` does both in that order and reports each step
 
 ```ts
 const change = await client.catalogue
-  .createPrice(productId)
+  .priceDraft(productId)
   .unitAmount(1_200)
   .currency("EUR")
   .interval("month")
@@ -140,7 +140,7 @@ anything is created, so the customer is never charged an amount they did not see
 
 ```ts
 const draft = client.payments
-  .create()
+  .draft()
   .customerId(customerId)
   .priceId(priceId)
   .idempotencyKey(orderId);
@@ -164,8 +164,8 @@ key is bound to the price it asserted, and a different `expectedPrice` under it 
 `idempotency_conflict`.
 
 `expectedPrice()` takes any object with `unitAmount` and `currency`, including a `Price` read from
-the catalogue; only those two fields are sent. It exists on `payments.create()` once `priceId()`
-is set, on `subscriptions.create()`, on `checkout.subscriptionSession()` and on a subscription's
+the catalogue; only those two fields are sent. It exists on `payments.draft()` once `priceId()`
+is set, on `subscriptions.draft()`, on `checkout.subscriptionSession()` and on a subscription's
 `priceMigration()`, where it is compared with `targetPriceId`. Omitting it changes nothing.
 
 ## Webhook events
@@ -265,7 +265,7 @@ whenever a retry is possible, with a key derived from the operation rather than 
 
 ```ts
 const draft = client.payments
-  .create()
+  .draft()
   .customerId(customerId)
   .priceId(priceId)
   .idempotencyKey(`order-${orderId}`);

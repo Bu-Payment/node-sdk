@@ -74,17 +74,17 @@ price created here is assigned to the calling App at once.
 
 | Builder | Route | Terminal available once |
 | --- | --- | --- |
-| `createProduct()` | `POST /v1/products` | `name()` |
+| `productDraft()` | `POST /v1/products` | `name()` |
 | `updateProduct(id)` | `PATCH /v1/products/{id}` | `name()`, `description()` or `lookupKey()` |
 | `archiveProduct(id)` | `POST /v1/products/{id}/archive` | always |
 | `reactivateProduct(id)` | `POST /v1/products/{id}/reactivate` | always |
-| `createPrice(productId)` | `POST /v1/products/{productId}/prices` | `unitAmount()` and `currency()` |
+| `priceDraft(productId)` | `POST /v1/products/{productId}/prices` | `unitAmount()` and `currency()` |
 | `archivePrice(id)` | `POST /v1/prices/{id}/archive` | always |
 | `reactivatePrice(id)` | `POST /v1/prices/{id}/reactivate` | always |
 
 ```ts
 const product = await client.catalogue
-  .createProduct()
+  .productDraft()
   .name("Gold")
   .lookupKey("gold")
   .idempotencyKey(`import-${sku}`)
@@ -122,7 +122,7 @@ replacement, whose `replace()` creates the new price and then archives the old o
 
 ```ts
 const change = await client.catalogue
-  .createPrice(productId)
+  .priceDraft(productId)
   .unitAmount(1_200)
   .currency("EUR")
   .replacing(currentPriceId)

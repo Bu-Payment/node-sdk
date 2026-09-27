@@ -38,7 +38,7 @@ describe("expected price on the builders that resolve a canonical price", () => 
   it("asserts the displayed price on a canonically priced payment", async () => {
     const { client, calls } = harnessReturning({ id: "pay_1" });
     await client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId("price_1")
       .expectedPrice(displayed)
@@ -53,7 +53,7 @@ describe("expected price on the builders that resolve a canonical price", () => 
   it("asserts the displayed price on a subscription", async () => {
     const { client, calls } = harnessReturning({ id: "sub_1" });
     await client.subscriptions
-      .create()
+      .draft()
       .customerId("cus_1")
       .name("Gold")
       .priceId("price_1")
@@ -106,9 +106,9 @@ describe("expected price on the builders that resolve a canonical price", () => 
 
   it("sends no assertion when none is set", async () => {
     const { client, calls } = harnessReturning({}, {}, {}, {});
-    await client.payments.create().customerId("cus_1").priceId("price_1").create();
+    await client.payments.draft().customerId("cus_1").priceId("price_1").create();
     await client.subscriptions
-      .create()
+      .draft()
       .customerId("cus_1")
       .name("Gold")
       .priceId("price_1")
@@ -138,7 +138,7 @@ describe("expected price on the builders that resolve a canonical price", () => 
 
   it("offers the assertion at runtime only once a canonical price is set", () => {
     const { client } = harnessReturning();
-    const payment = client.payments.create().customerId("cus_1");
+    const payment = client.payments.draft().customerId("cus_1");
     expect("expectedPrice" in payment).toBe(false);
     expect("expectedPrice" in payment.amount(1_500).currency("EUR")).toBe(false);
     expect("expectedPrice" in payment.priceId("price_1")).toBe(true);
@@ -162,7 +162,7 @@ describe("expected price on the builders that resolve a canonical price", () => 
       updatedAt: "2026-01-01T00:00:00.000Z",
     };
     await client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId(price.id)
       .expectedPrice(price)
@@ -179,7 +179,7 @@ describe("expected price on the builders that resolve a canonical price", () => 
     const { client, calls } = harnessReturning({ id: "pay_1" });
     const shown = { unitAmount: 1_500, currency: "EUR" };
     const draft = client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId("price_1")
       .expectedPrice(shown);
@@ -196,7 +196,7 @@ describe("price_changed", () => {
     const { client } = harnessOf(() => json(priceChanged, 409));
     const conflict = await refusal(
       client.payments
-        .create()
+        .draft()
         .customerId("cus_1")
         .priceId("price_1")
         .expectedPrice(displayed)
@@ -213,7 +213,7 @@ describe("price_changed", () => {
     const { client } = harnessOf(() => json(priceChanged, 409));
     const error = await refusal(
       client.subscriptions
-        .create()
+        .draft()
         .customerId("cus_1")
         .name("Gold")
         .priceId("price_1")
@@ -235,7 +235,7 @@ describe("price_changed", () => {
       json({ ...priceChanged, price: { ...current, productId: "prod_1" } }, 409),
     );
     const error = await refusal(
-      client.payments.create().customerId("cus_1").priceId("price_1").create(),
+      client.payments.draft().customerId("cus_1").priceId("price_1").create(),
     );
     expect(error.price).toEqual(current);
   });
@@ -251,7 +251,7 @@ describe("price_changed", () => {
   ])("keeps the code but no price when the body carries %s", async (_label, body) => {
     const { client } = harnessOf(() => json(body, 409));
     const error = await refusal(
-      client.payments.create().customerId("cus_1").priceId("price_1").create(),
+      client.payments.draft().customerId("cus_1").priceId("price_1").create(),
     );
     expect(error.code).toBe(ErrorCode.PRICE_CHANGED);
     expect(error.price).toBeUndefined();
@@ -262,7 +262,7 @@ describe("price_changed", () => {
       json({ error: "idempotency_conflict", message: "conflict", price: current }, 409),
     );
     const error = await refusal(
-      client.payments.create().customerId("cus_1").priceId("price_1").create(),
+      client.payments.draft().customerId("cus_1").priceId("price_1").create(),
     );
     expect(error.code).toBe(ErrorCode.IDEMPOTENCY_CONFLICT);
     expect(error.price).toBeUndefined();
@@ -273,7 +273,7 @@ describe("price_changed", () => {
       index === 0 ? json(priceChanged, 409) : json({ id: "pay_1" }),
     );
     const draft = client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId("price_1")
       .idempotencyKey("order-1");

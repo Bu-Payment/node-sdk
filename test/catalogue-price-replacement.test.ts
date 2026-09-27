@@ -12,7 +12,7 @@ describe("price replacement", () => {
   const replacement = { id: "price_2", unitAmount: 1_200 } as Price;
   const archived = { id: "price_1", active: false, updatedAt: productUpdatedAt } as Price;
   const change = (client: ReturnType<typeof harnessReturning>["client"]) =>
-    client.catalogue.createPrice("prod_1").unitAmount(1_200).currency("EUR").replacing("price_1");
+    client.catalogue.priceDraft("prod_1").unitAmount(1_200).currency("EUR").replacing("price_1");
 
   it("creates the replacement before archiving the previous price", async () => {
     const { client, calls } = harnessReturning(replacement, archived);
@@ -113,7 +113,7 @@ describe("price replacement", () => {
   it("refuses an empty previous price before creating anything", async () => {
     const { client, calls } = harnessReturning(replacement);
     await expect(
-      client.catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").replacing("").replace(),
+      client.catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").replacing("").replace(),
     ).rejects.toMatchObject({ code: ErrorCode.REQUEST_INVALID });
     expect(calls).toHaveLength(0);
   });

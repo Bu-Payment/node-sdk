@@ -33,7 +33,7 @@ describe("webhooks", () => {
   it("creates an endpoint with the accumulated event types", async () => {
     const { client, calls } = harnessReturning({ id: "whe_1", secret: "whsec_abc" });
     const endpoint = await client.webhooks
-      .createEndpoint()
+      .endpointDraft()
       .url("https://shop.test/hooks")
       .event("payment.succeeded")
       .event("payment.failed")

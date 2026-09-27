@@ -9,7 +9,7 @@ Requires `customers:read` to read and `customers:write` to mutate.
 
 ```ts
 const customer = await client.customers
-  .create()
+  .draft()
   .email("buyer@example.com")
   .name("Buyer")
   .idempotencyKey(`signup-${signupId}`)
