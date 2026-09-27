@@ -78,6 +78,7 @@ price created here is assigned to the calling App at once.
 | `updateProduct(id)` | `PATCH /v1/products/{id}` | `name()`, `description()` or `lookupKey()` |
 | `archiveProduct(id)` | `POST /v1/products/{id}/archive` | always |
 | `reactivateProduct(id)` | `POST /v1/products/{id}/reactivate` | always |
+| `setDefaultPrice(id)` | `PUT /v1/products/{id}/default-price` | `priceId()` |
 | `priceDraft(productId)` | `POST /v1/products/{productId}/prices` | `unitAmount()` and `currency()` |
 | `archivePrice(id)` | `POST /v1/prices/{id}/archive` | always |
 | `reactivatePrice(id)` | `POST /v1/prices/{id}/reactivate` | always |
@@ -105,8 +106,9 @@ once `lookupKey()` is set and moves the key from another of the App's prices.
 
 ### Conditional writes
 
-`expectedUpdatedAt()` exists on `updateProduct`, the four archive and reactivate builders
-and on a price replacement, the routes that accept it. It takes the `updatedAt` last
+`expectedUpdatedAt()` exists on `updateProduct`, `setDefaultPrice` once `priceId()` is set,
+the four archive and reactivate builders and on a price replacement, the routes that accept
+it. It takes the `updatedAt` last
 observed. When the resource has changed since, the write fails with `stale_resource` and
 `error.resource` holds the current product or price, so the change can be reapplied without
 another read. Without it the write overwrites unconditionally.
@@ -114,6 +116,26 @@ another read. Without it the write overwrites unconditionally.
 A product `lookupKey` is unique per environment. A key held by another product fails with
 `lookup_key_conflict`; `error.resource` holds the holder only when it is assigned to your
 App, and is `undefined` otherwise.
+
+### Choosing the default price
+
+The first price created on a product becomes its default. `setDefaultPrice(productId)`
+points the default at another price and answers the product with its new `defaultPriceId`:
+
+```ts
+const product = await client.catalogue
+  .setDefaultPrice(productId)
+  .priceId(priceId)
+  .expectedUpdatedAt(seenProduct.updatedAt)
+  .update();
+```
+
+`expectedUpdatedAt()` takes the product's `updatedAt`, and a `stale_resource` carries the
+product in `error.resource`. The price must be active, belong to the product and be assigned
+to your App: an unassigned price fails with `resource_not_found`, a price of another product
+with `price_product_mismatch`, and an archived price or product with `invalid_state`. On a
+product shared with other Apps, only the App whose price is the current default can move it;
+any other fails with `default_price_not_owned`. Choosing the current default changes nothing.
 
 ### Changing a price
 
@@ -148,8 +170,9 @@ A replacement that transfers the previous price's lookup key changes that price,
 archive with an `expectedUpdatedAt` observed before the transfer is always stale.
 
 The API refuses to archive a product's default price, and the first price created on a
-product becomes its default. Machine credentials cannot change the default price yet, so
-replacing it ends in `archive_failed` with `default_price_in_use`.
+product becomes its default. `replace()` does not move it yet,
+so replacing it ends in `archive_failed` with `default_price_in_use`; move the default with
+`setDefaultPrice()` first.
 
 ### Idempotency
 

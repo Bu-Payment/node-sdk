@@ -62,6 +62,12 @@ replacingPrice.replacing("price_1").create();
 // @ts-expect-error a price with nothing to replace has no replace step
 replacingPrice.replace();
 
+// @ts-expect-error a default price cannot be set before the price is chosen
+catalogue.setDefaultPrice("prod_1").update();
+
+// @ts-expect-error an observed product version is asserted only on a chosen price
+catalogue.setDefaultPrice("prod_1").expectedUpdatedAt("2026-01-01T00:00:00Z");
+
 // @ts-expect-error archiving a product does not reactivate it
 catalogue.archiveProduct("prod_1").reactivate();
 

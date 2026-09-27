@@ -20,6 +20,11 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.catalogue.archiveProduct("prod_1"),
     client.catalogue.archiveProduct("prod_1").expectedUpdatedAt("2026-01-01T00:00:00Z"),
     client.catalogue.reactivateProduct("prod_1"),
+    client.catalogue.setDefaultPrice("prod_1"),
+    client.catalogue
+      .setDefaultPrice("prod_1")
+      .priceId("price_1")
+      .expectedUpdatedAt("2026-01-01T00:00:00Z"),
     client.catalogue.priceDraft("prod_1"),
     client.catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").interval("month"),
     client.catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").replacing("price_1"),
