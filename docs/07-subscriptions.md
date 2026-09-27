@@ -7,7 +7,7 @@ bound to the App that owns the subscription.
 
 ```ts
 const detail = await client.subscriptions
-  .create()
+  .draft()
   .customerId("cus_1")
   .name("Gold")
   .priceId("price_1")
@@ -23,6 +23,10 @@ Activation is a set of named methods rather than a union the caller assembles: `
 `activeFrom(startsAt)`, or `trialingFrom(startsAt)` followed by `trialEndsAt(endsAt)`, which
 only appears once a trial start is set. One of them must complete before `create()` exists.
 Reads answer `{ subscription, capabilities }`.
+
+`expectedPrice({ unitAmount, currency })` asserts the price the customer was shown. When the
+price has changed, the subscription is refused with `price_changed` and `error.price` holds
+the current one; see [Errors](10-errors.md#a-price-that-changed).
 
 ## Lifecycle
 
@@ -80,6 +84,9 @@ await client.priceMigrations.migration(migration.id).approve();
 Timing is `immediately()`, `atNextRenewal()` or `scheduledAt(effectiveAt)`. The created
 migration is a preview: it carries the immediate adjustment, the next renewal, warnings and
 provider limitations, and expires. Approve, cancel, retry and settle drive it from there.
+`expectedPrice({ unitAmount, currency })` asserts the target price the customer was shown,
+and the migration is refused with `price_changed` when it differs, with the current price in
+`error.price`; see [Errors](10-errors.md#a-price-that-changed).
 
 ```ts
 const migrations = await client.priceMigrations.list().status("scheduled").get();

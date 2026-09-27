@@ -65,7 +65,7 @@ export interface SubscriptionBuilder extends ScopeMethods<SubscriptionBuilder> {
 export interface SubscriptionsClient {
   list(): SubscriptionListBuilder;
   subscription(subscriptionId: string): SubscriptionBuilder;
-  create(): SubscriptionDraft<Record<never, never>>;
+  draft(): SubscriptionDraft<Record<never, never>>;
 }
 
 export function createSubscriptionsClient(dispatch: Sender): SubscriptionsClient {
@@ -73,7 +73,7 @@ export function createSubscriptionsClient(dispatch: Sender): SubscriptionsClient
   return Object.freeze({
     list: () => subscriptionList(send, {}),
     subscription: (subscriptionId: string) => subscriptionBuilder(send, subscriptionId, {}),
-    create: () => subscriptionDraft(send, {}),
+    draft: () => subscriptionDraft(send, {}),
   });
 }
 

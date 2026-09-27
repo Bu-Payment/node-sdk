@@ -26,7 +26,7 @@ export interface PaymentBuilder extends ScopeMethods<PaymentBuilder> {
 export interface PaymentsClient {
   list(): PaymentListBuilder;
   payment(paymentId: string): PaymentBuilder;
-  create(): PaymentDraft<Record<never, never>>;
+  draft(): PaymentDraft<Record<never, never>>;
 }
 
 export function createPaymentsClient(dispatch: Sender): PaymentsClient {
@@ -34,7 +34,7 @@ export function createPaymentsClient(dispatch: Sender): PaymentsClient {
   return Object.freeze({
     list: () => paymentList(send, {}),
     payment: (paymentId: string) => singlePayment(send, paymentId, {}),
-    create: () => paymentDraft(send, {}),
+    draft: () => paymentDraft(send, {}),
   });
 }
 

@@ -36,6 +36,12 @@ for await (const product of client.catalogue.products().active(true).all()) {
 }
 ```
 
+Every product read or written through the product routes carries `defaultPriceId`: the price the product defaults to,
+or `null` when it has none or that price is not assigned to your App. Product events carry
+the same field, so a sweep and an event agree on it. When the price a link points to is
+archived, repoint the link to `defaultPriceId`. The product a cross-sell suggests carries no
+default price and is typed as `SuggestedProduct`.
+
 ## Prices
 
 ```ts
@@ -68,17 +74,17 @@ price created here is assigned to the calling App at once.
 
 | Builder | Route | Terminal available once |
 | --- | --- | --- |
-| `createProduct()` | `POST /v1/products` | `name()` |
+| `productDraft()` | `POST /v1/products` | `name()` |
 | `updateProduct(id)` | `PATCH /v1/products/{id}` | `name()`, `description()` or `lookupKey()` |
 | `archiveProduct(id)` | `POST /v1/products/{id}/archive` | always |
 | `reactivateProduct(id)` | `POST /v1/products/{id}/reactivate` | always |
-| `createPrice(productId)` | `POST /v1/products/{productId}/prices` | `unitAmount()` and `currency()` |
+| `priceDraft(productId)` | `POST /v1/products/{productId}/prices` | `unitAmount()` and `currency()` |
 | `archivePrice(id)` | `POST /v1/prices/{id}/archive` | always |
 | `reactivatePrice(id)` | `POST /v1/prices/{id}/reactivate` | always |
 
 ```ts
 const product = await client.catalogue
-  .createProduct()
+  .productDraft()
   .name("Gold")
   .lookupKey("gold")
   .idempotencyKey(`import-${sku}`)
@@ -116,7 +122,7 @@ replacement, whose `replace()` creates the new price and then archives the old o
 
 ```ts
 const change = await client.catalogue
-  .createPrice(productId)
+  .priceDraft(productId)
   .unitAmount(1_200)
   .currency("EUR")
   .replacing(currentPriceId)

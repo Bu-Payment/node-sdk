@@ -39,14 +39,14 @@ describe("configuration methods", () => {
 
   it("carries the optional refund reason", async () => {
     const { client, calls } = harnessReturning({ id: "ref_1" });
-    await client.refunds.create().paymentId("pay_1").reason("duplicate charge").create();
+    await client.refunds.draft().paymentId("pay_1").reason("duplicate charge").create();
     expect(callAt(calls, 0).body).toEqual({ paymentId: "pay_1", reason: "duplicate charge" });
   });
 
   it("carries the optional payment reference and description", async () => {
     const { client, calls } = harnessReturning({ id: "pay_1" });
     await client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId("price_1")
       .reference("order_1")
@@ -197,7 +197,7 @@ describe("terminals", () => {
   it("creates a subscription whose activation is pending", async () => {
     const { client, calls } = harnessReturning({});
     await client.subscriptions
-      .create()
+      .draft()
       .customerId("cus_1")
       .name("Gold")
       .priceId("price_1")
@@ -209,7 +209,7 @@ describe("terminals", () => {
   it("creates an endpoint carrying its description", async () => {
     const { client, calls } = harnessReturning({});
     await client.webhooks
-      .createEndpoint()
+      .endpointDraft()
       .url("https://shop.test/hooks")
       .description("order hooks")
       .create();

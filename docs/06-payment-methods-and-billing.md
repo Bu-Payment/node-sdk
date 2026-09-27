@@ -10,7 +10,7 @@ It requires `payments:write` and the moment the buyer gave their consent:
 
 ```ts
 const setup = await client.paymentMethods
-  .createSetup("cus_1")
+  .setupDraft("cus_1")
   .currency("EUR")
   .returnUrl("https://shop.example/payment-methods/return")
   .consentAcceptedAt("2026-09-24T10:00:00+01:00")
@@ -105,7 +105,7 @@ if (method === undefined) {
 }
 
 await client.payments
-  .create()
+  .draft()
   .customerId("cus_1")
   .priceId("price_1")
   .paymentMethodId(method.id)

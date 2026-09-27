@@ -1,3 +1,5 @@
+import { expectedPriceField, pinExpectedPrice } from "../catalogue/expected-price";
+import type { ExpectedPrice } from "../catalogue/types";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { SubscriptionDetail } from "./types";
@@ -12,6 +14,7 @@ export interface DraftState extends RequestScope {
   customerId?: string;
   name?: string;
   priceId?: string;
+  expectedPrice?: ExpectedPrice;
   quantity?: number;
   activation?: Activation;
   idempotencyKey?: string;
@@ -21,6 +24,7 @@ interface DraftMethods<TState extends DraftState> extends ScopeMethods<Subscript
   customerId(customerId: string): SubscriptionDraft<TState & { customerId: string }>;
   name(name: string): SubscriptionDraft<TState & { name: string }>;
   priceId(priceId: string): SubscriptionDraft<TState & { priceId: string }>;
+  expectedPrice(expected: ExpectedPrice): SubscriptionDraft<TState>;
   quantity(quantity: number): SubscriptionDraft<TState>;
   pending(): SubscriptionDraft<TState & { activation: Activation }>;
   activeFrom(startsAt: string): SubscriptionDraft<TState & { activation: Activation }>;
@@ -57,6 +61,7 @@ export function subscriptionDraft<TState extends DraftState>(
     customerId: (customerId: string) => next({ customerId }),
     name: (name: string) => next({ name }),
     priceId: (priceId: string) => next({ priceId }),
+    expectedPrice: (expected: ExpectedPrice) => next({ expectedPrice: pinExpectedPrice(expected) }),
     quantity: (quantity: number) => next({ quantity }),
     pending: () => next({ activation: { state: "pending" } }),
     activeFrom: (startsAt: string) => next({ activation: { state: "active", startsAt } }),
@@ -75,6 +80,7 @@ export function subscriptionDraft<TState extends DraftState>(
           customerId: state.customerId,
           name: state.name,
           priceId: state.priceId,
+          ...expectedPriceField(state.expectedPrice),
           ...(state.quantity === undefined ? {} : { quantity: state.quantity }),
           activation: state.activation,
         }),

@@ -172,17 +172,17 @@ function commerceAssertion(vector) {
 assert.ok(Object.isFrozen(commerceClient), "client must be frozen");
 for (const [domain, entry] of [
   ["catalogue", "products"],
-  ["customers", "create"],
+  ["customers", "draft"],
   ["checkout", "subscriptionSession"],
-  ["payments", "create"],
-  ["paymentMethods", "createSetup"],
+  ["payments", "draft"],
+  ["paymentMethods", "setupDraft"],
   ["billing", "capabilities"],
   ["invoices", "list"],
-  ["refunds", "create"],
-  ["subscriptions", "create"],
+  ["refunds", "draft"],
+  ["subscriptions", "draft"],
   ["priceMigrations", "list"],
   ["events", "list"],
-  ["webhooks", "createEndpoint"],
+  ["webhooks", "endpointDraft"],
 ]) {
   assert.ok(commerceClient[domain], domain);
   assert.equal(typeof commerceClient[domain][entry], "function", domain + "." + entry);
@@ -193,15 +193,15 @@ assert.ok(Object.isFrozen(productsBuilder), "builder must be frozen");
 assert.notEqual(productsBuilder.limit(10), productsBuilder, "builder must be immutable");
 assert.equal(typeof productsBuilder.get, "function");
 
-const incompletePayment = commerceClient.payments.create().customerId("cus_1");
+const incompletePayment = commerceClient.payments.draft().customerId("cus_1");
 assert.equal(incompletePayment.create, undefined, "terminal must be absent until priced");
 assert.equal(
-  commerceClient.payments.create().priceId("price_1").amount,
+  commerceClient.payments.draft().priceId("price_1").amount,
   undefined,
   "an ad hoc amount must be absent once priced canonically",
 );
 assert.equal(
-  commerceClient.paymentMethods.createSetup("cus_1").currency("EUR").returnUrl("https://shop.test/r")
+  commerceClient.paymentMethods.setupDraft("cus_1").currency("EUR").returnUrl("https://shop.test/r")
     .create,
   undefined,
   "a payment method setup must be absent until the consent is set",

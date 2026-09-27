@@ -12,6 +12,7 @@ const product: Product = {
   active: true,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-02T00:00:00.000Z",
+  defaultPriceId: "price_1",
 };
 
 const UUID = /^[0-9a-f-]{36}$/u;
@@ -20,7 +21,7 @@ describe("catalogue writes", () => {
   it("creates a product with a generated idempotency key", async () => {
     const { client, calls } = harnessReturning(product);
     const created = await client.catalogue
-      .createProduct()
+      .productDraft()
       .name("Gold")
       .description("Gold plan")
       .lookupKey("gold")
@@ -40,7 +41,7 @@ describe("catalogue writes", () => {
     const { client, calls } = harnessOf((_call, index) =>
       index === 0 ? json({ error: "operation_failed" }, 503) : json(product),
     );
-    const draft = client.catalogue.createProduct().name("Gold");
+    const draft = client.catalogue.productDraft().name("Gold");
     await expect(draft.create()).rejects.toBeInstanceOf(BuPaymentError);
     await draft.create();
     const keys = calls.map((call) => call.headers[Header.IDEMPOTENCY_KEY]);
@@ -50,7 +51,7 @@ describe("catalogue writes", () => {
 
   it("gives a branched builder its own generated key", async () => {
     const { client, calls } = harnessReturning(product, product);
-    const draft = client.catalogue.createProduct().name("Gold");
+    const draft = client.catalogue.productDraft().name("Gold");
     await draft.create();
     await draft.lookupKey("gold").create();
     expect(callAt(calls, 1).headers[Header.IDEMPOTENCY_KEY]).not.toBe(
@@ -60,7 +61,7 @@ describe("catalogue writes", () => {
 
   it("sends the caller's key unchanged", async () => {
     const { client, calls } = harnessReturning(product);
-    await client.catalogue.createProduct().name("Gold").idempotencyKey("import-gold").create();
+    await client.catalogue.productDraft().name("Gold").idempotencyKey("import-gold").create();
     expect(callAt(calls, 0).headers[Header.IDEMPOTENCY_KEY]).toBe("import-gold");
   });
 
@@ -102,7 +103,7 @@ describe("catalogue writes", () => {
     const { client, calls } = harnessOf((_call, index) =>
       index === 0 ? json({ error: "operation_failed" }, 503) : json({}),
     );
-    const base = client.catalogue.createPrice("prod_1").unitAmount(1_000).currency("EUR");
+    const base = client.catalogue.priceDraft("prod_1").unitAmount(1_000).currency("EUR");
     await expect(base.create()).rejects.toBeInstanceOf(BuPaymentError);
     await base.create();
     await base.interval("month").create();
@@ -113,7 +114,7 @@ describe("catalogue writes", () => {
 
   it("keeps the generated key when only the signal or timeout changes", async () => {
     const { client, calls } = harnessReturning({}, {}, {}, {}, {}, {});
-    const draft = client.catalogue.createProduct().name("Gold");
+    const draft = client.catalogue.productDraft().name("Gold");
     const update = client.catalogue.updateProduct("prod_1").name("Gold");
     const archive = client.catalogue.archivePrice("price_1");
     await draft.create();
@@ -128,9 +129,9 @@ describe("catalogue writes", () => {
 
   it("offers no terminal at runtime until the required input is set", () => {
     const { client } = harnessReturning();
-    const price = client.catalogue.createPrice("prod_1") as Record<string, unknown>;
-    const priced = client.catalogue.createPrice("prod_1").unitAmount(1).currency("EUR");
-    expect("create" in client.catalogue.createProduct()).toBe(false);
+    const price = client.catalogue.priceDraft("prod_1") as Record<string, unknown>;
+    const priced = client.catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR");
+    expect("create" in client.catalogue.productDraft()).toBe(false);
     expect("update" in client.catalogue.updateProduct("prod_1").expectedUpdatedAt("x")).toBe(false);
     expect(
       ["create", "replace", "intervalCount", "transferLookupKey"].some((m) => m in price),
@@ -176,7 +177,7 @@ describe("catalogue writes", () => {
   it("creates a recurring price that takes over a lookup key", async () => {
     const { client, calls } = harnessReturning({});
     await client.catalogue
-      .createPrice("prod_1")
+      .priceDraft("prod_1")
       .unitAmount(1_000)
       .currency("EUR")
       .description("Monthly")
@@ -242,7 +243,7 @@ describe("catalogue write scope", () => {
 
   it("sends builder bodies carrying only the contract's fields", async () => {
     const { client, calls } = harnessReturning({}, {}, {});
-    await client.catalogue.createProduct().name("environment").lookupKey("tenant").create();
+    await client.catalogue.productDraft().name("environment").lookupKey("tenant").create();
     await client.catalogue
       .updateProduct("prod_1")
       .name("provider")
@@ -251,7 +252,7 @@ describe("catalogue write scope", () => {
       .expectedUpdatedAt(product.updatedAt)
       .update();
     await client.catalogue
-      .createPrice("prod_1")
+      .priceDraft("prod_1")
       .unitAmount(1)
       .currency("EUR")
       .interval("month")

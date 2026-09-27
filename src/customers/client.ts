@@ -61,7 +61,7 @@ export type CustomerBuilder<TState extends DraftState = DraftState> = CustomerMe
 export interface CustomersClient {
   list(): CustomerListBuilder;
   customer(customerId: string): CustomerBuilder<Record<never, never>>;
-  create(): CustomerDraft<Record<never, never>>;
+  draft(): CustomerDraft<Record<never, never>>;
 }
 
 export function createCustomersClient(dispatch: Sender): CustomersClient {
@@ -69,7 +69,7 @@ export function createCustomersClient(dispatch: Sender): CustomersClient {
   return Object.freeze({
     list: () => customerList(send, {}),
     customer: (customerId: string) => customerBuilder(send, customerId, {}),
-    create: () => customerDraft(send, {}),
+    draft: () => customerDraft(send, {}),
   });
 }
 

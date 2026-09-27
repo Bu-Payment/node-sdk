@@ -8,7 +8,10 @@ export interface Product {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  defaultPriceId: string | null;
 }
+
+export type SuggestedProduct = Omit<Product, "defaultPriceId">;
 
 export type PriceInterval = "day" | "week" | "month" | "year";
 
@@ -39,7 +42,7 @@ export interface ProductCrossSell {
   active: boolean;
   createdAt: string;
   updatedAt: string;
-  suggestedProduct: Product;
+  suggestedProduct: SuggestedProduct;
 }
 
 export type EntitlementValueType = "boolean" | "integer" | "string";
@@ -63,6 +66,19 @@ export interface ProductEntitlement {
 export interface ProductEntitlementResolution {
   productId: string;
   entitlements: ProductEntitlement[];
+}
+
+export interface ExpectedPrice {
+  unitAmount: number;
+  currency: string;
+}
+
+export interface CurrentPrice {
+  id: string;
+  unitAmount: number;
+  currency: string;
+  active: boolean;
+  updatedAt: string;
 }
 
 export type ProductConflict = BuPaymentError<Product>;

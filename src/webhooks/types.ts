@@ -89,9 +89,7 @@ export type CataloguePriceEventType =
 
 export type CatalogueEventType = CatalogueProductEventType | CataloguePriceEventType;
 
-export interface CatalogueEventProduct extends Product {
-  defaultPriceId: string | null;
-}
+export type CatalogueEventProduct = Product;
 
 export interface CatalogueEventData<TResourceType extends string, TResource> {
   resourceType: TResourceType;

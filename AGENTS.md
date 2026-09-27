@@ -37,8 +37,9 @@ the BuPayment browser SDK.
   resource noun: `customers.list()` and `customers.customer(id)`. A domain
   holding several names each in the plural and each record in the singular:
   `catalogue.products()` and `catalogue.product(id)`. The creation entry is
-  `create()` where the domain creates one thing and names the thing where it
-  creates several: `webhooks.createEndpoint()`.
+  a draft, never a verb, so the terminal alone says `create()`: `draft()` where
+  the domain creates one thing, and the thing's name followed by `Draft` where
+  it creates several: `payments.draft()` and `webhooks.endpointDraft()`.
 - A paginated list carries both terminals: `get()` for one page and `all()` for
   an async iterator that captures the query once and only advances the cursor.
 
@@ -46,7 +47,7 @@ Canonical public style:
 
 ```ts
 const payment = await client.payments
-  .create()
+  .draft()
   .customerId("cus_1")
   .priceId("price_1")
   .idempotencyKey(orderId)

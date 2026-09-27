@@ -7,7 +7,7 @@ describe("subscriptions", () => {
   it("creates a subscription against a canonical price", async () => {
     const { client, calls } = harnessReturning(detail);
     await client.subscriptions
-      .create()
+      .draft()
       .customerId("cus_1")
       .name("Gold")
       .priceId("price_1")
@@ -29,7 +29,7 @@ describe("subscriptions", () => {
   it("carries a trial activation with both of its dates", async () => {
     const { client, calls } = harnessReturning(detail);
     await client.subscriptions
-      .create()
+      .draft()
       .customerId("cus_1")
       .name("Gold")
       .priceId("price_1")

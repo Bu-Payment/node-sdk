@@ -82,6 +82,10 @@ The session answers an `id` and a `url` to redirect the buyer to. The price must
 assigned to the App and the customer must belong to it. `trialDays()` and `customerName()`
 are optional; the other six are required and `create()` is absent until all six are set.
 
+`expectedPrice({ unitAmount, currency })` asserts the price the buyer was shown. When the
+price has changed, the session is refused with `price_changed` and `error.price` holds the
+current one; see [Errors](10-errors.md#a-price-that-changed).
+
 ---
 
 Previous: [Customers](03-customers.md) · Next: [Payments and refunds](05-payments-and-refunds.md)

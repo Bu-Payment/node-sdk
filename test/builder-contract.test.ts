@@ -13,21 +13,21 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.catalogue.crossSells("prod_1"),
     client.catalogue.entitlements("prod_1"),
     client.catalogue.products().lookupKey("gold"),
-    client.catalogue.createProduct(),
-    client.catalogue.createProduct().name("Gold"),
+    client.catalogue.productDraft(),
+    client.catalogue.productDraft().name("Gold"),
     client.catalogue.updateProduct("prod_1"),
     client.catalogue.updateProduct("prod_1").name("Gold").expectedUpdatedAt("2026-01-01T00:00:00Z"),
     client.catalogue.archiveProduct("prod_1"),
     client.catalogue.archiveProduct("prod_1").expectedUpdatedAt("2026-01-01T00:00:00Z"),
     client.catalogue.reactivateProduct("prod_1"),
-    client.catalogue.createPrice("prod_1"),
-    client.catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").interval("month"),
-    client.catalogue.createPrice("prod_1").unitAmount(1).currency("EUR").replacing("price_1"),
+    client.catalogue.priceDraft("prod_1"),
+    client.catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").interval("month"),
+    client.catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").replacing("price_1"),
     client.catalogue.archivePrice("price_1"),
     client.catalogue.reactivatePrice("price_1").idempotencyKey("k-1"),
     client.customers.list(),
-    client.customers.create(),
-    client.customers.create().email("buyer@example.test"),
+    client.customers.draft(),
+    client.customers.draft().email("buyer@example.test"),
     client.customers.customer("cus_1"),
     client.checkout.coupon("WELCOME"),
     client.checkout.coupon("WELCOME").unitAmount(1).currency("EUR"),
@@ -36,12 +36,18 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.checkout.shippingRates(),
     client.checkout.shippingRates().currency("EUR").destinationCountry("PT").product("prod_1"),
     client.checkout.subscriptionSession(),
-    client.payments.create(),
-    client.payments.create().customerId("cus_1").priceId("price_1"),
+    client.checkout.subscriptionSession().expectedPrice({ unitAmount: 1, currency: "EUR" }),
+    client.payments.draft(),
+    client.payments.draft().customerId("cus_1").priceId("price_1"),
+    client.payments
+      .draft()
+      .customerId("cus_1")
+      .priceId("price_1")
+      .expectedPrice({ unitAmount: 1, currency: "EUR" }),
     client.payments.list(),
     client.payments.payment("pay_1"),
-    client.paymentMethods.createSetup("cus_1"),
-    client.paymentMethods.createSetup("cus_1").currency("EUR").returnUrl("https://shop.test/r"),
+    client.paymentMethods.setupDraft("cus_1"),
+    client.paymentMethods.setupDraft("cus_1").currency("EUR").returnUrl("https://shop.test/r"),
     client.paymentMethods.list("cus_1"),
     client.paymentMethods.paymentMethod("cus_1", "pm_1"),
     client.billing.capabilities(),
@@ -49,9 +55,10 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.invoices.invoice("inv_1"),
     client.refunds.list(),
     client.refunds.refund("ref_1"),
-    client.refunds.create(),
+    client.refunds.draft(),
     client.subscriptions.list(),
-    client.subscriptions.create(),
+    client.subscriptions.draft(),
+    client.subscriptions.draft().expectedPrice({ unitAmount: 1, currency: "EUR" }),
     subscription,
     subscription.cancellation(),
     subscription.cancellation().timing("immediate"),
@@ -62,6 +69,7 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     subscription.resumePaymentCollection(),
     subscription.scheduledChange(),
     subscription.priceMigration(),
+    subscription.priceMigration().expectedPrice({ unitAmount: 1, currency: "EUR" }),
     client.priceMigrations.list(),
     migration,
     migration.notificationPlan(),
@@ -69,7 +77,7 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.events.list(),
     client.events.event("evt_1"),
     client.webhooks.endpoints(),
-    client.webhooks.createEndpoint(),
+    client.webhooks.endpointDraft(),
     client.webhooks.endpoint("whe_1"),
     client.webhooks.deliveries(),
     client.webhooks.delivery("whd_1"),
@@ -85,6 +93,24 @@ describe("builder contract", () => {
     }
   });
 
+  it("opens every creation as a draft, leaving create to the terminal", () => {
+    const { client } = harnessReturning();
+    const entries: Array<[object, string, string]> = [
+      [client.payments, "create", "draft"],
+      [client.customers, "create", "draft"],
+      [client.subscriptions, "create", "draft"],
+      [client.refunds, "create", "draft"],
+      [client.catalogue, "createProduct", "productDraft"],
+      [client.catalogue, "createPrice", "priceDraft"],
+      [client.webhooks, "createEndpoint", "endpointDraft"],
+      [client.paymentMethods, "createSetup", "setupDraft"],
+    ];
+    for (const [domain, removed, entry] of entries) {
+      expect(removed in domain).toBe(false);
+      expect(typeof (domain as Record<string, unknown>)[entry]).toBe("function");
+    }
+  });
+
   it("issues no request while any of those builders is merely configured", () => {
     const { client, calls } = harnessReturning();
     everyBuilder(client);
@@ -93,7 +119,7 @@ describe("builder contract", () => {
 
   it("returns a new builder from every configuration method", () => {
     const { client } = harnessReturning();
-    const base = client.payments.create();
+    const base = client.payments.draft();
     const withCustomer = base.customerId("cus_1");
     const withPrice = withCustomer.priceId("price_1");
     expect(withCustomer).not.toBe(base);
@@ -102,7 +128,7 @@ describe("builder contract", () => {
 
   it("leaves an earlier builder unchanged when a later one adds a field", async () => {
     const { client, calls } = harnessReturning({ id: "pay_1" }, { id: "pay_2" });
-    const base = client.payments.create().customerId("cus_1").priceId("price_1");
+    const base = client.payments.draft().customerId("cus_1").priceId("price_1");
     const described = base.description("second");
     await base.create();
     await described.create();
@@ -117,7 +143,7 @@ describe("builder contract", () => {
   it("does not let one branch of an accumulating builder reach another", async () => {
     const { client, calls } = harnessReturning({}, {});
     const base = client.payments
-      .create()
+      .draft()
       .customerId("cus_1")
       .priceId("price_1")
       .paymentMethodId("pm_1")
@@ -138,10 +164,21 @@ describe("builder contract", () => {
     });
   });
 
+  it("does not let one branch's asserted price reach another", async () => {
+    const { client, calls } = harnessReturning({}, {});
+    const base = client.subscriptions.draft().customerId("cus_1").name("Gold").priceId("p_1");
+    await base.expectedPrice({ unitAmount: 100, currency: "EUR" }).pending().create();
+    await base.pending().create();
+    expect(callAt(calls, 0).body).toMatchObject({
+      expectedPrice: { unitAmount: 100, currency: "EUR" },
+    });
+    expect(callAt(calls, 1).body).not.toHaveProperty("expectedPrice");
+  });
+
   it("does not let one branch of a payment method setup reach another", async () => {
     const { client, calls } = harnessReturning({}, {});
     const base = client.paymentMethods
-      .createSetup("cus_1")
+      .setupDraft("cus_1")
       .currency("EUR")
       .returnUrl("https://shop.test/r")
       .consentAcceptedAt("2026-01-01T00:00:00Z");
@@ -156,7 +193,7 @@ describe("builder contract", () => {
 
   it("does not let one branch of a price draft reach another", async () => {
     const { client, calls } = harnessReturning({}, {});
-    const base = client.catalogue.createPrice("prod_1").unitAmount(1_000).currency("EUR");
+    const base = client.catalogue.priceDraft("prod_1").unitAmount(1_000).currency("EUR");
     await base.interval("month").create();
     await base.lookupKey("gold").create();
     expect(callAt(calls, 0).body).toEqual({
@@ -173,7 +210,7 @@ describe("builder contract", () => {
 
   it("does not let one branch of an accumulating webhook builder reach another", async () => {
     const { client, calls } = harnessReturning({}, {});
-    const base = client.webhooks.createEndpoint().url("https://shop.test/hooks").event("a");
+    const base = client.webhooks.endpointDraft().url("https://shop.test/hooks").event("a");
     await base.event("b").create();
     await base.event("c").create();
     expect(callAt(calls, 0).body).toMatchObject({ enabledEvents: ["a", "b"] });

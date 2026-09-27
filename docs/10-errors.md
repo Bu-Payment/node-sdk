@@ -29,6 +29,7 @@ try {
 | `resource_conflict` | The mutation conflicts with current App-owned state. |
 | `stale_resource` | The resource changed after the `expectedUpdatedAt` given; `resource` holds it now. |
 | `lookup_key_conflict` | Another product holds the lookup key; `resource` holds it when it is assigned to the App. |
+| `price_changed` | The canonical price no longer matches the `expectedPrice` given; `price` holds the current one. |
 | `idempotency_conflict` | The `Idempotency-Key` was already used with a different request. |
 | `application_auth_required` | The request carried no credential. |
 | `application_auth_malformed` | The signed request is not well formed. |
@@ -53,6 +54,15 @@ try {
 returned, typed with a parameter: `BuPaymentError<Product>` or `BuPaymentError<Price>`, also
 exported as `ProductConflict` and `PriceConflict`. It is `undefined` when the API sent none,
 and it appears in `toJSON()` only when the API sent it. No other code carries a resource.
+
+## A price that changed
+
+`price_changed` sets `error.price` to the current price the API returned:
+`{ id, unitAmount, currency, active, updatedAt }`. It is `undefined` when the API sent none,
+and it appears in `toJSON()` only when the API sent it. The request created nothing, so show
+the current price, ask the customer to confirm, and send it again with
+`expectedPrice(error.price)`. The refusal is never stored against the `Idempotency-Key`, so
+the retry may reuse it.
 
 ## What a not-found does not tell you
 

@@ -40,7 +40,7 @@ const products = await client.catalogue.products().active(true).limit(20).get();
 - Nothing reaches the network until a terminal: `get()`, `all()`, `create()`, `update()`,
   `remove()`, `cancel()`, `pause()`, `resume()`, `evaluate()`, `redeem()`, `calculate()`,
   `retry()`, `reschedule()`.
-- Required input is type-state. `client.payments.create().customerId("cus_1")` has no
+- Required input is type-state. `client.payments.draft().customerId("cus_1")` has no
   `create()` method at all until it is priced, and the compiler says so.
 
 `signal()` and `timeoutMs()` are available on every builder.
@@ -68,7 +68,7 @@ Each route requires a capability on the credential. Without it the API answers
 | `customers:read`, `customers:write` | `customers` |
 | `checkout:create` | `checkout` |
 | `payments:read`, `payments:write` | `payments`, `paymentMethods`, `billing`, `invoices`, refund reads |
-| `refunds:write` | `refunds.create()` |
+| `refunds:write` | `refunds.draft()` |
 | `subscriptions:read`, `subscriptions:write` | `subscriptions`, `priceMigrations` |
 | `events:read` | `events`, delivery reads |
 | `webhooks:manage` | endpoint management, delivery retries |
@@ -81,7 +81,7 @@ timeout is a second charge, not a replay. Every mutation builder takes `idempote
 
 ```ts
 await client.payments
-  .create()
+  .draft()
   .customerId(customerId)
   .priceId(priceId)
   .idempotencyKey(`order-${orderId}`)

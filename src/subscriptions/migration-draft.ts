@@ -1,3 +1,5 @@
+import { expectedPriceField, pinExpectedPrice } from "../catalogue/expected-price";
+import type { ExpectedPrice } from "../catalogue/types";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type {
@@ -9,6 +11,7 @@ import type {
 
 export interface MigrationDraftState extends RequestScope {
   targetPriceId?: string;
+  expectedPrice?: ExpectedPrice;
   itemId?: string;
   quantity?: number;
   timing?: MigrationTiming;
@@ -20,6 +23,7 @@ export interface MigrationDraftState extends RequestScope {
 interface DraftMethods<TState extends MigrationDraftState>
   extends ScopeMethods<MigrationDraft<TState>> {
   targetPriceId(targetPriceId: string): MigrationDraft<TState & { targetPriceId: string }>;
+  expectedPrice(expected: ExpectedPrice): MigrationDraft<TState>;
   itemId(itemId: string): MigrationDraft<TState>;
   quantity(quantity: number): MigrationDraft<TState>;
   immediately(): MigrationDraft<TState & { timing: MigrationTiming }>;
@@ -58,6 +62,7 @@ export function migrationDraft<TState extends MigrationDraftState>(
   const builder: Record<string, unknown> = {
     ...scopeMethods(next),
     targetPriceId: (targetPriceId: string) => next({ targetPriceId }),
+    expectedPrice: (expected: ExpectedPrice) => next({ expectedPrice: pinExpectedPrice(expected) }),
     itemId: (itemId: string) => next({ itemId }),
     quantity: (quantity: number) => next({ quantity }),
     immediately: () => next({ timing: { kind: "immediate" } }),
@@ -73,6 +78,7 @@ export function migrationDraft<TState extends MigrationDraftState>(
       send<SubscriptionPriceMigration>(() =>
         writeRequest("POST", `${subscriptionPath()}/price-migrations`, state, {
           targetPriceId: state.targetPriceId,
+          ...expectedPriceField(state.expectedPrice),
           ...(state.itemId === undefined ? {} : { itemId: state.itemId }),
           ...(state.quantity === undefined ? {} : { quantity: state.quantity }),
           timing: state.timing,

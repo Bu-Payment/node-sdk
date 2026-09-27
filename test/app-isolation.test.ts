@@ -6,7 +6,7 @@ describe("app-scoped isolation", () => {
   it("signs every commerce request with the confidential credential", async () => {
     const { client, calls } = harnessReturning({ data: [], nextCursor: null }, { id: "pay_1" });
     await client.catalogue.products().get();
-    await client.payments.create().customerId("cus_1").priceId("price_1").create();
+    await client.payments.draft().customerId("cus_1").priceId("price_1").create();
     expect(calls).toHaveLength(2);
     for (const call of calls) {
       expect(call.headers[Header.SIGNATURE]).toMatch(/^[0-9a-f]{64}$/u);
@@ -30,7 +30,7 @@ describe("app-scoped isolation", () => {
     const { client } = harnessOf(() =>
       json({ error: "application_capability_denied", message: "refunds:write is required" }, 403),
     );
-    await expect(client.refunds.create().paymentId("pay_1").create()).rejects.toMatchObject({
+    await expect(client.refunds.draft().paymentId("pay_1").create()).rejects.toMatchObject({
       code: ErrorCode.APPLICATION_CAPABILITY_DENIED,
       status: 403,
     });
@@ -88,7 +88,7 @@ describe("app-scoped isolation", () => {
   it("signs every payment method and billing request with the credential", async () => {
     const { client, calls } = harnessReturning({}, { data: [] }, {}, {}, {});
     await client.paymentMethods
-      .createSetup("cus_1")
+      .setupDraft("cus_1")
       .currency("EUR")
       .returnUrl("https://shop.test/r")
       .consentAcceptedAt("2026-01-01T00:00:00Z")

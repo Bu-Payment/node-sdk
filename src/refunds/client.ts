@@ -57,7 +57,7 @@ export type RefundDraft<TState extends RefundState = RefundState> = DraftMethods
 export interface RefundsClient {
   list(): RefundListBuilder;
   refund(refundId: string): RefundBuilder;
-  create(): RefundDraft<Record<never, never>>;
+  draft(): RefundDraft<Record<never, never>>;
 }
 
 export function createRefundsClient(dispatch: Sender): RefundsClient {
@@ -65,7 +65,7 @@ export function createRefundsClient(dispatch: Sender): RefundsClient {
   return Object.freeze({
     list: () => refundList(send, {}),
     refund: (refundId: string) => singleRefund(send, refundId, {}),
-    create: () => refundDraft(send, {}),
+    draft: () => refundDraft(send, {}),
   });
 }
 

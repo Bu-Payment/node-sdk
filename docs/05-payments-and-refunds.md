@@ -8,9 +8,9 @@ App answers as not found.
 A payment is priced one of two ways, and the type makes the other unreachable:
 
 ```ts
-await client.payments.create().customerId("cus_1").priceId("price_1").create();
+await client.payments.draft().customerId("cus_1").priceId("price_1").create();
 
-await client.payments.create().customerId("cus_1").amount(5000).currency("EUR").create();
+await client.payments.draft().customerId("cus_1").amount(5000).currency("EUR").create();
 ```
 
 Once `priceId()` is called, `amount()` and `currency()` are gone from the builder; once an
@@ -19,6 +19,23 @@ a canonical resource, and the compiler says so rather than the server.
 
 `create()` appears only when a customer is set and the payment is priced, so a payment with
 an amount and no currency cannot be sent at all.
+
+A payment priced canonically can assert the price the customer was shown:
+
+```ts
+await client.payments
+  .draft()
+  .customerId("cus_1")
+  .priceId("price_1")
+  .expectedPrice({ unitAmount: 1500, currency: "EUR" })
+  .idempotencyKey(orderId)
+  .create();
+```
+
+`expectedPrice()` exists only after `priceId()`, because an ad hoc amount is already the
+amount charged and the API refuses the assertion beside it. When the price has changed, the
+payment is refused with `price_changed` and nothing is charged; see
+[Errors](10-errors.md#a-price-that-changed).
 
 The SDK is deliberately stricter than the API here: the API accepts an amount with no
 currency and charges in its default currency. An implicit currency on a charge is not a
@@ -31,7 +48,7 @@ own rule. The identifier comes from
 
 ```ts
 await client.payments
-  .create()
+  .draft()
   .customerId("cus_1")
   .priceId("price_1")
   .paymentMethodId("pm_1")
@@ -61,7 +78,7 @@ Both require `payments:read` and answer `{ data, nextCursor, hasMore }`.
 const refunds = await client.refunds.list().get();
 const refund = await client.refunds.refund("ref_1").get();
 
-await client.refunds.create().paymentId("pay_1").amount(2500).currency("EUR").create();
+await client.refunds.draft().paymentId("pay_1").amount(2500).currency("EUR").create();
 ```
 
 Reads require `payments:read`; creation requires `refunds:write`. `create()` disappears when

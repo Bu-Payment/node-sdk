@@ -27,7 +27,7 @@ Requires `webhooks:manage`.
 
 ```ts
 const endpoint = await client.webhooks
-  .createEndpoint()
+  .endpointDraft()
   .url("https://shop.example/hooks")
   .event("payment.succeeded")
   .event("payment.failed")
@@ -48,7 +48,7 @@ paginates nor filters that list. `update()` does not exist until a field is set.
 
 ## Verifying deliveries
 
-Every delivery is signed with the endpoint `secret` returned by `createEndpoint()`. Verify
+Every delivery is signed with the endpoint `secret` returned by `endpointDraft()`. Verify
 it before acting on the body, and answer only once the work is done:
 
 ```ts
@@ -146,8 +146,9 @@ if (event.type === "catalogue.product.default_price.updated.v1") {
 | `data` | The payload of that type. |
 
 Catalogue events carry `data` as `{ resourceType, resourceId, occurredAt, updatedAt,
-resource }`. `resource` is the resource after the mutation: a `Price`, or a `Product` with
-`defaultPriceId`, typed as `CatalogueEventProduct`. The README lists the thirteen types and
+resource }`. `resource` is the resource after the mutation: a `Price`, or a `Product`, which
+carries `defaultPriceId` here as it does on catalogue reads. `CatalogueEventProduct` remains
+as an alias of `Product`. The README lists the thirteen types and
 which of them advance `data.updatedAt`.
 
 Order the events of one resource by `data.updatedAt`, then by `occurredAt` when

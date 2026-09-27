@@ -93,7 +93,7 @@ export interface EndpointListBuilder extends ScopeMethods<EndpointListBuilder> {
 export interface WebhooksClient {
   endpoints(): EndpointListBuilder;
   endpoint(endpointId: string): EndpointBuilder<Record<never, never>>;
-  createEndpoint(): EndpointDraft<Record<never, never>>;
+  endpointDraft(): EndpointDraft<Record<never, never>>;
   deliveries(): DeliveryListBuilder;
   delivery(deliveryId: string): DeliveryBuilder;
 }
@@ -103,7 +103,7 @@ export function createWebhooksClient(dispatch: Sender): WebhooksClient {
   return Object.freeze({
     endpoints: () => endpointList(send, {}),
     endpoint: (endpointId: string) => endpointBuilder(send, endpointId, {}),
-    createEndpoint: () => endpointDraft(send, {}),
+    endpointDraft: () => endpointDraft(send, {}),
     deliveries: () => deliveryList(send, {}),
     delivery: (deliveryId: string) => deliveryBuilder(send, deliveryId, {}),
   });
