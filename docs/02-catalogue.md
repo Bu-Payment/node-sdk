@@ -168,15 +168,21 @@ which step failed:
 - the promise rejects: the product could not be read or the replacement could not be
   created. After a timeout or a network failure the replacement may exist anyway, so retry
   on the same builder rather than a new one;
-- `{ outcome: "replaced", replacement, archived }`: every step succeeded;
+- `{ outcome: "replaced", replacement, archived, product }`: every step succeeded;
 - `{ outcome: "default_failed", replacement, previousPriceId, error }`: the replacement is
   active, the previous price is still active, and nothing was archived. When `error` is a
   refusal from the API, such as `stale_resource` because the default changed after the read,
   the default did not move. After a timeout or a network failure it may have moved anyway,
   so read the product or retry on the same builder before acting on it;
-- `{ outcome: "archive_failed", replacement, previousPriceId, error }`: the replacement is
-  active and, if the previous price was the default, is the default now; the previous price
-  is still active, and `error` is why the archive failed.
+- `{ outcome: "archive_failed", replacement, previousPriceId, product, error }`: the
+  replacement is active and, if the previous price was the default, is the default now; the
+  previous price is still active, and `error` is why the archive failed.
+
+`product` is the product the default price move returned when the default moved, and the
+product read in the first step when it did not. Its `defaultPriceId` and `updatedAt` are
+the last the replacement observed, so the next write can pass `product.updatedAt` to
+`expectedUpdatedAt()` without reading the product again. `default_failed` carries no product:
+after a timeout the move may or may not have landed, so the product's version is unknown.
 
 These are separate requests, not a transaction. Recover from either failure by calling
 `replace()` again on the same builder: it replays the creation, reads the product again, moves
