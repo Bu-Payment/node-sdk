@@ -60,6 +60,17 @@ describe("setting a product's default price", () => {
     expect(callAt(calls, 0).headers[Header.IDEMPOTENCY_KEY]).toBe("default-gold");
   });
 
+  it("hands back the current product when the observed version is stale", async () => {
+    const { client } = harnessOf(() => json({ error: "stale_resource", resource: product }, 409));
+    await expect(
+      client.catalogue
+        .setDefaultPrice("prod_1")
+        .priceId("price_2")
+        .expectedUpdatedAt("2026-01-01T00:00:00Z")
+        .update(),
+    ).rejects.toMatchObject({ code: ErrorCode.STALE_RESOURCE, resource: product });
+  });
+
   it.each([
     ["default_price_not_owned", ErrorCode.DEFAULT_PRICE_NOT_OWNED],
     ["price_product_mismatch", ErrorCode.PRICE_PRODUCT_MISMATCH],

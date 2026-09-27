@@ -213,6 +213,18 @@ describe("builder contract", () => {
     });
   });
 
+  it("does not let one branch of a default price change reach another", async () => {
+    const { client, calls } = harnessReturning({}, {});
+    const base = client.catalogue.setDefaultPrice("prod_1").priceId("price_1");
+    await base.expectedUpdatedAt("2026-01-01T00:00:00Z").update();
+    await base.update();
+    expect(callAt(calls, 0).body).toEqual({
+      priceId: "price_1",
+      expectedUpdatedAt: "2026-01-01T00:00:00Z",
+    });
+    expect(callAt(calls, 1).body).toEqual({ priceId: "price_1" });
+  });
+
   it("does not let one branch of an accumulating webhook builder reach another", async () => {
     const { client, calls } = harnessReturning({}, {});
     const base = client.webhooks.endpointDraft().url("https://shop.test/hooks").event("a");
