@@ -78,6 +78,7 @@ price created here is assigned to the calling App at once.
 | `updateProduct(id)` | `PATCH /v1/products/{id}` | `name()`, `description()` or `lookupKey()` |
 | `archiveProduct(id)` | `POST /v1/products/{id}/archive` | always |
 | `reactivateProduct(id)` | `POST /v1/products/{id}/reactivate` | always |
+| `setDefaultPrice(id)` | `PUT /v1/products/{id}/default-price` | `priceId()` |
 | `priceDraft(productId)` | `POST /v1/products/{productId}/prices` | `unitAmount()` and `currency()` |
 | `archivePrice(id)` | `POST /v1/prices/{id}/archive` | always |
 | `reactivatePrice(id)` | `POST /v1/prices/{id}/reactivate` | always |
@@ -105,8 +106,9 @@ once `lookupKey()` is set and moves the key from another of the App's prices.
 
 ### Conditional writes
 
-`expectedUpdatedAt()` exists on `updateProduct`, the four archive and reactivate builders
-and on a price replacement, the routes that accept it. It takes the `updatedAt` last
+`expectedUpdatedAt()` exists on `updateProduct`, `setDefaultPrice` once `priceId()` is set,
+the four archive and reactivate builders and on a price replacement, the routes that accept
+it. It takes the `updatedAt` last
 observed. When the resource has changed since, the write fails with `stale_resource` and
 `error.resource` holds the current product or price, so the change can be reapplied without
 another read. Without it the write overwrites unconditionally.
@@ -115,10 +117,30 @@ A product `lookupKey` is unique per environment. A key held by another product f
 `lookup_key_conflict`; `error.resource` holds the holder only when it is assigned to your
 App, and is `undefined` otherwise.
 
+### Choosing the default price
+
+The first price created on a product becomes its default. `setDefaultPrice(productId)`
+points the default at another price and answers the product with its new `defaultPriceId`:
+
+```ts
+const product = await client.catalogue
+  .setDefaultPrice(productId)
+  .priceId(priceId)
+  .expectedUpdatedAt(seenProduct.updatedAt)
+  .update();
+```
+
+`expectedUpdatedAt()` takes the product's `updatedAt`, and a `stale_resource` carries the
+product in `error.resource`. The price must be active, belong to the product and be assigned
+to your App: an unassigned price fails with `resource_not_found`, a price of another product
+with `price_product_mismatch`, and an archived price or product with `invalid_state`. On a
+product shared with other Apps, only the App whose price is the current default can move it;
+any other fails with `default_price_not_owned`. Choosing the current default changes nothing.
+
 ### Changing a price
 
 The amount of a price is fixed at creation. `replacing(priceId)` turns a price draft into a
-replacement, whose `replace()` creates the new price and then archives the old one:
+replacement, whose `replace()` swaps the new price in for the old one:
 
 ```ts
 const change = await client.catalogue
@@ -129,36 +151,56 @@ const change = await client.catalogue
   .replace();
 ```
 
-Creating first means a failure never leaves the product without an active price. The
-outcome says which step failed:
+The API refuses to archive a product's default price with `default_price_in_use`, and the
+first price of a product is always its default, so `replace()` takes up to three steps. It
+reads the product first, which is why a replacement needs `catalogue:read` as well as
+`catalogue:write`, then:
 
-- the promise rejects: the creation step failed. After a timeout or a network failure the
-  replacement may exist anyway, so retry on the same builder rather than a new one;
-- `{ outcome: "replaced", replacement, archived }`: both steps succeeded;
+1. creates the replacement;
+2. when the product's `defaultPriceId` is the price being replaced, makes the replacement
+   the default, asserting the product `updatedAt` it just read;
+3. archives the previous price.
+
+Creating first means a failure never leaves the product without an active price, and moving
+the default before the archive means it never points at an archived price. The outcome says
+which step failed:
+
+- the promise rejects: the product could not be read or the replacement could not be
+  created. After a timeout or a network failure the replacement may exist anyway, so retry
+  on the same builder rather than a new one;
+- `{ outcome: "replaced", replacement, archived }`: every step succeeded;
+- `{ outcome: "default_failed", replacement, previousPriceId, error }`: the replacement is
+  active, the previous price is still active, and nothing was archived. When `error` is a
+  refusal from the API, such as `stale_resource` because the default changed after the read,
+  the default did not move. After a timeout or a network failure it may have moved anyway,
+  so read the product or retry on the same builder before acting on it;
 - `{ outcome: "archive_failed", replacement, previousPriceId, error }`: the replacement is
-  active, the previous price is still active, and `error` is why the archive failed.
+  active and, if the previous price was the default, is the default now; the previous price
+  is still active, and `error` is why the archive failed.
 
-This is two requests, not a transaction. Recover from `archive_failed` by calling
-`replace()` again on the same builder, which replays the creation and retries the archive,
-or with `archivePrice(previousPriceId).archive()`. After a `stale_resource`, call
+These are separate requests, not a transaction. Recover from either failure by calling
+`replace()` again on the same builder: it replays the creation, reads the product again, moves
+the default only if it still points at the previous price, and retries the archive. Or finish
+by hand with `setDefaultPrice(productId).priceId(replacement.id).update()` and then
+`archivePrice(previousPriceId).archive()`. After a `stale_resource` on the archive, call
 `expectedUpdatedAt()` with the `updatedAt` of `error.resource` and `replace()` on that
-builder: it keeps the creation's key, so the replacement is replayed, not duplicated, and
-takes a new key for the archive, whose body changed.
+builder: it keeps the keys of the creation and of the move, so neither is duplicated, and
+takes a new key for the archive, whose body changed. `expectedUpdatedAt()` on a replacement
+asserts the previous price's version, never the product's. The move asserts the product's
+own `updatedAt` from the read, so a default another writer chose in between is never
+overwritten: the move fails with `stale_resource` and the product in `error.resource`.
 A replacement that transfers the previous price's lookup key changes that price, so its
 archive with an `expectedUpdatedAt` observed before the transfer is always stale.
-
-The API refuses to archive a product's default price, and the first price created on a
-product becomes its default. Machine credentials cannot change the default price yet, so
-replacing it ends in `archive_failed` with `resource_conflict` and `metadata.apiError`
-set to `default_price_in_use`.
 
 ### Idempotency
 
 Every write sends an `Idempotency-Key`. The builder generates it once and resends it when
 the same builder's terminal is called again, or on a copy that only changed `signal()` or
 `timeoutMs()`, so a retry after a timeout is a replay. A key
-passed to `idempotencyKey()` is sent as given, on both steps of a replacement: the API
-keeps a key per operation, so the creation and the archive do not collide. The same key
+passed to `idempotencyKey()` is sent as given, on every write of a replacement: the API
+keeps a key per operation, so the creation, the move of the default and the archive do not
+collide. Retrying the same logical change with the same key, even from a new builder after a
+restart, replays each step instead of creating a second replacement. The same key
 with a different body fails with `idempotency_conflict`; a write the API refused leaves no
 record under its key, so a corrected retry may reuse it.
 

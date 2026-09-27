@@ -53,10 +53,22 @@ describe("conflict responses", () => {
     expect(error.resource).toBeUndefined();
   });
 
+  it.each([
+    ["default_price_in_use", ErrorCode.DEFAULT_PRICE_IN_USE],
+    ["default_price_not_owned", ErrorCode.DEFAULT_PRICE_NOT_OWNED],
+    ["price_product_mismatch", ErrorCode.PRICE_PRODUCT_MISMATCH],
+    ["invalid_state", ErrorCode.INVALID_STATE],
+  ])("gives the %s catalogue refusal its own code without a resource", async (apiError, code) => {
+    const error = await failureOf({ error: apiError, resource: current });
+    expect(error.code).toBe(code);
+    expect(error.metadata).toBeUndefined();
+    expect(error.resource).toBeUndefined();
+  });
+
   it("keeps any other conflict as a resource conflict", async () => {
-    const error = await failureOf({ error: "default_price_in_use", resource: current });
+    const error = await failureOf({ error: "cross_sell_exists", resource: current });
     expect(error.code).toBe(ErrorCode.RESOURCE_CONFLICT);
-    expect(error.metadata).toEqual({ apiError: "default_price_in_use" });
+    expect(error.metadata).toEqual({ apiError: "cross_sell_exists" });
     expect(error.resource).toBeUndefined();
   });
 });

@@ -20,6 +20,11 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.catalogue.archiveProduct("prod_1"),
     client.catalogue.archiveProduct("prod_1").expectedUpdatedAt("2026-01-01T00:00:00Z"),
     client.catalogue.reactivateProduct("prod_1"),
+    client.catalogue.setDefaultPrice("prod_1"),
+    client.catalogue
+      .setDefaultPrice("prod_1")
+      .priceId("price_1")
+      .expectedUpdatedAt("2026-01-01T00:00:00Z"),
     client.catalogue.priceDraft("prod_1"),
     client.catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").interval("month"),
     client.catalogue.priceDraft("prod_1").unitAmount(1).currency("EUR").replacing("price_1"),
@@ -206,6 +211,18 @@ describe("builder contract", () => {
       currency: "EUR",
       lookupKey: "gold",
     });
+  });
+
+  it("does not let one branch of a default price change reach another", async () => {
+    const { client, calls } = harnessReturning({}, {});
+    const base = client.catalogue.setDefaultPrice("prod_1").priceId("price_1");
+    await base.expectedUpdatedAt("2026-01-01T00:00:00Z").update();
+    await base.update();
+    expect(callAt(calls, 0).body).toEqual({
+      priceId: "price_1",
+      expectedUpdatedAt: "2026-01-01T00:00:00Z",
+    });
+    expect(callAt(calls, 1).body).toEqual({ priceId: "price_1" });
   });
 
   it("does not let one branch of an accumulating webhook builder reach another", async () => {

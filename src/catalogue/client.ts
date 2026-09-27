@@ -13,6 +13,7 @@ import {
 } from "../core/builder";
 import type { Page } from "../core/pagination";
 import { encodePathSegment } from "../core/request-target";
+import { type DefaultPriceChange, defaultPriceChange } from "./default-price";
 import { type PriceDraft, priceDraft } from "./price-writes";
 import {
   type ProductDraft,
@@ -70,6 +71,7 @@ export interface CatalogueClient {
   updateProduct(productId: string): ProductUpdate<Record<never, never>>;
   archiveProduct(productId: string): StateChangeBuilder<Product, "archive">;
   reactivateProduct(productId: string): StateChangeBuilder<Product, "reactivate">;
+  setDefaultPrice(productId: string): DefaultPriceChange<Record<never, never>>;
   priceDraft(productId: string): PriceDraft<Record<never, never>>;
   archivePrice(priceId: string): StateChangeBuilder<Price, "archive">;
   reactivatePrice(priceId: string): StateChangeBuilder<Price, "reactivate">;
@@ -92,6 +94,7 @@ export function createCatalogueClient(dispatch: Sender): CatalogueClient {
       stateChange<Product, "archive">(send, productPath(productId), "archive", {}),
     reactivateProduct: (productId: string) =>
       stateChange<Product, "reactivate">(send, productPath(productId), "reactivate", {}),
+    setDefaultPrice: (productId: string) => defaultPriceChange(send, productId, {}),
     priceDraft: (productId: string) => priceDraft(send, productId, {}),
     archivePrice: (priceId: string) =>
       stateChange<Price, "archive">(send, pricePath(priceId), "archive", {}),

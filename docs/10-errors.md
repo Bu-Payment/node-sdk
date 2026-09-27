@@ -30,6 +30,10 @@ try {
 | `stale_resource` | The resource changed after the `expectedUpdatedAt` given; `resource` holds it now. |
 | `lookup_key_conflict` | Another product holds the lookup key; `resource` holds it when it is assigned to the App. |
 | `price_changed` | The canonical price no longer matches the `expectedPrice` given; `price` holds the current one. |
+| `default_price_in_use` | The price is its product's default and cannot be archived until another price is. |
+| `default_price_not_owned` | The product's default price belongs to another App, which alone can move it. |
+| `price_product_mismatch` | The price belongs to another product. |
+| `invalid_state` | The resource's state refuses the change, such as an archived price or product. |
 | `idempotency_conflict` | The `Idempotency-Key` was already used with a different request. |
 | `application_auth_required` | The request carried no credential. |
 | `application_auth_malformed` | The signed request is not well formed. |
