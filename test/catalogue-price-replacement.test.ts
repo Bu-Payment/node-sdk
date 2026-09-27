@@ -97,7 +97,7 @@ describe("price replacement", () => {
     expect(result).toMatchObject({
       outcome: "archive_failed",
       replacement,
-      error: { code: ErrorCode.RESOURCE_CONFLICT, metadata: { apiError: "default_price_in_use" } },
+      error: { code: ErrorCode.DEFAULT_PRICE_IN_USE },
     });
   });
 

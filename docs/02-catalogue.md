@@ -149,8 +149,7 @@ archive with an `expectedUpdatedAt` observed before the transfer is always stale
 
 The API refuses to archive a product's default price, and the first price created on a
 product becomes its default. Machine credentials cannot change the default price yet, so
-replacing it ends in `archive_failed` with `resource_conflict` and `metadata.apiError`
-set to `default_price_in_use`.
+replacing it ends in `archive_failed` with `default_price_in_use`.
 
 ### Idempotency
 
