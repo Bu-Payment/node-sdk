@@ -288,7 +288,9 @@ is 1 to 255 characters long.
 The catalogue write builders are the exception to the fresh key per call: each keeps the key it
 generates, so calling the terminal again on the same builder, or on one that only changed
 `signal()` or `timeoutMs()`, is a replay. A method that changes the body returns a builder with a
-key of its own, because a changed body under an old key is refused as `idempotency_conflict`.
+key of its own, because a changed body under an old key is refused as `idempotency_conflict`. For
+the same reason, the key a price replacement generates for moving the default price follows the
+product version it asserts: a retry that reads a newer version moves the default under a new key.
 
 ## Errors and cancellation
 
