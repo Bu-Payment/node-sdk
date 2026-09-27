@@ -136,6 +136,16 @@ describe("expected price on the builders that resolve a canonical price", () => 
     }
   });
 
+  it("offers the assertion at runtime only once a canonical price is set", () => {
+    const { client } = harnessReturning();
+    const payment = client.payments.create().customerId("cus_1");
+    expect("expectedPrice" in payment).toBe(false);
+    expect("expectedPrice" in payment.amount(1_500).currency("EUR")).toBe(false);
+    expect("expectedPrice" in payment.priceId("price_1")).toBe(true);
+    const asserted = payment.priceId("price_1").expectedPrice(displayed);
+    expect(["amount", "currency"].some((method) => method in asserted)).toBe(false);
+  });
+
   it("sends only the amount and currency of a catalogue price it is given", async () => {
     const { client, calls } = harnessReturning({ id: "pay_1" });
     const price: Price = {
@@ -234,6 +244,9 @@ describe("price_changed", () => {
     ["no price", { ...priceChanged, price: undefined }],
     ["a price without an amount", { ...priceChanged, price: { ...current, unitAmount: "1900" } }],
     ["a price without its state", { ...priceChanged, price: { ...current, active: undefined } }],
+    ["a price without an id", { ...priceChanged, price: { ...current, id: 1 } }],
+    ["a price without a currency", { ...priceChanged, price: { ...current, currency: null } }],
+    ["a price without a date", { ...priceChanged, price: { ...current, updatedAt: null } }],
     ["a price as a list", { ...priceChanged, price: [current] }],
   ])("keeps the code but no price when the body carries %s", async (_label, body) => {
     const { client } = harnessOf(() => json(body, 409));

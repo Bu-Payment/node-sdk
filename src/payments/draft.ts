@@ -30,7 +30,7 @@ interface CanonicalPricing<TState extends PaymentState> {
 }
 
 interface PriceAsserting<TState extends PaymentState> {
-  expectedPrice(expected: ExpectedPrice): PaymentDraft<TState & { expectedPrice: ExpectedPrice }>;
+  expectedPrice(expected: ExpectedPrice): PaymentDraft<TState>;
 }
 
 interface AdHocPricing<TState extends PaymentState> {

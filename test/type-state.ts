@@ -97,6 +97,9 @@ payments.create().amount(1_000).currency("EUR").expectedPrice(displayedPrice);
 // @ts-expect-error an asserted payment cannot turn ad hoc
 payments.create().priceId("price_1").expectedPrice(displayedPrice).amount(1);
 
+// @ts-expect-error an asserted payment cannot take a currency either
+payments.create().priceId("price_1").expectedPrice(displayedPrice).currency("EUR");
+
 // @ts-expect-error allocations require a payment method
 payments.create().customerId("cus_1").priceId("price_1").allocation("line_1", 100, "EUR");
 
