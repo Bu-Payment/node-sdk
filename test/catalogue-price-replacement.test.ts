@@ -80,6 +80,13 @@ describe("price replacement", () => {
     expect(new Set(keys).size).toBe(3);
   });
 
+  it("archives the previous price without a body when no version was observed", async () => {
+    const { client, calls } = harnessReturning(withDefault("price_9"), replacement, archived);
+    await change(client).replace();
+    expect(routeOf(callAt(calls, 2))).toBe("POST /v1/prices/price_1/archive");
+    expect(callAt(calls, 2).body).toBeUndefined();
+  });
+
   it("does not move a default the product does not hold for the previous price", async () => {
     const { client, calls } = fakeCatalogue({ defaultPriceId: null });
     expect(await change(client).replace()).toEqual({ outcome: "replaced", replacement, archived });
