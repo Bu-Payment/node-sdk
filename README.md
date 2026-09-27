@@ -99,7 +99,10 @@ same builder, which replays the creation under the same key instead of creating 
 resolved one always carries the replacement. `default_failed` means nothing was archived and,
 unless the request timed out or the network failed, the default did not move; `archive_failed`
 means the old price is still active. Both name the previous price and the error, so the
-application decides how to retry. The SDK stores nothing between requests: the last agreed
+application decides how to retry. `replaced` and `archive_failed` also carry the product as the
+replacement last observed it, with its `defaultPriceId` and `updatedAt`, so a
+following write can assert that version without reading the product again. `default_failed`
+carries none, because after a timeout the product's state is unknown. The SDK stores nothing between requests: the last agreed
 amount, the local copy and what to do on a conflict belong to the application.
 
 A write that passes `expectedUpdatedAt()` is refused with `stale_resource` when the resource has

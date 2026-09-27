@@ -1,53 +1,32 @@
 import { describe, expect, it } from "vitest";
-import type { Price, Product } from "../src/catalogue/types";
+import type { Price } from "../src/catalogue/types";
 import { ErrorCode, Header } from "../src/constants";
 import type { BuPaymentError } from "../src/errors";
-import { type Call, callAt, harnessOf, harnessReturning, json, pathOf } from "./support/harness";
-
-const productUpdatedAt = "2026-01-02T00:00:00.000Z";
+import { callAt, harnessOf, harnessReturning, json } from "./support/harness";
+import {
+  archived,
+  change,
+  fakeCatalogue,
+  movedTo,
+  productUpdatedAt,
+  productVersion,
+  replacement,
+  routeOf,
+  withDefault,
+} from "./support/price-replacement";
 
 const UUID = /^[0-9a-f-]{36}$/u;
 
-const replacement = { id: "price_2", unitAmount: 1_200 } as Price;
-const archived = { id: "price_1", active: false, updatedAt: productUpdatedAt } as Price;
-const productVersion = "2026-01-05T00:00:00.000Z";
-const withDefault = (defaultPriceId: string | null) =>
-  ({ id: "prod_1", defaultPriceId, updatedAt: productVersion }) as Product;
-
-const routeOf = (call: Call) => `${call.method} ${pathOf(call)}`;
-
-function fakeCatalogue(options: { defaultPriceId: string | null; failing?: Set<number> }) {
-  let defaultPriceId = options.defaultPriceId;
-  return harnessOf((call, index) => {
-    if (options.failing?.has(index) === true) {
-      return json({ error: "operation_failed" }, 503);
-    }
-    const route = routeOf(call);
-    if (route === "GET /v1/products/prod_1") {
-      return json(withDefault(defaultPriceId));
-    }
-    if (route === "POST /v1/products/prod_1/prices") {
-      return json(replacement);
-    }
-    if (route === "PUT /v1/products/prod_1/default-price") {
-      defaultPriceId = (call.body as { priceId: string }).priceId;
-      return json(withDefault(defaultPriceId));
-    }
-    if (route === "POST /v1/prices/price_1/archive" && defaultPriceId === "price_1") {
-      return json({ error: "default_price_in_use" }, 409);
-    }
-    return json(archived);
-  });
-}
-
 describe("price replacement", () => {
-  const change = (client: ReturnType<typeof harnessReturning>["client"]) =>
-    client.catalogue.priceDraft("prod_1").unitAmount(1_200).currency("EUR").replacing("price_1");
-
   it("creates the replacement before archiving a price that is not the default", async () => {
     const { client, calls } = harnessReturning(withDefault("price_9"), replacement, archived);
     const result = await change(client).expectedUpdatedAt(productUpdatedAt).replace();
-    expect(result).toEqual({ outcome: "replaced", replacement, archived });
+    expect(result).toEqual({
+      outcome: "replaced",
+      replacement,
+      archived,
+      product: withDefault("price_9"),
+    });
     expect(calls.map(routeOf)).toEqual([
       "GET /v1/products/prod_1",
       "POST /v1/products/prod_1/prices",
@@ -65,7 +44,12 @@ describe("price replacement", () => {
   it("moves the default to the replacement before archiving the default price", async () => {
     const { client, calls } = fakeCatalogue({ defaultPriceId: "price_1" });
     const result = await change(client).replace();
-    expect(result).toEqual({ outcome: "replaced", replacement, archived });
+    expect(result).toEqual({
+      outcome: "replaced",
+      replacement,
+      archived,
+      product: movedTo("price_2"),
+    });
     expect(calls.map(routeOf)).toEqual([
       "GET /v1/products/prod_1",
       "POST /v1/products/prod_1/prices",
@@ -89,7 +73,12 @@ describe("price replacement", () => {
 
   it("does not move a default the product does not hold for the previous price", async () => {
     const { client, calls } = fakeCatalogue({ defaultPriceId: null });
-    expect(await change(client).replace()).toEqual({ outcome: "replaced", replacement, archived });
+    expect(await change(client).replace()).toEqual({
+      outcome: "replaced",
+      replacement,
+      archived,
+      product: withDefault(null),
+    });
     expect(calls.map(routeOf)).not.toContain("PUT /v1/products/prod_1/default-price");
   });
 
@@ -132,6 +121,7 @@ describe("price replacement", () => {
     expect(await change(client).replace()).toMatchObject({
       outcome: "archive_failed",
       replacement,
+      product: withDefault("price_9"),
       error: { code: ErrorCode.DEFAULT_PRICE_IN_USE },
     });
   });
@@ -151,6 +141,7 @@ describe("price replacement", () => {
     }
     expect(result.replacement).toEqual(replacement);
     expect(result.previousPriceId).toBe("price_1");
+    expect(result.product).toEqual(withDefault("price_9"));
     expect(result.error).toMatchObject({ code: ErrorCode.STALE_RESOURCE, resource: archived });
   });
 
@@ -178,7 +169,12 @@ describe("price replacement", () => {
     const failed = await replacing.replace();
     const retried = await replacing.replace();
     expect(failed.outcome).toBe("default_failed");
-    expect(retried).toEqual({ outcome: "replaced", replacement, archived });
+    expect(retried).toEqual({
+      outcome: "replaced",
+      replacement,
+      archived,
+      product: movedTo("price_2"),
+    });
     expect(calls.map(routeOf).slice(3)).toEqual([
       "GET /v1/products/prod_1",
       "POST /v1/products/prod_1/prices",
@@ -194,7 +190,12 @@ describe("price replacement", () => {
     const { client, calls } = fakeCatalogue({ defaultPriceId: "price_1", failing: new Set([3]) });
     const replacing = change(client);
     expect((await replacing.replace()).outcome).toBe("archive_failed");
-    expect(await replacing.replace()).toEqual({ outcome: "replaced", replacement, archived });
+    expect(await replacing.replace()).toEqual({
+      outcome: "replaced",
+      replacement,
+      archived,
+      product: withDefault("price_2"),
+    });
     expect(calls.map(routeOf).slice(4)).toEqual([
       "GET /v1/products/prod_1",
       "POST /v1/products/prod_1/prices",

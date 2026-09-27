@@ -135,14 +135,15 @@ export function priceDraft<TState extends PriceDraftState>(
         const productReadPath = productPath(productId);
         const replacementPath = createPath();
         const archivePath = `${pricePath(previousPriceId)}/archive`;
-        const product = await send<Product>(() => readRequest(productReadPath, state));
+        const read = await send<Product>(() => readRequest(productReadPath, state));
         const replacement = await create(replacementPath, keys.create(state.idempotencyKey));
-        if (product.defaultPriceId === previousPriceId) {
+        let product = read;
+        if (read.defaultPriceId === previousPriceId) {
           try {
-            await send<Product>(() =>
+            product = await send<Product>(() =>
               defaultPriceRequest(
                 productId,
-                { priceId: replacement.id, expectedUpdatedAt: product.updatedAt },
+                { priceId: replacement.id, expectedUpdatedAt: read.updatedAt },
                 { ...state, idempotencyKey: keys.moveDefault(state.idempotencyKey) },
               ),
             );
@@ -159,9 +160,9 @@ export function priceDraft<TState extends PriceDraftState>(
               expectedUpdatedAtOf(state),
             ),
           );
-          return { outcome: "replaced", replacement, archived };
+          return { outcome: "replaced", replacement, archived, product };
         } catch (error) {
-          return { outcome: "archive_failed", replacement, previousPriceId, error };
+          return { outcome: "archive_failed", replacement, previousPriceId, product, error };
         }
       };
     }
