@@ -202,13 +202,19 @@ archive with an `expectedUpdatedAt` observed before the transfer is always stale
 
 Every write sends an `Idempotency-Key`. The builder generates it once and resends it when
 the same builder's terminal is called again, or on a copy that only changed `signal()` or
-`timeoutMs()`, so a retry after a timeout is a replay. A key
+`timeoutMs()`, so a retry after a timeout is a replay. The generated key of the move of the
+default is also derived from the product `updatedAt` it asserts: a retry that finds the
+previous price restored as the default by another writer moves it again under a new key,
+instead of replaying a key the API already stored with the older version. A key
 passed to `idempotencyKey()` is sent as given, on every write of a replacement: the API
 keeps a key per operation, so the creation, the move of the default and the archive do not
 collide. Retrying the same logical change with the same key, even from a new builder after a
 restart, replays each step instead of creating a second replacement. The same key
 with a different body fails with `idempotency_conflict`; a write the API refused leaves no
-record under its key, so a corrected retry may reuse it.
+record under its key, so a corrected retry may reuse it. A move of the default that was
+applied, whose response was lost, and that another writer then undid by restoring the previous
+price is the exception: under a caller's key the retry fails with `idempotency_conflict`, so
+retry that change with a new key.
 
 ---
 

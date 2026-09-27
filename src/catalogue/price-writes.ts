@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   type DeferredSender,
   expectedUpdatedAtOf,
@@ -78,16 +79,23 @@ export type PriceDraft<TState extends PriceDraftState = PriceDraftState> =
 
 interface ReplacementKeys {
   create: (supplied: string | undefined) => string;
-  moveDefault: (supplied: string | undefined) => string;
+  moveDefault: (supplied: string | undefined, productVersion: string) => string;
   archive: (supplied: string | undefined) => string;
 }
 
 function replacementKeys(): ReplacementKeys {
   return {
     create: stableIdempotencyKey(),
-    moveDefault: stableIdempotencyKey(),
+    moveDefault: perVersionIdempotencyKey(),
     archive: stableIdempotencyKey(),
   };
+}
+
+function perVersionIdempotencyKey(): ReplacementKeys["moveDefault"] {
+  const base = stableIdempotencyKey();
+  return (supplied, productVersion) =>
+    supplied ??
+    `${base(undefined)}:${createHash("sha256").update(productVersion).digest("base64url")}`;
 }
 
 export function priceDraft<TState extends PriceDraftState>(
@@ -144,7 +152,10 @@ export function priceDraft<TState extends PriceDraftState>(
               defaultPriceRequest(
                 productId,
                 { priceId: replacement.id, expectedUpdatedAt: read.updatedAt },
-                { ...state, idempotencyKey: keys.moveDefault(state.idempotencyKey) },
+                {
+                  ...state,
+                  idempotencyKey: keys.moveDefault(state.idempotencyKey, read.updatedAt),
+                },
               ),
             );
           } catch (error) {
