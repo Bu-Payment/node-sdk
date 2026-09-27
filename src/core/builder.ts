@@ -96,6 +96,14 @@ export function writeRequest(
   };
 }
 
+export function expectedUpdatedAtOf(state: {
+  expectedUpdatedAt?: string;
+}): { expectedUpdatedAt: string } | undefined {
+  return state.expectedUpdatedAt === undefined
+    ? undefined
+    : { expectedUpdatedAt: state.expectedUpdatedAt };
+}
+
 function scopeOf(state: RequestScope): RequestScope {
   return {
     ...(state.signal === undefined ? {} : { signal: state.signal }),

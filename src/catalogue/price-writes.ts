@@ -1,5 +1,6 @@
 import {
   type DeferredSender,
+  expectedUpdatedAtOf,
   type RequestScope,
   readRequest,
   type ScopeMethods,
@@ -155,9 +156,7 @@ export function priceDraft<TState extends PriceDraftState>(
               "POST",
               archivePath,
               { ...state, idempotencyKey: keys.archive(state.idempotencyKey) },
-              state.expectedUpdatedAt === undefined
-                ? undefined
-                : { expectedUpdatedAt: state.expectedUpdatedAt },
+              expectedUpdatedAtOf(state),
             ),
           );
           return { outcome: "replaced", replacement, archived };
