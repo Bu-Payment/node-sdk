@@ -12,8 +12,8 @@ import {
   scopeMethods,
 } from "../core/builder";
 import type { Page } from "../core/pagination";
-import { encodePathSegment } from "../core/request-target";
 import { type DefaultPriceChange, defaultPriceChange } from "./default-price";
+import { pricePath, productPath } from "./paths";
 import { type PriceDraft, priceDraft } from "./price-writes";
 import {
   type ProductDraft,
@@ -79,8 +79,6 @@ export interface CatalogueClient {
 
 export function createCatalogueClient(dispatch: Sender): CatalogueClient {
   const send = deferSender(dispatch);
-  const productPath = (productId: string) => () => `/v1/products/${encodePathSegment(productId)}`;
-  const pricePath = (priceId: string) => () => `/v1/prices/${encodePathSegment(priceId)}`;
   return Object.freeze({
     products: () => productList(send, {}),
     product: (productId: string) => singleProduct(send, productId, {}),
@@ -89,17 +87,17 @@ export function createCatalogueClient(dispatch: Sender): CatalogueClient {
     crossSells: (productId: string) => crossSellList(send, productId, {}),
     entitlements: (productId: string) => entitlements(send, productId, {}),
     productDraft: () => productDraft(send, {}),
-    updateProduct: (productId: string) => productUpdate(send, productPath(productId), {}),
+    updateProduct: (productId: string) => productUpdate(send, () => productPath(productId), {}),
     archiveProduct: (productId: string) =>
-      stateChange<Product, "archive">(send, productPath(productId), "archive", {}),
+      stateChange<Product, "archive">(send, () => productPath(productId), "archive", {}),
     reactivateProduct: (productId: string) =>
-      stateChange<Product, "reactivate">(send, productPath(productId), "reactivate", {}),
+      stateChange<Product, "reactivate">(send, () => productPath(productId), "reactivate", {}),
     setDefaultPrice: (productId: string) => defaultPriceChange(send, productId, {}),
     priceDraft: (productId: string) => priceDraft(send, productId, {}),
     archivePrice: (priceId: string) =>
-      stateChange<Price, "archive">(send, pricePath(priceId), "archive", {}),
+      stateChange<Price, "archive">(send, () => pricePath(priceId), "archive", {}),
     reactivatePrice: (priceId: string) =>
-      stateChange<Price, "reactivate">(send, pricePath(priceId), "reactivate", {}),
+      stateChange<Price, "reactivate">(send, () => pricePath(priceId), "reactivate", {}),
   });
 }
 
@@ -132,8 +130,7 @@ function singleProduct(
     singleProduct(send, productId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () =>
-      send<Product>(() => readRequest(`/v1/products/${encodePathSegment(productId)}`, state)),
+    get: () => send<Product>(() => readRequest(productPath(productId), state)),
   });
 }
 
@@ -164,7 +161,7 @@ function singlePrice(send: DeferredSender, priceId: string, state: RequestScope)
     singlePrice(send, priceId, { ...state, ...update });
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<Price>(() => readRequest(`/v1/prices/${encodePathSegment(priceId)}`, state)),
+    get: () => send<Price>(() => readRequest(pricePath(priceId), state)),
   });
 }
 
@@ -177,11 +174,7 @@ function crossSellList(
     crossSellList(send, productId, { ...state, ...update });
   const read = (page: CursorScope) =>
     send<Page<ProductCrossSell>>(() =>
-      readRequest(
-        `/v1/products/${encodePathSegment(productId)}/cross-sells`,
-        page,
-        pageQuery(page),
-      ),
+      readRequest(`${productPath(productId)}/cross-sells`, page, pageQuery(page)),
     );
   return Object.freeze(pageMethods(state, next, read));
 }
@@ -197,7 +190,7 @@ function entitlements(
     ...scopeMethods(next),
     get: () =>
       send<ProductEntitlementResolution>(() =>
-        readRequest(`/v1/products/${encodePathSegment(productId)}/entitlements`, state),
+        readRequest(`${productPath(productId)}/entitlements`, state),
       ),
   });
 }

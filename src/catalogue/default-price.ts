@@ -1,5 +1,6 @@
 import {
   type DeferredSender,
+  expectedUpdatedAtOf,
   type RequestScope,
   type ScopeMethods,
   scopeMethods,
@@ -7,7 +8,7 @@ import {
   writeRequest,
 } from "../core/builder";
 import type { TransportRequest } from "../core/http";
-import { encodePathSegment } from "../core/request-target";
+import { productPath } from "./paths";
 import type { Product } from "./types";
 
 type DefaultPriceState = RequestScope & {
@@ -40,12 +41,7 @@ export function defaultPriceRequest(
   body: DefaultPriceBody,
   request: RequestScope & { idempotencyKey: string },
 ): TransportRequest {
-  return writeRequest(
-    "PUT",
-    `/v1/products/${encodePathSegment(productId)}/default-price`,
-    request,
-    body,
-  );
+  return writeRequest("PUT", `${productPath(productId)}/default-price`, request, body);
 }
 
 export function defaultPriceChange<TState extends DefaultPriceState>(
@@ -72,9 +68,7 @@ export function defaultPriceChange<TState extends DefaultPriceState>(
           productId,
           {
             priceId,
-            ...(state.expectedUpdatedAt === undefined
-              ? {}
-              : { expectedUpdatedAt: state.expectedUpdatedAt }),
+            ...expectedUpdatedAtOf(state),
           },
           { ...state, idempotencyKey: idempotencyKeyFor(state.idempotencyKey) },
         ),

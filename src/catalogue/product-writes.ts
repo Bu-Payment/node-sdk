@@ -1,5 +1,6 @@
 import {
   type DeferredSender,
+  expectedUpdatedAtOf,
   type RequestScope,
   type ScopeMethods,
   scopeMethods,
@@ -105,9 +106,7 @@ export function productUpdate<TState extends ProductWriteState>(
           { ...state, idempotencyKey: idempotencyKeyFor(state.idempotencyKey) },
           {
             ...fieldsOf(state),
-            ...(state.expectedUpdatedAt === undefined
-              ? {}
-              : { expectedUpdatedAt: state.expectedUpdatedAt }),
+            ...expectedUpdatedAtOf(state),
           },
         ),
       );

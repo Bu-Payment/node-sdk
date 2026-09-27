@@ -1,5 +1,6 @@
 import {
   type DeferredSender,
+  expectedUpdatedAtOf,
   type RequestScope,
   type ScopeMethods,
   scopeMethods,
@@ -52,9 +53,7 @@ export function stateChange<TResource, TTerminal extends StateChangeTerminal>(
           "POST",
           `${path()}/${terminal}`,
           { ...state, idempotencyKey: idempotencyKeyFor(state.idempotencyKey) },
-          state.expectedUpdatedAt === undefined
-            ? undefined
-            : { expectedUpdatedAt: state.expectedUpdatedAt },
+          expectedUpdatedAtOf(state),
         ),
       ),
   }) as StateChangeBuilder<TResource, TTerminal>;

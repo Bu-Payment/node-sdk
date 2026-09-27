@@ -1,5 +1,6 @@
 import {
   type DeferredSender,
+  expectedUpdatedAtOf,
   type RequestScope,
   readRequest,
   type ScopeMethods,
@@ -7,8 +8,8 @@ import {
   stableIdempotencyKey,
   writeRequest,
 } from "../core/builder";
-import { encodePathSegment } from "../core/request-target";
 import { defaultPriceRequest } from "./default-price";
+import { pricePath, productPath } from "./paths";
 import type { Price, PriceChange, PriceInterval, Product } from "./types";
 
 interface PriceFields {
@@ -97,7 +98,7 @@ export function priceDraft<TState extends PriceDraftState>(
 ): PriceDraft<TState> {
   const next = (update: Partial<PriceDraftState>) =>
     priceDraft(send, productId, { ...state, ...update });
-  const createPath = () => `/v1/products/${encodePathSegment(productId)}/prices`;
+  const createPath = () => `${productPath(productId)}/prices`;
   const create = (path: string, idempotencyKey: string) =>
     send<Price>(() => writeRequest("POST", path, { ...state, idempotencyKey }, bodyOf(state)));
   const builder: Record<string, unknown> = {
@@ -131,10 +132,10 @@ export function priceDraft<TState extends PriceDraftState>(
       builder.create = async () => await create(createPath(), keys.create(state.idempotencyKey));
     } else {
       builder.replace = async (): Promise<PriceChange> => {
-        const productPath = `/v1/products/${encodePathSegment(productId)}`;
+        const productReadPath = productPath(productId);
         const replacementPath = createPath();
-        const archivePath = `/v1/prices/${encodePathSegment(previousPriceId)}/archive`;
-        const read = await send<Product>(() => readRequest(productPath, state));
+        const archivePath = `${pricePath(previousPriceId)}/archive`;
+        const read = await send<Product>(() => readRequest(productReadPath, state));
         const replacement = await create(replacementPath, keys.create(state.idempotencyKey));
         let product = read;
         if (read.defaultPriceId === previousPriceId) {
@@ -156,9 +157,7 @@ export function priceDraft<TState extends PriceDraftState>(
               "POST",
               archivePath,
               { ...state, idempotencyKey: keys.archive(state.idempotencyKey) },
-              state.expectedUpdatedAt === undefined
-                ? undefined
-                : { expectedUpdatedAt: state.expectedUpdatedAt },
+              expectedUpdatedAtOf(state),
             ),
           );
           return { outcome: "replaced", replacement, archived, product };
