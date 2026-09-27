@@ -72,7 +72,9 @@ first and update your copy only once the API has answered. Your copy can then on
 catalogue, never contradict it, and reconciliation repairs a lag.
 
 A price's amount is fixed when it is created, so changing a price means creating a replacement and
-archiving the old one. `replace()` does both in that order and reports each step:
+archiving the old one. The API refuses to archive a product's default price, so when the old price
+is the default, `replace()` makes the replacement the default in between. It reads the product to
+know, which needs `catalogue:read` as well as `catalogue:write`, and reports each step:
 
 ```ts
 const change = await client.catalogue
@@ -86,17 +88,19 @@ const change = await client.catalogue
   .replace();
 
 await localPrices.save(productId, change.replacement);
-if (change.outcome === "archive_failed") {
-  queueArchiveRetry(change.previousPriceId, change.error);
+if (change.outcome !== "replaced") {
+  queueReplaceRetry(productId, change.outcome, change.error);
 }
 ```
 
-A rejected `replace()` means the creation step failed; after a timeout or a network failure the
-replacement may still exist, so retry on the same builder, which replays the creation under the
-same key instead of creating a second price. A resolved one always carries the replacement, and
-`archive_failed` names the previous price and the error, so the application decides how to
-retry. The SDK stores nothing between requests: the last agreed amount, the local copy and what to
-do on a conflict belong to the application.
+A rejected `replace()` means the product could not be read or the replacement could not be
+created; after a timeout or a network failure the replacement may still exist, so retry on the
+same builder, which replays the creation under the same key instead of creating a second price. A
+resolved one always carries the replacement. `default_failed` means nothing was archived and,
+unless the request timed out or the network failed, the default did not move; `archive_failed`
+means the old price is still active. Both name the previous price and the error, so the
+application decides how to retry. The SDK stores nothing between requests: the last agreed
+amount, the local copy and what to do on a conflict belong to the application.
 
 A write that passes `expectedUpdatedAt()` is refused with `stale_resource` when the resource has
 changed since, and the error carries the current resource:

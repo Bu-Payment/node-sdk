@@ -153,11 +153,12 @@ const change = await client.catalogue
 
 The API refuses to archive a product's default price with `default_price_in_use`, and the
 first price of a product is always its default, so `replace()` takes up to three steps. It
-reads the product first, then:
+reads the product first, which is why a replacement needs `catalogue:read` as well as
+`catalogue:write`, then:
 
 1. creates the replacement;
 2. when the product's `defaultPriceId` is the price being replaced, makes the replacement
-   the default;
+   the default, asserting the product `updatedAt` it just read;
 3. archives the previous price.
 
 Creating first means a failure never leaves the product without an active price, and moving
@@ -169,8 +170,10 @@ which step failed:
   on the same builder rather than a new one;
 - `{ outcome: "replaced", replacement, archived }`: every step succeeded;
 - `{ outcome: "default_failed", replacement, previousPriceId, error }`: the replacement is
-  active, the previous price is still active and still the default, and `error` is why the
-  default did not move. Nothing was archived;
+  active, the previous price is still active, and nothing was archived. When `error` is a
+  refusal from the API, such as `stale_resource` because the default changed after the read,
+  the default did not move. After a timeout or a network failure it may have moved anyway,
+  so read the product or retry on the same builder before acting on it;
 - `{ outcome: "archive_failed", replacement, previousPriceId, error }`: the replacement is
   active and, if the previous price was the default, is the default now; the previous price
   is still active, and `error` is why the archive failed.
@@ -183,8 +186,9 @@ by hand with `setDefaultPrice(productId).priceId(replacement.id).update()` and t
 `expectedUpdatedAt()` with the `updatedAt` of `error.resource` and `replace()` on that
 builder: it keeps the keys of the creation and of the move, so neither is duplicated, and
 takes a new key for the archive, whose body changed. `expectedUpdatedAt()` on a replacement
-asserts the previous price's version, never the product's: the default is moved only after
-the SDK has just read that it points at the previous price.
+asserts the previous price's version, never the product's. The move asserts the product's
+own `updatedAt` from the read, so a default another writer chose in between is never
+overwritten: the move fails with `stale_resource` and the product in `error.resource`.
 A replacement that transfers the previous price's lookup key changes that price, so its
 archive with an `expectedUpdatedAt` observed before the transfer is always stale.
 

@@ -141,7 +141,7 @@ export function priceDraft<TState extends PriceDraftState>(
             await send<Product>(() =>
               defaultPriceRequest(
                 productId,
-                { priceId: replacement.id },
+                { priceId: replacement.id, expectedUpdatedAt: product.updatedAt },
                 { ...state, idempotencyKey: keys.moveDefault(state.idempotencyKey) },
               ),
             );

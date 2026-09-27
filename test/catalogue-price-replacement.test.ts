@@ -10,8 +10,9 @@ const UUID = /^[0-9a-f-]{36}$/u;
 
 const replacement = { id: "price_2", unitAmount: 1_200 } as Price;
 const archived = { id: "price_1", active: false, updatedAt: productUpdatedAt } as Price;
+const productVersion = "2026-01-05T00:00:00.000Z";
 const withDefault = (defaultPriceId: string | null) =>
-  ({ id: "prod_1", defaultPriceId, updatedAt: productUpdatedAt }) as Product;
+  ({ id: "prod_1", defaultPriceId, updatedAt: productVersion }) as Product;
 
 const routeOf = (call: Call) => `${call.method} ${pathOf(call)}`;
 
@@ -71,14 +72,17 @@ describe("price replacement", () => {
       "PUT /v1/products/prod_1/default-price",
       "POST /v1/prices/price_1/archive",
     ]);
-    expect(callAt(calls, 2).body).toEqual({ priceId: "price_2" });
+    expect(callAt(calls, 2).body).toEqual({
+      priceId: "price_2",
+      expectedUpdatedAt: productVersion,
+    });
     const keys = calls.slice(1).map((call) => call.headers[Header.IDEMPOTENCY_KEY]);
     expect(new Set(keys).size).toBe(3);
   });
 
   it("does not move a default the product does not hold for the previous price", async () => {
     const { client, calls } = fakeCatalogue({ defaultPriceId: null });
-    await change(client).replace();
+    expect(await change(client).replace()).toEqual({ outcome: "replaced", replacement, archived });
     expect(calls.map(routeOf)).not.toContain("PUT /v1/products/prod_1/default-price");
   });
 
@@ -95,6 +99,33 @@ describe("price replacement", () => {
       replacement,
       previousPriceId: "price_1",
       error: { code: ErrorCode.DEFAULT_PRICE_NOT_OWNED },
+    });
+  });
+
+  it("reports a default that moved after the read as a failed move, not an overwrite", async () => {
+    const current = withDefault("price_3");
+    const { client } = harnessOf((call) =>
+      routeOf(call).startsWith("PUT")
+        ? json({ error: "stale_resource", resource: current }, 409)
+        : json(routeOf(call).startsWith("GET") ? withDefault("price_1") : replacement),
+    );
+    expect(await change(client).replace()).toMatchObject({
+      outcome: "default_failed",
+      replacement,
+      error: { code: ErrorCode.STALE_RESOURCE, resource: current },
+    });
+  });
+
+  it("reports a price that became the default after the read as a failed archive", async () => {
+    const { client } = harnessOf((call) =>
+      routeOf(call).endsWith("/archive")
+        ? json({ error: "default_price_in_use" }, 409)
+        : json(routeOf(call).startsWith("GET") ? withDefault("price_9") : replacement),
+    );
+    expect(await change(client).replace()).toMatchObject({
+      outcome: "archive_failed",
+      replacement,
+      error: { code: ErrorCode.DEFAULT_PRICE_IN_USE },
     });
   });
 
@@ -192,24 +223,48 @@ describe("price replacement", () => {
     expect(keys[5]).toBe(keys[1]);
     expect(keys[6]).toBe(keys[2]);
     expect(keys[7]).not.toBe(keys[3]);
+    expect(callAt(calls, 2).body).toEqual({
+      priceId: "price_2",
+      expectedUpdatedAt: productVersion,
+    });
     expect(callAt(calls, 7).body).toEqual({ expectedUpdatedAt: productUpdatedAt });
   });
 
-  it("sends the caller's key on every write, across a retry", async () => {
-    const { client, calls } = fakeCatalogue({ defaultPriceId: "price_1", failing: new Set([2]) });
+  it.each([
+    [
+      "move",
+      2,
+      [
+        "POST /v1/products/prod_1/prices",
+        "PUT /v1/products/prod_1/default-price",
+        "POST /v1/products/prod_1/prices",
+        "PUT /v1/products/prod_1/default-price",
+        "POST /v1/prices/price_1/archive",
+      ],
+    ],
+    [
+      "archive",
+      3,
+      [
+        "POST /v1/products/prod_1/prices",
+        "PUT /v1/products/prod_1/default-price",
+        "POST /v1/prices/price_1/archive",
+        "POST /v1/products/prod_1/prices",
+        "POST /v1/prices/price_1/archive",
+      ],
+    ],
+  ])("resends the caller's key on every write when a new builder retries a failed %s", async (_step, failing, routes) => {
+    const { client, calls } = fakeCatalogue({
+      defaultPriceId: "price_1",
+      failing: new Set([failing]),
+    });
     await change(client).idempotencyKey("reprice-gold").replace();
     await change(client).idempotencyKey("reprice-gold").replace();
     const writes = calls.filter((call) => call.method !== "GET");
+    expect(writes.map(routeOf)).toEqual(routes);
     expect(writes.map((call) => call.headers[Header.IDEMPOTENCY_KEY])).toEqual(
       Array(writes.length).fill("reprice-gold"),
     );
-    expect(writes.map(routeOf)).toEqual([
-      "POST /v1/products/prod_1/prices",
-      "PUT /v1/products/prod_1/default-price",
-      "POST /v1/products/prod_1/prices",
-      "PUT /v1/products/prod_1/default-price",
-      "POST /v1/prices/price_1/archive",
-    ]);
   });
 
   it("refuses an empty previous price before reading or creating anything", async () => {
