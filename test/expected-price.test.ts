@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Price } from "../src/catalogue/types";
 import { ErrorCode } from "../src/constants";
-import { BuPaymentError } from "../src/errors";
+import { BuPaymentError, isPriceChanged } from "../src/errors";
 import { callAt, harnessOf, harnessReturning, json } from "./support/harness";
 
 const displayed = { unitAmount: 1_500, currency: "EUR" };
@@ -202,6 +202,7 @@ describe("price_changed", () => {
         .expectedPrice(displayed)
         .create(),
     );
+    expect(isPriceChanged(conflict)).toBe(true);
     expect(conflict.code).toBe(ErrorCode.PRICE_CHANGED);
     expect(conflict.status).toBe(409);
     expect(conflict.price).toEqual(current);
@@ -253,6 +254,7 @@ describe("price_changed", () => {
     const error = await refusal(
       client.payments.draft().customerId("cus_1").priceId("price_1").create(),
     );
+    expect(isPriceChanged(error)).toBe(true);
     expect(error.code).toBe(ErrorCode.PRICE_CHANGED);
     expect(error.price).toBeUndefined();
   });
@@ -264,6 +266,7 @@ describe("price_changed", () => {
     const error = await refusal(
       client.payments.draft().customerId("cus_1").priceId("price_1").create(),
     );
+    expect(isPriceChanged(error)).toBe(false);
     expect(error.code).toBe(ErrorCode.IDEMPOTENCY_CONFLICT);
     expect(error.price).toBeUndefined();
   });

@@ -1,5 +1,5 @@
 import type { CurrentPrice } from "./catalogue/types";
-import type { ErrorCode } from "./constants";
+import { ErrorCode } from "./constants";
 
 export interface BuPaymentErrorOptions<TResource = unknown> {
   code: ErrorCode;
@@ -41,4 +41,12 @@ export class BuPaymentError<TResource = unknown> extends Error {
       ...(this.price === undefined ? {} : { price: this.price }),
     };
   }
+}
+
+export type PriceChangedError = BuPaymentError & {
+  readonly code: typeof ErrorCode.PRICE_CHANGED;
+};
+
+export function isPriceChanged(error: unknown): error is PriceChangedError {
+  return error instanceof BuPaymentError && error.code === ErrorCode.PRICE_CHANGED;
 }
