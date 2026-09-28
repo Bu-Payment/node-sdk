@@ -21,6 +21,7 @@ export type * from "./invoices/types";
 export type * from "./payment-methods/types";
 export type * from "./payments/types";
 export type * from "./price-migrations/types";
+export type { PublicError } from "./public-error";
 export type * from "./refunds/types";
 export type * from "./subscriptions/types";
 export type * from "./webhooks/types";

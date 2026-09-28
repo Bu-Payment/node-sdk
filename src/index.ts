@@ -58,6 +58,8 @@ export type * from "./payments/types";
 export type { PriceMigrationsClient } from "./price-migrations/client";
 export { createPriceMigrationsClient } from "./price-migrations/client";
 export type * from "./price-migrations/types";
+export type { PublicError } from "./public-error";
+export { publicError } from "./public-error";
 export type { RefundsClient } from "./refunds/client";
 export { createRefundsClient } from "./refunds/client";
 export type * from "./refunds/types";
