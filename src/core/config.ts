@@ -1,5 +1,6 @@
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
+import { OPAQUE_IDENTIFIER } from "./canonical-request";
 import { ConfidentialSecret } from "./secret";
 
 export type Environment = "test" | "live";
@@ -24,7 +25,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export function parseClientConfig(input: ClientConfigInput): ClientConfig {
   const applicationId = input.applicationId.trim();
-  if (!/^app_[A-Za-z0-9_-]+$/u.test(applicationId)) {
+  if (!OPAQUE_IDENTIFIER.test(applicationId)) {
     throw invalidConfig("Application ID format is invalid");
   }
   const keyId = input.keyId.trim();

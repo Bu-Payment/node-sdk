@@ -17,7 +17,7 @@ const UNRESERVED = new Set<number>([
   ...Buffer.from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"),
 ]);
 const METHOD_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/u;
-const OPAQUE_IDENTIFIER = /^[A-Za-z0-9_-]+$/u;
+export const OPAQUE_IDENTIFIER = /^[A-Za-z0-9_-]+$/u;
 const DECIMAL_TIMESTAMP = /^(0|[1-9][0-9]*)$/u;
 const LOWERCASE_NONCE = /^[0-9a-f]{32}$/u;
 
