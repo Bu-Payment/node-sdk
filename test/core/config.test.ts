@@ -44,8 +44,19 @@ describe("parseClientConfig", () => {
     );
   });
 
+  it("accepts an opaque application ID issued by the API", () => {
+    const config = parseClientConfig(input({ applicationId: "cmtx330ta000gaendkde483qk" }));
+    expect(config.applicationId).toBe("cmtx330ta000gaendkde483qk");
+  });
+
   it.each([
-    ["an application ID without the app_ prefix", { applicationId: "123" }],
+    ["an empty application ID", { applicationId: "" }],
+    ["a whitespace-only application ID", { applicationId: "   " }],
+    ["an application ID with inner whitespace", { applicationId: "app 123" }],
+    ["an application ID with a dot", { applicationId: "app.123" }],
+    ["an application ID with a slash", { applicationId: "app/123" }],
+    ["an application ID with an accented letter", { applicationId: "aplicação" }],
+    ["an application ID with an emoji", { applicationId: "app_\u{1F600}" }],
     ["a key ID without an environment", { keyId: "bup_ck_A12345678901234567890123" }],
     ["an environment that contradicts the key ID", { environment: "live" as const }],
     ["a relative base URL", { apiBaseUrl: "/v1" }],
