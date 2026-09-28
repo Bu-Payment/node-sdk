@@ -15,7 +15,7 @@ export type { FetchLike, TransportOptions, TransportRequest } from "./core/http"
 export type { Collection, CursorQuery, Page, PageReader, PageWithMore } from "./core/pagination";
 export type { QueryInput, QueryValue } from "./core/request-target";
 export type * from "./customers/types";
-export type { BuPaymentErrorOptions } from "./errors";
+export type { BuPaymentErrorOptions, PriceChangedError } from "./errors";
 export type * from "./events/types";
 export type * from "./invoices/types";
 export type * from "./payment-methods/types";

@@ -68,6 +68,26 @@ the current price, ask the customer to confirm, and send it again with
 `expectedPrice(error.price)`. The refusal is never stored against the `Idempotency-Key`, so
 the retry may reuse it.
 
+`isPriceChanged(error)` recognises the refusal from any caught value and narrows it to
+`PriceChangedError`, a `BuPaymentError` whose `code` is `price_changed`:
+
+```ts
+import { isPriceChanged } from "@bu-payment/node-sdk";
+
+try {
+  await draft.expectedPrice(displayed).create();
+} catch (error) {
+  if (isPriceChanged(error) && error.price) {
+    return askCustomerToConfirm(error.price);
+  }
+  throw error;
+}
+```
+
+The guard matches on the code alone. `error.price` stays optional after narrowing, because a
+refusal whose body lacks a well-formed price is still a price change, and the type does not
+claim a price the API did not send.
+
 ## What a not-found does not tell you
 
 A resource owned by another App, an unassigned catalogue identifier and an identifier that

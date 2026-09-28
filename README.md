@@ -146,6 +146,8 @@ price in BuPayment no longer matches, the API refuses the request with `price_ch
 anything is created, so the customer is never charged an amount they did not see:
 
 ```ts
+import { isPriceChanged } from "@bu-payment/node-sdk";
+
 const draft = client.payments
   .draft()
   .customerId(customerId)
@@ -155,7 +157,7 @@ const draft = client.payments
 try {
   await draft.expectedPrice({ unitAmount: 1_500, currency: "EUR" }).create();
 } catch (error) {
-  if (error instanceof BuPaymentError && error.code === ErrorCode.PRICE_CHANGED && error.price) {
+  if (isPriceChanged(error) && error.price) {
     const confirmed = await askCustomerToConfirm(error.price);
     if (confirmed) {
       await draft.expectedPrice(error.price).create();
@@ -164,7 +166,9 @@ try {
 }
 ```
 
-`error.price` is the current price: `{ id, unitAmount, currency, active, updatedAt }`. Show it
+`isPriceChanged` narrows any caught value to a `BuPaymentError` whose code is `price_changed`.
+`error.price` is the current price: `{ id, unitAmount, currency, active, updatedAt }`, or
+`undefined` when the API response carried none, which is why it is still checked. Show it
 to the customer, ask them to confirm, and retry with the new amount. A `price_changed` is never
 stored against the `Idempotency-Key`, so the retry may reuse the same key. After a success, the
 key is bound to the price it asserted, and a different `expectedPrice` under it is
@@ -271,6 +275,8 @@ is a second charge rather than a replay. Every mutation builder takes `idempoten
 whenever a retry is possible, with a key derived from the operation rather than from the attempt:
 
 ```ts
+import { isPriceChanged } from "@bu-payment/node-sdk";
+
 const draft = client.payments
   .draft()
   .customerId(customerId)
