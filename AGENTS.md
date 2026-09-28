@@ -56,9 +56,10 @@ const payment = await client.payments
 
 Any new public API or breaking public API change must include compile-time and
 runtime tests proving builder immutability, terminal side-effect boundaries,
-and required type-state. The compile-time proofs live in `test/type-state.ts`,
+and required type-state. The compile-time proofs live in `test/type-state*.ts`,
 which is checked by `bun run typecheck`; the runtime proofs live in
-`test/builder-contract.test.ts`. Documentation and examples must use the
+`test/builder-contract*.test.ts`. Start a file per domain once the shared one
+reaches the 300-line cap. Documentation and examples must use the
 builder form.
 
 ## Scope is fixed by the credential

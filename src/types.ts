@@ -23,5 +23,8 @@ export type * from "./payments/types";
 export type * from "./price-migrations/types";
 export type { PublicError } from "./public-error";
 export type * from "./refunds/types";
+export type { SalesClient } from "./sales/client";
+export type { ChargeableSale, SaleDraft } from "./sales/draft";
+export type * from "./sales/types";
 export type * from "./subscriptions/types";
 export type * from "./webhooks/types";

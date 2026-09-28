@@ -43,6 +43,13 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.checkout.subscriptionSession(),
     client.checkout.subscriptionSession().expectedPrice({ unitAmount: 1, currency: "EUR" }),
     client.payments.draft(),
+    client.sales.draft(),
+    client.sales
+      .draft()
+      .priceId("price_1")
+      .displayedPrice({ unitAmount: 1, currency: "EUR" })
+      .customerEmail("buyer@example.test")
+      .reservation({ reserve: () => true, release: () => undefined }),
     client.payments.draft().customerId("cus_1").priceId("price_1"),
     client.payments
       .draft()
@@ -109,6 +116,7 @@ describe("builder contract", () => {
       [client.catalogue, "createPrice", "priceDraft"],
       [client.webhooks, "createEndpoint", "endpointDraft"],
       [client.paymentMethods, "createSetup", "setupDraft"],
+      [client.sales, "charge", "draft"],
     ];
     for (const [domain, removed, entry] of entries) {
       expect(removed in domain).toBe(false);

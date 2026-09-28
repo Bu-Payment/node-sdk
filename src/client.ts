@@ -12,6 +12,7 @@ import { createPaymentMethodsClient, type PaymentMethodsClient } from "./payment
 import { createPaymentsClient, type PaymentsClient } from "./payments/client";
 import { createPriceMigrationsClient, type PriceMigrationsClient } from "./price-migrations/client";
 import { createRefundsClient, type RefundsClient } from "./refunds/client";
+import { createSalesClient, type SalesClient } from "./sales/client";
 import { createSubscriptionsClient, type SubscriptionsClient } from "./subscriptions/client";
 import { createWebhooksClient, type WebhooksClient } from "./webhooks/client";
 
@@ -26,6 +27,7 @@ export interface BuPaymentClient {
   readonly customers: CustomersClient;
   readonly checkout: CheckoutClient;
   readonly payments: PaymentsClient;
+  readonly sales: SalesClient;
   readonly paymentMethods: PaymentMethodsClient;
   readonly billing: BillingClient;
   readonly invoices: InvoicesClient;
@@ -44,13 +46,16 @@ export function createBuPaymentClient(
   const config = parseClientConfig(input);
   const transport = new SignedTransport(config, options);
   const send: Sender = async (request) => await transport.send(withIdempotencyKey(request));
+  const customers = createCustomersClient(send);
+  const payments = createPaymentsClient(send);
   return Object.freeze({
     applicationId: config.applicationId,
     environment: config.environment,
     catalogue: createCatalogueClient(send),
-    customers: createCustomersClient(send),
+    customers,
     checkout: createCheckoutClient(send),
-    payments: createPaymentsClient(send),
+    payments,
+    sales: createSalesClient(customers, payments),
     paymentMethods: createPaymentMethodsClient(send),
     billing: createBillingClient(send),
     invoices: createInvoicesClient(send),
