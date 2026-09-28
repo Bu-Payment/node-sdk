@@ -1,5 +1,4 @@
 import type { createCatalogueClient } from "../src/catalogue/client";
-import type { CurrentPrice } from "../src/catalogue/types";
 import type { createCheckoutClient } from "../src/checkout/client";
 import type { ErrorCode } from "../src/constants";
 import type { createCustomersClient } from "../src/customers/client";
@@ -9,6 +8,7 @@ import type { createPaymentsClient } from "../src/payments/client";
 import type { createPriceMigrationsClient } from "../src/price-migrations/client";
 import type { createRefundsClient } from "../src/refunds/client";
 import type { createSubscriptionsClient } from "../src/subscriptions/client";
+import type { CurrentPrice, PriceChangedError } from "../src/types";
 import type { createWebhooksClient } from "../src/webhooks/client";
 
 declare const catalogue: ReturnType<typeof createCatalogueClient>;
@@ -291,9 +291,10 @@ verifyDelivery({
 declare const caught: unknown;
 
 if (isPriceChanged(caught)) {
-  const code: typeof ErrorCode.PRICE_CHANGED = caught.code;
-  const price: CurrentPrice | undefined = caught.price;
+  const refusal: PriceChangedError = caught;
+  const code: typeof ErrorCode.PRICE_CHANGED = refusal.code;
+  const price: CurrentPrice | undefined = refusal.price;
   // @ts-expect-error the current price is absent when the API envelope was malformed
-  const unitAmount: number = caught.price.unitAmount;
+  const unitAmount: number = refusal.price.unitAmount;
   void [code, price, unitAmount];
 }
