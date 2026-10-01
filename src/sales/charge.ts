@@ -7,14 +7,11 @@ import type { Payment } from "../payments/types";
 import type { CompleteSale } from "./draft";
 import type { SaleResult } from "./types";
 
-const UNANSWERED_CODES = new Set<ErrorCode>([
-  ErrorCode.NETWORK_UNAVAILABLE,
-  ErrorCode.REQUEST_CANCELLED,
-]);
-
 type PaymentFailure = "unconfirmed" | "needs_reconciliation" | "refused";
 
 const FAILURE_BY_API_CODE: ReadonlyMap<string, PaymentFailure> = new Map([
+  [ErrorCode.NETWORK_UNAVAILABLE, "unconfirmed"],
+  [ErrorCode.REQUEST_CANCELLED, "unconfirmed"],
   ["idempotency_in_progress", "unconfirmed"],
   ["idempotency_outcome_unknown", "needs_reconciliation"],
   [ErrorCode.IDEMPOTENCY_CONFLICT, "needs_reconciliation"],
@@ -72,7 +69,7 @@ function paymentFailureOf(error: BuPaymentError): PaymentFailure {
     return known;
   }
   if (error.status === undefined) {
-    return UNANSWERED_CODES.has(error.code) ? "unconfirmed" : "refused";
+    return "refused";
   }
   return error.status >= 400 && error.status <= 499 ? "refused" : "unconfirmed";
 }

@@ -136,6 +136,7 @@ describe("sales", () => {
     ["a server failure", () => json(upstreamDown, 503), ErrorCode.OPERATION_FAILED],
     ["a malformed answer", () => new Response("not json"), ErrorCode.RESPONSE_INVALID],
     ["an answer cut off mid-body", () => interruptedBody(201), ErrorCode.NETWORK_UNAVAILABLE],
+    ["a refusal cut off mid-body", () => interruptedBody(409), ErrorCode.NETWORK_UNAVAILABLE],
     ["a redirect", () => json(upstreamDown, 302), ErrorCode.OPERATION_FAILED],
   ])("answers %s on the payment as unconfirmed", async (_label, payment, code) => {
     const { client } = shop({ payment });
