@@ -178,9 +178,9 @@ derived; a key must name one order and that order must not change between attemp
 
 The sale resolves to `{ outcome: "needs_reconciliation", error }` and keeps the unit, because
 the unit may already be paid for. Retrying the same sale gives the same answer forever, so do
-not loop on it. Find out what happened instead: wait for the `payment.succeeded` event, which
-carries the payment and its reference, check the payment in the BuPayment dashboard, or contact
-support with `error.requestId`. Release the unit yourself once you know the customer was not
+not loop on it. Find out what happened instead: watch for a `payment.succeeded` event (see
+[Events and webhooks](08-events-and-webhooks.md)), check the payment in the BuPayment dashboard,
+or contact support with `error.requestId`. Release the unit yourself once you know the customer was not
 charged.
 
 ## Holding stock
