@@ -167,6 +167,8 @@ try {
       return askCustomerToConfirm(sale.shown, sale.current);
     case "unconfirmed":
       return retryLater(orderId);
+    case "needs_reconciliation":
+      return reconcile(orderId, sale.error);
     case "unavailable":
       return outOfStock();
   }
@@ -180,10 +182,11 @@ The sale finds the customer by email or creates one (`customerId()` skips the lo
 the displayed price, and calls `reserve()` before any request, so the last unit cannot be charged
 twice. `release()` runs once when the sale ends `unpaid`, `price_changed` or throws. A payment
 whose fate is unknown after a timeout or a server error resolves to `unconfirmed` and keeps the
-unit; charging the same sale again settles it, which is why `idempotencyKey()` is required. Any
-other failure is still a `BuPaymentError`; `publicError(error)` turns it into
-`{ status, code, message }` with a fixed message, never the API's, and `502` when the status is
-not a 4xx or 5xx or the failure is the merchant's own credential.
+unit; charging the same sale again settles it, which is why `idempotencyKey()` is required. When
+the API itself lost the outcome, the sale resolves to `needs_reconciliation` instead, because no
+retry will settle it. Any other failure is still a `BuPaymentError`; `publicError(error)` turns
+it into `{ status, code, message }` with a fixed message, never the API's, and `502` when the
+status is not a 4xx or 5xx or the failure is the merchant's own credential.
 [Sales](docs/11-sales.md) covers each step, each outcome, retries and the customer lookup.
 
 ## Charging the price the customer saw

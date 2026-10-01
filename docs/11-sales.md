@@ -40,6 +40,9 @@ app.post("/checkout", async (request, response) => {
         return response.status(409).json({ shown: sale.shown, current: sale.current });
       case "unconfirmed":
         return response.status(202).json({ status: "confirming" });
+      case "needs_reconciliation":
+        alertOperations(orderId, sale.error);
+        return response.status(202).json({ status: "under_review" });
       case "unavailable":
         return response.status(409).json({ reason: "out_of_stock" });
     }
@@ -108,12 +111,16 @@ In this order:
    - a payment whose status is `succeeded` resolves to `paid` and the unit stays reserved;
    - a payment with any other status releases the unit and resolves to `unpaid`;
    - a `price_changed` refusal releases the unit and resolves to `price_changed`;
-   - a failure that leaves the payment's fate unknown resolves to `unconfirmed` and the unit
-     stays reserved (see [An unconfirmed payment](#an-unconfirmed-payment));
+   - a failure that leaves the payment's fate open, but that a retry settles, resolves to
+     `unconfirmed` and the unit stays reserved (see [An unconfirmed payment](#an-unconfirmed-payment));
+   - a payment whose fate the API itself no longer knows resolves to `needs_reconciliation`
+     and the unit stays reserved (see [A payment to reconcile](#a-payment-to-reconcile));
    - any other failure releases the unit and is thrown unchanged. That covers every failure
-     in step 2, since no payment was sent, and every refusal the API answered with a 4xx.
+     in step 2, since no payment was sent, every refusal the API answered with a 4xx, and a
+     payment the API failed to prepare and never sent to the provider.
 
-`release()` is called at most once per `charge()`, and never after `paid` or `unconfirmed`.
+`release()` is called at most once per `charge()`, and never after `paid`, `unconfirmed` or
+`needs_reconciliation`.
 The rule to remember: when `charge()` throws, the unit has been released.
 
 ## Outcomes
@@ -123,7 +130,8 @@ The rule to remember: when `charge()` throws, the unit has been released.
 | `paid` | `payment` | The payment succeeded. | Fulfil the order. The reserved unit is sold. |
 | `unpaid` | `payment` | The payment was created with a status other than `succeeded`, such as `pending` or `failed`. | Read `payment.status`. The unit was released. |
 | `price_changed` | `shown`, `current` | The price changed after the customer saw it. Nothing was charged. | Show `current` and ask the customer to confirm. The unit was released. |
-| `unconfirmed` | `error` | The payment request got no usable answer: a timeout, a cancellation, a network failure, a 5xx or a malformed response. The customer may or may not have been charged. | Charge the same sale again, with the same key, until it resolves otherwise. The unit is still reserved. |
+| `unconfirmed` | `error` | The payment request got no usable answer (a timeout, a cancellation, a network failure, a 5xx or a malformed response), or an earlier attempt under the same key is still running. The customer may or may not have been charged. | Charge the same sale again, with the same key, until it resolves otherwise. The unit is still reserved. |
+| `needs_reconciliation` | `error` | The API lost track of an attempt under this key while it was with the payment provider. The customer may have been charged, and retrying will never tell. | Stop retrying. Check the payment in BuPayment, wait for the `payment.succeeded` event, or contact support. The unit is still reserved. |
 | `unavailable` | none | `reserve()` answered `false`. | Tell the customer the product is out of stock. Nothing was sent to BuPayment. |
 
 `shown` is the displayed price you passed. `current` is the price BuPayment holds now,
@@ -142,11 +150,32 @@ gets an answer that is not JSON, the SDK cannot tell whether BuPayment charged t
 Releasing the unit then could sell it twice; throwing would leave you unsure whether it was
 released. The sale resolves to `{ outcome: "unconfirmed", error }` instead and keeps the unit.
 
-To settle it, charge the same sale again. The idempotency key makes that safe: if the first
-payment went through, the API answers with it and the sale resolves to `paid`; if it did not,
-the payment is made now. `error` is the `BuPaymentError` that left the outcome open, for your
-logs. Until you retry, the unit stays reserved; the `payment.succeeded` webhook event also tells
-you when a payment settled (see [Events and webhooks](08-events-and-webhooks.md)).
+The same outcome answers a retry that arrives while the first attempt under the key is still
+running: the API refuses it with `idempotency_in_progress` rather than charging twice, and the
+first attempt carries on.
+
+To settle it, charge the same sale again, a little later. The idempotency key makes that safe:
+if the first payment went through, the API answers with it and the sale resolves to `paid`; if
+it did not, the payment is made now. `error` is the `BuPaymentError` that left the outcome open,
+for your logs. Until you retry, the unit stays reserved; the `payment.succeeded` webhook event
+also tells you when a payment settled (see [Events and webhooks](08-events-and-webhooks.md)).
+
+When the API failed to prepare the payment and never sent it to the provider, a retry answers
+with `financial_preparation_failed`. Nothing was charged, so the sale releases the unit and
+throws, and the loop ends there.
+
+## A payment to reconcile
+
+An attempt can be lost while it is with the payment provider: the request outlived the API's
+lease on the key, or the process handling it stopped. The API then records the key's outcome as
+unknown, for good, and answers every later attempt under it with `idempotency_outcome_unknown`.
+The provider may still have charged the customer.
+
+The sale resolves to `{ outcome: "needs_reconciliation", error }` and keeps the unit, because
+the unit may already be paid for. Retrying the same sale gives the same answer forever, so do
+not loop on it. Find out what happened instead: look the payment up in BuPayment by its
+reference, wait for the `payment.succeeded` event, or contact support with `error.requestId`.
+Release the unit yourself once you know the customer was not charged.
 
 ## Holding stock
 
@@ -169,7 +198,7 @@ something you do not have.
 - `reserve()` runs before any request, so a sale that cannot be fulfilled never touches
   BuPayment.
 - `release()` runs once when the sale ends in `unpaid`, `price_changed` or an exception, and
-  never after `paid` or `unconfirmed`.
+  never after `paid`, `unconfirmed` or `needs_reconciliation`.
 - If `release()` throws, that error is what `charge()` throws, even when the sale was also
   failing for another reason. A failed release means your stock count is wrong, and hiding it
   behind a payment error would leave it wrong without anyone noticing.
