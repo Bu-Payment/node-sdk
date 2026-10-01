@@ -58,8 +58,8 @@ every required field is set. `create()` is absent from a payment with no custome
 one with no price; `amount()` disappears once `priceId()` is called, and `priceId()` disappears
 once an amount is set, so a request can never override the price of a canonical resource.
 
-`catalogue`, `customers`, `checkout`, `payments`, `paymentMethods`, `billing`, `invoices`,
-`refunds`, `subscriptions`, `priceMigrations`, `events`, and `webhooks`. Each route needs its
+`catalogue`, `customers`, `checkout`, `payments`, `sales`, `paymentMethods`, `billing`,
+`invoices`, `refunds`, `subscriptions`, `priceMigrations`, `events`, and `webhooks`. Each route needs its
 capability on the credential. See [the documentation](docs/00-index.md) for the whole surface.
 
 `paymentMethods` also supplies the `paymentMethodId` that payment allocations require.
@@ -138,6 +138,59 @@ App. When the price a link points to is archived, a sweep of `products().all()` 
 price to repoint it to, without waiting for an event.
 
 See [Catalogue](docs/02-catalogue.md) for every route.
+
+## Selling a one-time product
+
+`client.sales` charges a canonical price at the amount the customer saw and answers with a typed
+outcome instead of an exception for the refusals a shop expects:
+
+```ts
+import { publicError } from "@bu-payment/node-sdk";
+
+try {
+  const sale = await client.sales
+    .draft()
+    .priceId(priceId)
+    .displayedPrice({ unitAmount: 1_500, currency: "EUR" })
+    .customerEmail(email)
+    .reference(sku)
+    .reservation({ reserve: () => stock.take(sku), release: () => stock.giveBack(sku) })
+    .idempotencyKey(`order-${orderId}`)
+    .charge();
+
+  switch (sale.outcome) {
+    case "paid":
+      return fulfil(sale.payment);
+    case "unpaid":
+      return awaitSettlement(sale.payment);
+    case "price_changed":
+      return askCustomerToConfirm(sale.shown, sale.current);
+    case "unconfirmed":
+      return retryLater(orderId);
+    case "needs_reconciliation":
+      return reconcile(orderId, sale.error);
+    case "unavailable":
+      return outOfStock();
+  }
+} catch (error) {
+  const failure = publicError(error);
+  return response.status(failure.status).json(failure);
+}
+```
+
+The sale finds the customer by email or creates one (`customerId()` skips the lookup), asserts the
+displayed price, and calls `reserve()` before any request, so the last unit cannot be charged
+twice. `release()` runs once when the sale ends `unpaid`, `price_changed` or throws. A payment
+whose fate is unknown after a timeout, a cut-off answer or a server error resolves to `unconfirmed`
+and keeps the unit; charging the same sale again settles it, which is why `idempotencyKey()` is
+required. When the API itself lost the outcome, or the key was already used for a different sale,
+the sale resolves to `needs_reconciliation` instead, because no retry will settle it. A server
+error the API raised before the provider was called, `financial_preparation_failed`, charged
+nothing: the sale releases the unit and throws. Any other failure is still a `BuPaymentError`;
+`publicError(error)` turns it into `{ status, code, message }` with a fixed message, never the
+API's, and `502` when the status is not a 4xx or 5xx or the failure is the merchant's own
+credential.
+[Sales](docs/11-sales.md) covers each step, each outcome, retries and the customer lookup.
 
 ## Charging the price the customer saw
 
@@ -315,6 +368,10 @@ try {
   }
 }
 ```
+
+Before answering an end customer, pass the error through `publicError(error)`: it keeps the status
+and the canonical code, replaces the message with a fixed one, and maps a status outside 4xx and 5xx,
+or a failure of the merchant's own credential, to `502`. See [Errors](docs/10-errors.md#answering-the-end-customer).
 
 Pass any `AbortSignal` as `signal` to cancel a request; the SDK reports it as `request_cancelled`.
 A request that outlives its own timeout fails as `network_unavailable`.

@@ -17,7 +17,7 @@ const STATUS_ERROR_CODES: ReadonlyMap<number, ErrorCode> = new Map([
 ]);
 
 export async function readResponse<T>(response: Response): Promise<T> {
-  const text = await response.text();
+  const text = await bodyOf(response);
   if (!response.ok) {
     throw responseFailure(response, text);
   }
@@ -29,6 +29,19 @@ export async function readResponse<T>(response: Response): Promise<T> {
   } catch (cause) {
     throw new BuPaymentError("API response is not valid JSON", {
       code: ErrorCode.RESPONSE_INVALID,
+      status: response.status,
+      cause,
+      ...requestIdOf(response, undefined),
+    });
+  }
+}
+
+async function bodyOf(response: Response): Promise<string> {
+  try {
+    return await response.text();
+  } catch (cause) {
+    throw new BuPaymentError("The API response was interrupted before it was read", {
+      code: ErrorCode.NETWORK_UNAVAILABLE,
       status: response.status,
       cause,
       ...requestIdOf(response, undefined),

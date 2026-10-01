@@ -49,15 +49,22 @@ export function harnessReturning(...bodies: unknown[]): Harness {
   return harnessOf((_call, index) => json(bodies[index] ?? {}));
 }
 
-export function harnessStalling(): Harness {
+export function harnessStalling(
+  answer: (call: Call) => Response | undefined = () => undefined,
+): Harness {
   const calls: Call[] = [];
   const stub: FetchLike = async (url, init) => {
-    calls.push({
+    const call: Call = {
       method: init.method ?? "GET",
       url,
       headers: init.headers as Record<string, string>,
       body: undefined,
-    });
+    };
+    calls.push(call);
+    const answered = answer(call);
+    if (answered !== undefined) {
+      return answered;
+    }
     return await new Promise<Response>((_resolve, reject) => {
       if (init.signal?.aborted === true) {
         reject(new Error("aborted"));

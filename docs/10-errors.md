@@ -23,7 +23,7 @@ try {
 | `configuration_invalid` | The client configuration is malformed. |
 | `request_invalid` | The SDK or the API refused the request as built. |
 | `request_cancelled` | The caller's `AbortSignal` fired. |
-| `network_unavailable` | The API could not be reached, or the request timed out. |
+| `network_unavailable` | The API could not be reached, the request timed out, or the response was cut off before it was read. |
 | `response_invalid` | The API answered something that is not JSON. |
 | `resource_not_found` | The resource is unknown, unassigned, or owned by another App. |
 | `resource_conflict` | The mutation conflicts with current App-owned state. |
@@ -88,6 +88,9 @@ The guard matches on the code alone. `error.price` stays optional after narrowin
 refusal whose body lacks a well-formed price is still a price change, and the type does not
 claim a price the API did not send.
 
+A [sale](11-sales.md) answers this refusal as `{ outcome: "price_changed", shown, current }`
+instead of throwing it, so code that sells through `client.sales` never needs the guard.
+
 ## What a not-found does not tell you
 
 A resource owned by another App, an unassigned catalogue identifier and an identifier that
@@ -117,6 +120,37 @@ served, a `nextCursor` that is missing or empty, no `data` array, or `hasMore` w
 cursor to follow. Every one of those would otherwise end the walk in silence, repeat it
 forever, or escape as a bare `TypeError`.
 
+## Answering the end customer
+
+A `BuPaymentError` is for your server. Its `message` can quote the API's own wording, and
+its `requestId` and `metadata` are for your logs and for support. `publicError(error)` gives
+the part that is safe to send to a browser:
+
+```ts
+import { publicError } from "@bu-payment/node-sdk";
+
+try {
+  await sale.charge();
+} catch (error) {
+  logger.error(error);
+  const failure = publicError(error);
+  response.status(failure.status).json(failure);
+}
+```
+
+| Input | `status` | `code` | `message` |
+| --- | --- | --- | --- |
+| `BuPaymentError` with a 4xx or 5xx status | that status | the error's `code` | fixed |
+| `BuPaymentError` with any other status, or none | `502` | the error's `code` | fixed |
+| `configuration_invalid`, any `application_auth_*`, `application_capability_denied` | `502` | `operation_failed` | fixed |
+| anything else | `500` | `operation_failed` | fixed |
+
+The message is always one of two fixed sentences and never the API's. A status outside
+4xx and 5xx, such as the `200` of a response that was not JSON, becomes `502`, because the
+failure is between your server and BuPayment rather than in the request your customer made.
+A refused credential is mapped the same way: answering `401` or `403` would tell the browser that
+its own session was refused.
+
 ---
 
-Previous: [Pagination](09-pagination.md) · Next: [Index](00-index.md)
+Previous: [Pagination](09-pagination.md) · Next: [Sales](11-sales.md)

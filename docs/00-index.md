@@ -16,7 +16,8 @@ exist until every required field is set.
 7. [Subscriptions](07-subscriptions.md): lifecycle and price migrations.
 8. [Events and webhooks](08-events-and-webhooks.md): event reads, endpoints, deliveries, signature verification.
 9. [Pagination](09-pagination.md): cursor pages and the automatic walk.
-10. [Errors](10-errors.md): typed error envelopes and what each code means.
+10. [Errors](10-errors.md): typed error envelopes, what each code means, and the public view of a failure.
+11. [Sales](11-sales.md): charging a one-time product at the displayed price, with a typed outcome and stock compensation.
 
 ---
 

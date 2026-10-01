@@ -107,6 +107,25 @@ describe("SignedTransport", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("reports a body cut off while it is read as network_unavailable", async () => {
+    const { transport } = transportOf(
+      () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.error(new Error("connection reset"));
+            },
+          }),
+          { status: 201, headers: { [Header.REQUEST_ID]: "req_9" } },
+        ),
+    );
+    await expect(transport.send({ method: "POST", path: "/v1/payments" })).rejects.toMatchObject({
+      code: ErrorCode.NETWORK_UNAVAILABLE,
+      status: 201,
+      requestId: "req_9",
+    });
+  });
+
   it("fails when a success body is not JSON", async () => {
     const { transport } = transportOf(() => new Response("not json", { status: 200 }));
     await expect(transport.send({ method: "GET", path: "/v1/items" })).rejects.toMatchObject({
