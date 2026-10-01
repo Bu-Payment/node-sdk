@@ -12,6 +12,14 @@ const UNANSWERED_CODES = new Set<ErrorCode>([
   ErrorCode.REQUEST_CANCELLED,
 ]);
 
+type PaymentFailure = "unconfirmed" | "needs_reconciliation" | "refused";
+
+const FAILURE_BY_API_ERROR: ReadonlyMap<string, PaymentFailure> = new Map([
+  ["idempotency_in_progress", "unconfirmed"],
+  ["idempotency_outcome_unknown", "needs_reconciliation"],
+  ["financial_preparation_failed", "refused"],
+]);
+
 const EMAIL_TAKEN = "app_customer_email_conflict";
 
 export async function chargeSale(
@@ -37,8 +45,11 @@ export async function chargeSale(
   try {
     payment = await pay(payments, customerId, sale);
   } catch (error) {
-    if (error instanceof BuPaymentError && isUnconfirmed(error)) {
-      return { outcome: "unconfirmed", error };
+    if (error instanceof BuPaymentError) {
+      const failure = paymentFailureOf(error);
+      if (failure !== "refused") {
+        return { outcome: failure, error };
+      }
     }
     await release();
     if (isPriceChanged(error)) {
@@ -53,11 +64,16 @@ export async function chargeSale(
   return { outcome: "unpaid", payment };
 }
 
-function isUnconfirmed(error: BuPaymentError): boolean {
-  if (error.status === undefined) {
-    return UNANSWERED_CODES.has(error.code);
+function paymentFailureOf(error: BuPaymentError): PaymentFailure {
+  const apiError = error.metadata?.apiError;
+  const known = typeof apiError === "string" ? FAILURE_BY_API_ERROR.get(apiError) : undefined;
+  if (known !== undefined) {
+    return known;
   }
-  return error.status < 400 || error.status > 499;
+  if (error.status === undefined) {
+    return UNANSWERED_CODES.has(error.code) ? "unconfirmed" : "refused";
+  }
+  return error.status >= 400 && error.status <= 499 ? "refused" : "unconfirmed";
 }
 
 async function customerIdOf(customers: CustomersClient, sale: CompleteSale): Promise<string> {

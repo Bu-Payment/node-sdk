@@ -7,6 +7,8 @@ import {
   failureOf,
   ledger,
   notFound,
+  outcomeUnknown,
+  preparationFailed,
   priceChanged,
   type ShopOptions,
   saleOf,
@@ -85,12 +87,26 @@ describe("sales with a stock reservation", () => {
     expect(events).toEqual(["reserve@0", "release@1"]);
   });
 
-  it("keeps the unit when the payment outcome is unknown", async () => {
-    const { client, calls } = shop({ payment: () => json(upstreamDown, 503) });
+  it.each<[string, ShopOptions, string]>([
+    ["the server fails", { payment: () => json(upstreamDown, 503) }, "unconfirmed"],
+    [
+      "the API lost the outcome",
+      { payment: () => json(outcomeUnknown, 409) },
+      "needs_reconciliation",
+    ],
+  ])("keeps the unit when %s", async (_label, options, outcome) => {
+    const { client, calls } = shop(options);
     const { events, reservation } = ledger(calls);
     const sale = await saleOf(client).reservation(reservation).charge();
-    expect(sale.outcome).toBe("unconfirmed");
+    expect(sale.outcome).toBe(outcome);
     expect(events).toEqual(["reserve@0"]);
+  });
+
+  it("releases the unit when the API failed to prepare the payment", async () => {
+    const { client, calls } = shop({ payment: () => json(preparationFailed, 500) });
+    const { events, reservation } = ledger(calls);
+    await failureOf(saleOf(client).reservation(reservation).charge());
+    expect(events).toEqual(["reserve@0", "release@2"]);
   });
 
   it.each<[string, ShopOptions]>([

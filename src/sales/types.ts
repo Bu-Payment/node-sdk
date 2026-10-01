@@ -12,4 +12,5 @@ export type SaleResult =
   | { outcome: "unpaid"; payment: Payment }
   | { outcome: "price_changed"; shown: ExpectedPrice; current: CurrentPrice | null }
   | { outcome: "unconfirmed"; error: BuPaymentError }
+  | { outcome: "needs_reconciliation"; error: BuPaymentError }
   | { outcome: "unavailable" };

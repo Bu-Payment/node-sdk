@@ -18,6 +18,21 @@ export const priceChanged = {
 };
 export const upstreamDown = { error: "operation_failed", message: "down", statusCode: 503 };
 export const notFound = { error: "resource_not_found", message: "missing", statusCode: 404 };
+export const keyInProgress = {
+  error: "idempotency_in_progress",
+  message: "busy",
+  statusCode: 409,
+};
+export const outcomeUnknown = {
+  error: "idempotency_outcome_unknown",
+  message: "unknown",
+  statusCode: 409,
+};
+export const preparationFailed = {
+  error: "financial_preparation_failed",
+  message: "failed",
+  statusCode: 500,
+};
 export const emailTaken = {
   error: "app_customer_email_conflict",
   message: "taken",

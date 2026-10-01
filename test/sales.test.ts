@@ -8,7 +8,10 @@ import {
   email,
   emailTaken,
   failureOf,
+  keyInProgress,
   notFound,
+  outcomeUnknown,
+  preparationFailed,
   priceChanged,
   routeOf,
   saleOf,
@@ -135,6 +138,32 @@ describe("sales", () => {
     const sale = await saleOf(client).charge();
     expect(sale.outcome).toBe("unconfirmed");
     expect(sale.outcome === "unconfirmed" && sale.error.code).toBe(code);
+  });
+
+  it("answers a payment still in flight under the same key as unconfirmed", async () => {
+    const { client } = shop({ payment: () => json(keyInProgress, 409) });
+    const sale = await saleOf(client).charge();
+    expect(sale.outcome).toBe("unconfirmed");
+    expect(sale.outcome === "unconfirmed" && sale.error.metadata).toEqual({
+      apiError: "idempotency_in_progress",
+    });
+  });
+
+  it("answers a payment whose outcome the API lost as needing reconciliation", async () => {
+    const { client } = shop({ payment: () => json(outcomeUnknown, 409) });
+    const sale = await saleOf(client).charge();
+    expect(sale.outcome).toBe("needs_reconciliation");
+    expect(sale.outcome === "needs_reconciliation" && sale.error.code).toBe(
+      ErrorCode.RESOURCE_CONFLICT,
+    );
+  });
+
+  it("rethrows a payment the API failed to prepare and never charged", async () => {
+    const { client } = shop({ payment: () => json(preparationFailed, 500) });
+    const failure = await failureOf(saleOf(client).charge());
+    expect((failure as BuPaymentError).metadata).toEqual({
+      apiError: "financial_preparation_failed",
+    });
   });
 
   it("sends the idempotency key with the payment only", async () => {
