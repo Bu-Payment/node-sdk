@@ -8,7 +8,9 @@ import {
   email,
   emailTaken,
   failureOf,
+  interruptedBody,
   keyInProgress,
+  keyReused,
   notFound,
   outcomeUnknown,
   preparationFailed,
@@ -133,6 +135,8 @@ describe("sales", () => {
   it.each([
     ["a server failure", () => json(upstreamDown, 503), ErrorCode.OPERATION_FAILED],
     ["a malformed answer", () => new Response("not json"), ErrorCode.RESPONSE_INVALID],
+    ["an answer cut off mid-body", () => interruptedBody(201), ErrorCode.NETWORK_UNAVAILABLE],
+    ["a redirect", () => json(upstreamDown, 302), ErrorCode.OPERATION_FAILED],
   ])("answers %s on the payment as unconfirmed", async (_label, payment, code) => {
     const { client } = shop({ payment });
     const sale = await saleOf(client).charge();
@@ -156,6 +160,22 @@ describe("sales", () => {
     expect(sale.outcome === "needs_reconciliation" && sale.error.code).toBe(
       ErrorCode.RESOURCE_CONFLICT,
     );
+  });
+
+  it("answers a key reused for a different sale as needing reconciliation", async () => {
+    const { client } = shop({ payment: () => json(keyReused, 409) });
+    const sale = await saleOf(client).charge();
+    expect(sale.outcome === "needs_reconciliation" && sale.error.code).toBe(
+      ErrorCode.IDEMPOTENCY_CONFLICT,
+    );
+  });
+
+  it("rethrows a payment the API refused as invalid", async () => {
+    const { client } = shop({
+      payment: () => json({ error: "request_invalid", message: "bad", statusCode: 400 }, 400),
+    });
+    const failure = await failureOf(saleOf(client).charge());
+    expect((failure as BuPaymentError).code).toBe(ErrorCode.REQUEST_INVALID);
   });
 
   it("rethrows a payment the API failed to prepare and never charged", async () => {

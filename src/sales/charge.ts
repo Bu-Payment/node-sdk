@@ -14,9 +14,10 @@ const UNANSWERED_CODES = new Set<ErrorCode>([
 
 type PaymentFailure = "unconfirmed" | "needs_reconciliation" | "refused";
 
-const FAILURE_BY_API_ERROR: ReadonlyMap<string, PaymentFailure> = new Map([
+const FAILURE_BY_API_CODE: ReadonlyMap<string, PaymentFailure> = new Map([
   ["idempotency_in_progress", "unconfirmed"],
   ["idempotency_outcome_unknown", "needs_reconciliation"],
+  [ErrorCode.IDEMPOTENCY_CONFLICT, "needs_reconciliation"],
   ["financial_preparation_failed", "refused"],
 ]);
 
@@ -66,7 +67,7 @@ export async function chargeSale(
 
 function paymentFailureOf(error: BuPaymentError): PaymentFailure {
   const apiError = error.metadata?.apiError;
-  const known = typeof apiError === "string" ? FAILURE_BY_API_ERROR.get(apiError) : undefined;
+  const known = FAILURE_BY_API_CODE.get(typeof apiError === "string" ? apiError : error.code);
   if (known !== undefined) {
     return known;
   }

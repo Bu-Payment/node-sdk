@@ -33,6 +33,11 @@ export const preparationFailed = {
   message: "failed",
   statusCode: 500,
 };
+export const keyReused = {
+  error: "idempotency_conflict",
+  message: "reused",
+  statusCode: 409,
+};
 export const emailTaken = {
   error: "app_customer_email_conflict",
   message: "taken",
@@ -101,6 +106,15 @@ export const saleOf = (client: SalesClientOf) =>
     .displayedPrice(displayed)
     .customerEmail(email)
     .idempotencyKey("order-1");
+
+export function interruptedBody(status: number): Response {
+  const body = new ReadableStream({
+    start(controller) {
+      controller.error(new Error("connection reset"));
+    },
+  });
+  return new Response(body, { status });
+}
 
 export async function failureOf(pending: Promise<unknown>): Promise<unknown> {
   return await pending.then(
