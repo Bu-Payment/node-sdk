@@ -178,15 +178,18 @@ try {
 }
 ```
 
-The sale finds the customer by email or creates one (`customerId()` skips the lookup), asserts
-the displayed price, and calls `reserve()` before any request, so the last unit cannot be charged
+The sale finds the customer by email or creates one (`customerId()` skips the lookup), asserts the
+displayed price, and calls `reserve()` before any request, so the last unit cannot be charged
 twice. `release()` runs once when the sale ends `unpaid`, `price_changed` or throws. A payment
-whose fate is unknown after a timeout or a server error resolves to `unconfirmed` and keeps the
-unit; charging the same sale again settles it, which is why `idempotencyKey()` is required. When
-the API itself lost the outcome, the sale resolves to `needs_reconciliation` instead, because no
-retry will settle it. Any other failure is still a `BuPaymentError`; `publicError(error)` turns
-it into `{ status, code, message }` with a fixed message, never the API's, and `502` when the
-status is not a 4xx or 5xx or the failure is the merchant's own credential.
+whose fate is unknown after a timeout, a cut-off answer or a server error resolves to `unconfirmed`
+and keeps the unit; charging the same sale again settles it, which is why `idempotencyKey()` is
+required. When the API itself lost the outcome, or the key was already used for a different sale,
+the sale resolves to `needs_reconciliation` instead, because no retry will settle it. A server
+error the API raised before the provider was called, `financial_preparation_failed`, charged
+nothing: the sale releases the unit and throws. Any other failure is still a `BuPaymentError`;
+`publicError(error)` turns it into `{ status, code, message }` with a fixed message, never the
+API's, and `502` when the status is not a 4xx or 5xx or the failure is the merchant's own
+credential.
 [Sales](docs/11-sales.md) covers each step, each outcome, retries and the customer lookup.
 
 ## Charging the price the customer saw

@@ -130,8 +130,8 @@ The rule to remember: when `charge()` throws, the unit has been released.
 | `paid` | `payment` | The payment succeeded. | Fulfil the order. The reserved unit is sold. |
 | `unpaid` | `payment` | The payment was created with a status other than `succeeded`, such as `pending` or `failed`. | Read `payment.status`. The unit was released. |
 | `price_changed` | `shown`, `current` | The price changed after the customer saw it. Nothing was charged. | Show `current` and ask the customer to confirm. The unit was released. |
-| `unconfirmed` | `error` | The payment request got no usable answer (a timeout, a cancellation, a network failure, a 5xx or a malformed response), or an earlier attempt under the same key is still running. The customer may or may not have been charged. | Charge the same sale again, with the same key, until it resolves otherwise. The unit is still reserved. |
-| `needs_reconciliation` | `error` | The API lost track of an attempt under this key while it was with the payment provider. The customer may have been charged, and retrying will never tell. | Stop retrying. Check the payment in BuPayment, wait for the `payment.succeeded` event, or contact support. The unit is still reserved. |
+| `unconfirmed` | `error` | The payment request got no usable answer (a timeout, a cancellation, a network failure, a response cut off or malformed, a 5xx other than `financial_preparation_failed`), or an earlier attempt under the same key is still running. The customer may or may not have been charged. | Charge the same sale again, with the same key, until it resolves otherwise. The unit is still reserved. |
+| `needs_reconciliation` | `error` | The API lost track of an attempt under this key while it was with the payment provider, or the key was already used for a different sale. The customer may have been charged, and retrying will never tell. | Stop retrying. Check the payment in BuPayment, wait for the `payment.succeeded` event, or contact support. The unit is still reserved. |
 | `unavailable` | none | `reserve()` answered `false`. | Tell the customer the product is out of stock. Nothing was sent to BuPayment. |
 
 `shown` is the displayed price you passed. `current` is the price BuPayment holds now,
@@ -145,8 +145,8 @@ to keep the unit for a pending payment, take it again when the event arrives.
 
 ## An unconfirmed payment
 
-When the payment request times out, is cancelled, loses the connection, meets a server error or
-gets an answer that is not JSON, the SDK cannot tell whether BuPayment charged the customer.
+When the payment request times out, is cancelled, loses the connection, meets a server error, or
+gets an answer that is cut off or is not JSON, the SDK cannot tell whether BuPayment charged the customer.
 Releasing the unit then could sell it twice; throwing would leave you unsure whether it was
 released. The sale resolves to `{ outcome: "unconfirmed", error }` instead and keeps the unit.
 
@@ -171,11 +171,17 @@ lease on the key, or the process handling it stopped. The API then records the k
 unknown, for good, and answers every later attempt under it with `idempotency_outcome_unknown`.
 The provider may still have charged the customer.
 
+The same outcome answers a key that was already used for a different sale, refused with
+`idempotency_conflict`: the API did not run this request, but the sale that first used the key
+may have been charged, and its unit is the one this sale holds. This is a bug in how the key is
+derived; a key must name one order and that order must not change between attempts.
+
 The sale resolves to `{ outcome: "needs_reconciliation", error }` and keeps the unit, because
 the unit may already be paid for. Retrying the same sale gives the same answer forever, so do
-not loop on it. Find out what happened instead: look the payment up in BuPayment by its
-reference, wait for the `payment.succeeded` event, or contact support with `error.requestId`.
-Release the unit yourself once you know the customer was not charged.
+not loop on it. Find out what happened instead: wait for the `payment.succeeded` event, which
+carries the payment and its reference, check the payment in the BuPayment dashboard, or contact
+support with `error.requestId`. Release the unit yourself once you know the customer was not
+charged.
 
 ## Holding stock
 
