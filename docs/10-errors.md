@@ -23,7 +23,7 @@ try {
 | `configuration_invalid` | The client configuration is malformed. |
 | `request_invalid` | The SDK or the API refused the request as built. |
 | `request_cancelled` | The caller's `AbortSignal` fired. |
-| `network_unavailable` | The API could not be reached, or the request timed out. |
+| `network_unavailable` | The API could not be reached, the request timed out, or the response was cut off before it was read. |
 | `response_invalid` | The API answered something that is not JSON. |
 | `resource_not_found` | The resource is unknown, unassigned, or owned by another App. |
 | `resource_conflict` | The mutation conflicts with current App-owned state. |
