@@ -77,4 +77,11 @@ describe("webhooks", () => {
     expect(pathOf(callAt(calls, 1))).toBe("/v1/webhook-deliveries/whd_1/retry");
     expect(retry.status).toBe("pending");
   });
+
+  it("lists the deliveries refused at their destination", async () => {
+    const { client, calls } = harnessReturning([{ id: "whd_1", status: "refused" }]);
+    const deliveries = await client.webhooks.deliveries().status("refused").get();
+    expect(queryOf(callAt(calls, 0))).toBe("?status=refused");
+    expect(deliveries.map((delivery) => delivery.status)).toEqual(["refused"]);
+  });
 });

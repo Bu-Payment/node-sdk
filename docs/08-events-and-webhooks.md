@@ -198,6 +198,12 @@ says whether it was truncated. Omitting `limit()` returns the 50 newest matching
 deliveries; the server cap is 100. Driving retries from `deliveries().status("failed")`
 without a limit silently leaves the 51st failure and everything older unretried.
 
+A delivery is `pending`, `delivering`, `succeeded`, `failed`, `exhausted` or `refused`.
+`refused` is terminal, like `exhausted`: the endpoint URL resolved to a destination the
+platform does not send to, such as a private, loopback or link-local address, so nothing was
+sent and the platform makes no further attempt on its own. `responseBody` names the reason.
+List them with `deliveries().status("refused")`, fix the endpoint URL, then `retry()` each one.
+
 `retry()` answers the delivery's identifier and its new status; a delivery already in
 flight is left alone.
 
