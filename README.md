@@ -48,7 +48,7 @@ const payment = await client.payments
   .idempotencyKey(orderId)
   .create();
 
-for await (const event of client.events.list().type("payment.succeeded").all()) {
+for await (const event of client.events.list().type("payment.succeeded.v1").all()) {
   handle(event);
 }
 ```

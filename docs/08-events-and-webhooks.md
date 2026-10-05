@@ -9,10 +9,10 @@ events without a trustworthy owner are not exposed.
 Requires `events:read`.
 
 ```ts
-const events = await client.events.list().type("payment.succeeded").limit(50).get();
+const events = await client.events.list().type("payment.succeeded.v1").limit(50).get();
 const event = await client.events.event("evt_1").get();
 
-for await (const one of client.events.list().type("payment.succeeded").all()) {
+for await (const one of client.events.list().type("payment.succeeded.v1").all()) {
   console.log(one.type, one.occurredAt);
 }
 ```
@@ -29,8 +29,8 @@ Requires `webhooks:manage`.
 const endpoint = await client.webhooks
   .endpointDraft()
   .url("https://shop.example/hooks")
-  .event("payment.succeeded")
-  .event("payment.failed")
+  .event("payment.succeeded.v1")
+  .event("payment.failed.v1")
   .create();
 ```
 
@@ -197,6 +197,12 @@ const retried = await client.webhooks.delivery("whd_1").retry();
 says whether it was truncated. Omitting `limit()` returns the 50 newest matching
 deliveries; the server cap is 100. Driving retries from `deliveries().status("failed")`
 without a limit silently leaves the 51st failure and everything older unretried.
+
+A delivery is `pending`, `delivering`, `succeeded`, `failed`, `exhausted` or `refused`.
+`refused` is terminal, like `exhausted`: the endpoint URL resolved to a destination the
+platform does not send to, such as a private, loopback or link-local address, so nothing was
+sent and the platform makes no further attempt on its own. `responseBody` names the reason.
+List them with `deliveries().status("refused")`, fix the endpoint URL, then `retry()` each one.
 
 `retry()` answers the delivery's identifier and its new status; a delivery already in
 flight is left alone.

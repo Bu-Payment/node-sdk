@@ -165,12 +165,12 @@ describe("configuration methods", () => {
       .endpoint("whe_1")
       .url("https://shop.test/hooks-v2")
       .description(null)
-      .event("payment.succeeded")
+      .event("payment.succeeded.v1")
       .update();
     expect(callAt(calls, 0).body).toEqual({
       url: "https://shop.test/hooks-v2",
       description: null,
-      enabledEvents: ["payment.succeeded"],
+      enabledEvents: ["payment.succeeded.v1"],
     });
   });
 

@@ -22,7 +22,13 @@ export interface DeletedWebhookEndpoint {
   deleted: true;
 }
 
-export type WebhookDeliveryStatus = "pending" | "delivering" | "succeeded" | "failed" | "exhausted";
+export type WebhookDeliveryStatus =
+  | "pending"
+  | "delivering"
+  | "succeeded"
+  | "failed"
+  | "exhausted"
+  | "refused";
 
 export interface WebhookDelivery {
   id: string;

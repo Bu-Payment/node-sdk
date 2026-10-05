@@ -142,7 +142,7 @@ setupWithoutCurrency.create();
 paymentMethods.list("cus_1").cursor("cur_2");
 
 // @ts-expect-error a webhook endpoint cannot be created before its url is set
-webhooks.endpointDraft().event("payment.succeeded").create();
+webhooks.endpointDraft().event("payment.succeeded.v1").create();
 
 // @ts-expect-error a webhook endpoint cannot be updated before a field is set
 webhooks.endpoint("whe_1").update();
