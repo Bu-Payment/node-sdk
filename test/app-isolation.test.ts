@@ -140,9 +140,9 @@ describe("app-scoped isolation", () => {
 
   it("never sends the environment as request data", async () => {
     const { client, calls } = harnessReturning({ data: [], nextCursor: null });
-    await client.events.list().type("payment.succeeded").get();
+    await client.events.list().type("payment.succeeded.v1").get();
     expect(callAt(calls, 0).url).toBe(
-      "https://api.bupayment.test/v1/events?type=payment.succeeded",
+      "https://api.bupayment.test/v1/events?type=payment.succeeded.v1",
     );
     expect(callAt(calls, 0).body).toBeUndefined();
   });

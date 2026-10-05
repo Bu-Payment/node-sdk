@@ -131,7 +131,7 @@ The rule to remember: when `charge()` throws, the unit has been released.
 | `unpaid` | `payment` | The payment was created with a status other than `succeeded`, such as `pending` or `failed`. | Read `payment.status`. The unit was released. |
 | `price_changed` | `shown`, `current` | The price changed after the customer saw it. Nothing was charged. | Show `current` and ask the customer to confirm. The unit was released. |
 | `unconfirmed` | `error` | The payment request got no usable answer (a timeout, a cancellation, a network failure, a response cut off or malformed, a 5xx other than `financial_preparation_failed`), or an earlier attempt under the same key is still running. The customer may or may not have been charged. | Charge the same sale again, with the same key, until it resolves otherwise. The unit is still reserved. |
-| `needs_reconciliation` | `error` | The API lost track of an attempt under this key while it was with the payment provider, or the key was already used for a different sale. The customer may have been charged, and retrying will never tell. | Stop retrying. Check the payment in BuPayment, wait for the `payment.succeeded` event, or contact support. The unit is still reserved. |
+| `needs_reconciliation` | `error` | The API lost track of an attempt under this key while it was with the payment provider, or the key was already used for a different sale. The customer may have been charged, and retrying will never tell. | Stop retrying. Check the payment in BuPayment, wait for the `payment.succeeded.v1` event, or contact support. The unit is still reserved. |
 | `unavailable` | none | `reserve()` answered `false`. | Tell the customer the product is out of stock. Nothing was sent to BuPayment. |
 
 `shown` is the displayed price you passed. `current` is the price BuPayment holds now,
@@ -139,7 +139,7 @@ The rule to remember: when `charge()` throws, the unit has been released.
 carry one. Treat `null` as "the price changed, reload the product" rather than as a price.
 
 An `unpaid` payment is not necessarily lost. A payment that settles later is announced by
-the `payment.succeeded` webhook event (see [Events and webhooks](08-events-and-webhooks.md)).
+the `payment.succeeded.v1` webhook event (see [Events and webhooks](08-events-and-webhooks.md)).
 The sale releases the unit straight away because it cannot wait for that event; if you prefer
 to keep the unit for a pending payment, take it again when the event arrives.
 
@@ -157,7 +157,7 @@ first attempt carries on.
 To settle it, charge the same sale again, a little later. The idempotency key makes that safe:
 if the first payment went through, the API answers with it and the sale resolves to `paid`; if
 it did not, the payment is made now. `error` is the `BuPaymentError` that left the outcome open,
-for your logs. Until you retry, the unit stays reserved; the `payment.succeeded` webhook event
+for your logs. Until you retry, the unit stays reserved; the `payment.succeeded.v1` webhook event
 also tells you when a payment settled (see [Events and webhooks](08-events-and-webhooks.md)).
 
 When the API failed to prepare the payment and never sent it to the provider, a retry answers
@@ -178,7 +178,7 @@ derived; a key must name one order and that order must not change between attemp
 
 The sale resolves to `{ outcome: "needs_reconciliation", error }` and keeps the unit, because
 the unit may already be paid for. Retrying the same sale gives the same answer forever, so do
-not loop on it. Find out what happened instead: watch for a `payment.succeeded` event (see
+not loop on it. Find out what happened instead: watch for a `payment.succeeded.v1` event (see
 [Events and webhooks](08-events-and-webhooks.md)), check the payment in the BuPayment dashboard,
 or contact support with `error.requestId`. Release the unit yourself once you know the customer was not
 charged.

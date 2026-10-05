@@ -4,9 +4,9 @@ import { callAt, harnessReturning, pathOf, queryOf } from "./support/harness";
 describe("events", () => {
   it("lists events by type", async () => {
     const { client, calls } = harnessReturning({ data: [], nextCursor: null });
-    await client.events.list().type("payment.succeeded").limit(10).get();
+    await client.events.list().type("payment.succeeded.v1").limit(10).get();
     expect(pathOf(callAt(calls, 0))).toBe("/v1/events");
-    expect(queryOf(callAt(calls, 0))).toBe("?type=payment.succeeded&limit=10");
+    expect(queryOf(callAt(calls, 0))).toBe("?type=payment.succeeded.v1&limit=10");
   });
 
   it("walks every event page keeping the type the cursor is bound to", async () => {
@@ -15,11 +15,11 @@ describe("events", () => {
       { data: [{ id: "evt_2" }], nextCursor: null },
     );
     const collected: string[] = [];
-    for await (const event of client.events.list().type("payment.succeeded").all()) {
+    for await (const event of client.events.list().type("payment.succeeded.v1").all()) {
       collected.push(event.id);
     }
     expect(collected).toEqual(["evt_1", "evt_2"]);
-    expect(queryOf(callAt(calls, 1))).toBe("?type=payment.succeeded&cursor=cur_2");
+    expect(queryOf(callAt(calls, 1))).toBe("?type=payment.succeeded.v1&cursor=cur_2");
   });
 
   it("reads one event", async () => {
@@ -35,15 +35,15 @@ describe("webhooks", () => {
     const endpoint = await client.webhooks
       .endpointDraft()
       .url("https://shop.test/hooks")
-      .event("payment.succeeded")
-      .event("payment.failed")
+      .event("payment.succeeded.v1")
+      .event("payment.failed.v1")
       .idempotencyKey("hook-1")
       .create();
     expect(calls).toHaveLength(1);
     expect(callAt(calls, 0).method).toBe("POST");
     expect(callAt(calls, 0).body).toEqual({
       url: "https://shop.test/hooks",
-      enabledEvents: ["payment.succeeded", "payment.failed"],
+      enabledEvents: ["payment.succeeded.v1", "payment.failed.v1"],
     });
     expect(callAt(calls, 0).headers["Idempotency-Key"]).toBe("hook-1");
     expect(endpoint.secret).toBe("whsec_abc");

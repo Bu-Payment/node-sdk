@@ -9,10 +9,10 @@ events without a trustworthy owner are not exposed.
 Requires `events:read`.
 
 ```ts
-const events = await client.events.list().type("payment.succeeded").limit(50).get();
+const events = await client.events.list().type("payment.succeeded.v1").limit(50).get();
 const event = await client.events.event("evt_1").get();
 
-for await (const one of client.events.list().type("payment.succeeded").all()) {
+for await (const one of client.events.list().type("payment.succeeded.v1").all()) {
   console.log(one.type, one.occurredAt);
 }
 ```
@@ -29,8 +29,8 @@ Requires `webhooks:manage`.
 const endpoint = await client.webhooks
   .endpointDraft()
   .url("https://shop.example/hooks")
-  .event("payment.succeeded")
-  .event("payment.failed")
+  .event("payment.succeeded.v1")
+  .event("payment.failed.v1")
   .create();
 ```
 
