@@ -53,7 +53,9 @@ it before acting on the body, and answer only once the work is done:
 
 ```ts
 import express from "express";
-import { BuPaymentError, ErrorCode, verifyWebhookDelivery } from "@bu-payment/node-sdk";
+import { BuPaymentError, ErrorCode, webhookDelivery } from "@bu-payment/node-sdk";
+
+const verifier = webhookDelivery().secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "");
 
 const REJECTED = new Set<string>([
   ErrorCode.WEBHOOK_SIGNATURE_MISSING,
@@ -65,11 +67,7 @@ const REJECTED = new Set<string>([
 app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
   let delivery;
   try {
-    delivery = verifyWebhookDelivery({
-      body: req.body,
-      headers: req.headers,
-      secret: process.env.BUPAYMENT_WEBHOOK_SECRET ?? "",
-    });
+    delivery = verifier.body(req.body).headers(req.headers).verify();
   } catch (error) {
     if (error instanceof BuPaymentError && REJECTED.has(error.code)) {
       res.sendStatus(400);
@@ -88,19 +86,21 @@ answers `500`, and the platform retries. Only a delivery that failed verificatio
 `400`: a network or rate-limit error inside `handle` is not a bad delivery, and neither is an
 authentic delivery this SDK cannot read (see [Typed events](#typed-events)).
 
-`body` must be the raw request body, as a string or bytes. The platform signs the exact
+The verifier holding the secret is built once and reused: each delivery branches from it
+without changing it, and `verify()` only becomes available once `body()` and `headers()`
+are set. `body()` takes the raw request body, as a string or bytes. The platform signs the exact
 bytes it sends; a body parsed by `express.json()` and serialized again is not guaranteed to
 reproduce them, so a parsed object is refused with `webhook_payload_invalid` rather than
 verified against the wrong bytes.
 
-`headers` accepts Node's `IncomingHttpHeaders` or anything with a Fetch `get(name)` method,
+`headers()` accepts Node's `IncomingHttpHeaders` or anything with a Fetch `get(name)` method,
 in any casing. A header sent more than once is refused with `webhook_signature_missing`,
 whether it arrives as an array or joined with a comma, which is how both Node and Fetch
 represent a repeated header.
 
 The signature is checked before the timestamp. `webhook_signature_invalid` therefore means
 the delivery was not signed with this secret, and `webhook_timestamp_expired` means it was,
-but more than `toleranceSeconds` (default 300) away from the local clock in either
+but more than `toleranceSeconds()` (default 300) away from the local clock in either
 direction. Every attempt, retries included, is signed afresh with the time it is sent, so an
 expired timestamp points at clock drift on the receiving server or a delivery replayed by
 someone other than the platform, not at a slow retry. A missing or malformed secret raises

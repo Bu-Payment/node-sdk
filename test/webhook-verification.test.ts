@@ -3,20 +3,38 @@ import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
 import { ErrorCode } from "../src/constants";
 import { BuPaymentError } from "../src/errors";
-import type { WebhookDeliveryInput } from "../src/webhooks/types";
-import { verifyWebhookDelivery } from "../src/webhooks/verification";
-import webhookDelivery from "./fixtures/webhook-delivery.json";
+import type { WebhookHeaders } from "../src/webhooks/types";
+import { webhookDelivery } from "../src/webhooks/verification";
+import fixture from "./fixtures/webhook-delivery.json";
 
-const { secret: SECRET, timestamp: TIMESTAMP, body: BODY, signature: SIGNATURE } = webhookDelivery;
+const { secret: SECRET, timestamp: TIMESTAMP, body: BODY, signature: SIGNATURE } = fixture;
 
-function verify(overrides: Partial<WebhookDeliveryInput> = {}) {
-  return verifyWebhookDelivery({
+interface Delivery {
+  body: string | Uint8Array;
+  headers: WebhookHeaders;
+  secret: string;
+  toleranceSeconds?: number;
+  clock: () => number;
+}
+
+function verify(overrides: Partial<Delivery> = {}) {
+  const input: Delivery = {
     body: BODY,
     headers: headers(),
     secret: SECRET,
-    now: () => Number(TIMESTAMP),
+    clock: () => Number(TIMESTAMP),
     ...overrides,
-  });
+  };
+  const builder = webhookDelivery()
+    .secret(input.secret)
+    .body(input.body)
+    .headers(input.headers)
+    .clock(input.clock);
+  return (
+    input.toleranceSeconds === undefined
+      ? builder
+      : builder.toleranceSeconds(input.toleranceSeconds)
+  ).verify();
 }
 
 function failure(run: () => unknown): BuPaymentError {
@@ -35,21 +53,21 @@ function signed(timestamp: string, body = BODY): string {
 
 function headers(overrides: Record<string, string | undefined> = {}) {
   return {
-    "x-webhook-id": webhookDelivery.deliveryId,
+    "x-webhook-id": fixture.deliveryId,
     "x-webhook-timestamp": TIMESTAMP,
     "x-webhook-signature": SIGNATURE,
     ...overrides,
   };
 }
 
-describe("verifyWebhookDelivery", () => {
+describe("webhookDelivery", () => {
   it("accepts a delivery signed the way the platform signs it", () => {
-    const delivery = verifyWebhookDelivery({
-      body: BODY,
-      headers: headers(),
-      secret: SECRET,
-      now: () => Number(TIMESTAMP),
-    });
+    const delivery = webhookDelivery()
+      .secret(SECRET)
+      .body(BODY)
+      .headers(headers())
+      .clock(() => Number(TIMESTAMP))
+      .verify();
 
     expect(delivery.deliveryId).toBe("whd_1");
     expect(delivery.signature).toBe(SIGNATURE);
@@ -74,32 +92,32 @@ describe("verifyWebhookDelivery", () => {
   });
 
   it("accepts a delivery at the edge of the default five-minute window", () => {
-    expect(verify({ now: () => Number(TIMESTAMP) + 300_000 }).deliveryId).toBe("whd_1");
-    expect(verify({ now: () => Number(TIMESTAMP) - 300_000 }).deliveryId).toBe("whd_1");
+    expect(verify({ clock: () => Number(TIMESTAMP) + 300_000 }).deliveryId).toBe("whd_1");
+    expect(verify({ clock: () => Number(TIMESTAMP) - 300_000 }).deliveryId).toBe("whd_1");
   });
 
   it.each([
     ["older", 300_001],
     ["newer", -300_001],
   ])("rejects an authentic delivery %s than the default window", (_name, offset) => {
-    const error = failure(() => verify({ now: () => Number(TIMESTAMP) + offset }));
+    const error = failure(() => verify({ clock: () => Number(TIMESTAMP) + offset }));
     expect(error.code).toBe(ErrorCode.WEBHOOK_TIMESTAMP_EXPIRED);
     expect(error.metadata).toEqual({ toleranceSeconds: 300 });
   });
 
   it("applies a configured tolerance", () => {
     const later = () => Number(TIMESTAMP) + 11_000;
-    expect(failure(() => verify({ toleranceSeconds: 10, now: later })).code).toBe(
+    expect(failure(() => verify({ toleranceSeconds: 10, clock: later })).code).toBe(
       ErrorCode.WEBHOOK_TIMESTAMP_EXPIRED,
     );
-    expect(verify({ toleranceSeconds: 20, now: later }).deliveryId).toBe("whd_1");
+    expect(verify({ toleranceSeconds: 20, clock: later }).deliveryId).toBe("whd_1");
   });
 
   it("checks the signature before the window, so a forged stale delivery is a forgery", () => {
     const error = failure(() =>
       verify({
         headers: headers({ "x-webhook-signature": "0".repeat(64) }),
-        now: () => Number(TIMESTAMP) + 3_600_000,
+        clock: () => Number(TIMESTAMP) + 3_600_000,
       }),
     );
     expect(error.code).toBe(ErrorCode.WEBHOOK_SIGNATURE_INVALID);
@@ -147,7 +165,7 @@ describe("verifyWebhookDelivery", () => {
           "x-webhook-timestamp": timestamp,
           "x-webhook-signature": signed(timestamp),
         }),
-        now: () => Number(timestamp),
+        clock: () => Number(timestamp),
       }),
     );
     expect(error.code).toBe(ErrorCode.WEBHOOK_SIGNATURE_INVALID);
@@ -195,11 +213,11 @@ describe("verifyWebhookDelivery", () => {
   it("measures the window against the system clock by default", () => {
     const timestamp = Date.now().toString();
     const signature = createHmac("sha256", SECRET).update(`${timestamp}.${BODY}`).digest("hex");
-    const delivery = verifyWebhookDelivery({
-      body: BODY,
-      headers: headers({ "x-webhook-timestamp": timestamp, "x-webhook-signature": signature }),
-      secret: SECRET,
-    });
+    const delivery = webhookDelivery()
+      .secret(SECRET)
+      .body(BODY)
+      .headers(headers({ "x-webhook-timestamp": timestamp, "x-webhook-signature": signature }))
+      .verify();
     expect(delivery.timestamp.getTime()).toBe(Number(timestamp));
   });
 
@@ -249,13 +267,13 @@ describe("verifyWebhookDelivery", () => {
   });
 });
 
-describe("verifyWebhookDelivery secret handling", () => {
+describe("webhookDelivery secret handling", () => {
   const SECRET_MATERIAL = SECRET.slice("whsec_".length);
 
-  it.each<[string, Partial<WebhookDeliveryInput>]>([
+  it.each<[string, Partial<Delivery>]>([
     ["an invalid signature", { body: `${BODY} ` }],
     ["a missing header", { headers: headers({ "x-webhook-id": undefined }) }],
-    ["an expired timestamp", { now: () => 0 }],
+    ["an expired timestamp", { clock: () => 0 }],
     ["a malformed body", { body: {} as string }],
     ["a bad tolerance", { toleranceSeconds: -1 }],
   ])("keeps the endpoint secret out of %s", (_name, overrides) => {

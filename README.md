@@ -234,12 +234,12 @@ is set, on `subscriptions.draft()`, on `checkout.subscriptionSession()` and on a
 
 ## Webhook events
 
-`verifyWebhookDelivery` checks the signature and the timestamp, then parses the signed body into
+`webhookDelivery()` checks the signature and the timestamp, then parses the signed body into
 a typed event. Every delivery is the envelope `{ version: 1, id, type, occurredAt, data }`, and
 `event` is a union discriminated on `type`, so `data` narrows with it:
 
 ```ts
-const { event } = verifyWebhookDelivery({ body: req.body, headers: req.headers, secret });
+const { event } = webhookDelivery().secret(secret).body(req.body).headers(req.headers).verify();
 
 switch (event.type) {
   case "catalogue.product.updated.v1":

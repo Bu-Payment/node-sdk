@@ -73,4 +73,8 @@ export type * from "./subscriptions/types";
 export type { WebhooksClient } from "./webhooks/client";
 export { createWebhooksClient } from "./webhooks/client";
 export type * from "./webhooks/types";
-export { verifyWebhookDelivery, WebhookHeader } from "./webhooks/verification";
+export type {
+  VerifiableWebhookDelivery,
+  WebhookDeliveryBuilder,
+} from "./webhooks/verification";
+export { WebhookHeader, webhookDelivery } from "./webhooks/verification";
