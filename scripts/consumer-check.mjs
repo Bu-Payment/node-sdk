@@ -123,7 +123,7 @@ function expectGuard([command, args], label) {
 
 function esmCheck(vector) {
   return `import assert from "node:assert/strict";
-import { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret, verifyWebhookDelivery } from "@bu-payment/node-sdk";
+import { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret, webhookDelivery } from "@bu-payment/node-sdk";
 
 ${signatureAssertion(vector)}
 ${webhookAssertion()}
@@ -134,7 +134,7 @@ ${commerceAssertion(vector)}
 
 function cjsCheck(vector) {
   return `const assert = require("node:assert/strict");
-const { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret, verifyWebhookDelivery } = require("@bu-payment/node-sdk");
+const { createBuPaymentClient, buildCanonicalRequest, signCanonicalRequest, ConfidentialSecret, webhookDelivery } = require("@bu-payment/node-sdk");
 
 ${signatureAssertion(vector)}
 ${webhookAssertion()}
@@ -144,20 +144,21 @@ ${commerceAssertion(vector)}
 }
 
 function webhookAssertion() {
-  return `const delivery = verifyWebhookDelivery({
-  body: Buffer.from(${JSON.stringify(webhookVector.body)}),
-  headers: {
+  return `const verifier = webhookDelivery().secret(${JSON.stringify(webhookVector.secret)});
+assert.ok(Object.isFrozen(verifier), "webhook delivery builder must be frozen");
+const delivery = verifier
+  .body(Buffer.from(${JSON.stringify(webhookVector.body)}))
+  .headers({
     "x-webhook-id": ${JSON.stringify(webhookVector.deliveryId)},
     "x-webhook-timestamp": ${JSON.stringify(webhookVector.timestamp)},
     "x-webhook-signature": ${JSON.stringify(webhookVector.signature)},
-  },
-  secret: ${JSON.stringify(webhookVector.secret)},
-  now: () => ${Number(webhookVector.timestamp)},
-});
+  })
+  .clock(() => ${Number(webhookVector.timestamp)})
+  .verify();
 assert.equal(delivery.deliveryId, ${JSON.stringify(webhookVector.deliveryId)});
 assert.equal(delivery.event.type, ${JSON.stringify(JSON.parse(webhookVector.body).type)});
 assert.throws(
-  () => verifyWebhookDelivery({ body: {}, headers: {}, secret: ${JSON.stringify(webhookVector.secret)} }),
+  () => verifier.body({}).headers({}).verify(),
   (error) => error.code === "webhook_payload_invalid",
 );`;
 }
