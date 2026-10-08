@@ -61,14 +61,6 @@ export type WebhookHeaders =
   | WebhookHeaderReader
   | Readonly<Record<string, string | string[] | undefined>>;
 
-export interface WebhookDeliveryInput {
-  body: string | Uint8Array;
-  headers: WebhookHeaders;
-  secret: string;
-  toleranceSeconds?: number;
-  now?: () => number;
-}
-
 export interface VerifiedWebhookDelivery {
   deliveryId: string;
   signature: string;

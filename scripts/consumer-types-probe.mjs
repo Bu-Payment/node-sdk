@@ -1,5 +1,5 @@
 export function typesCheck() {
-  return `import { createBuPaymentClient, ErrorCode, paginate, verifyWebhookDelivery } from "@bu-payment/node-sdk";
+  return `import { createBuPaymentClient, ErrorCode, paginate, webhookDelivery } from "@bu-payment/node-sdk";
 import type {
   BillingCapabilities,
   ClientConfigInput,
@@ -52,11 +52,11 @@ export async function probe(): Promise<unknown> {
   const owned: OwnedRefund = await client.refunds.refund("ref_1").get();
   void owned.customerId;
 
-  const delivery: VerifiedWebhookDelivery = verifyWebhookDelivery({
-    body: "{}",
-    headers: new Headers(),
-    secret: "whsec_x",
-  });
+  const delivery: VerifiedWebhookDelivery = webhookDelivery()
+    .secret("whsec_x")
+    .body("{}")
+    .headers(new Headers())
+    .verify();
   void delivery.deliveryId;
   const event: WebhookEvent = delivery.event;
   if (event.type === "catalogue.product.default_price.updated.v1") {
@@ -71,7 +71,10 @@ export async function probe(): Promise<unknown> {
   }
 
   // @ts-expect-error a parsed body cannot be verified
-  verifyWebhookDelivery({ body: {}, headers: {}, secret: "whsec_x" });
+  webhookDelivery().secret("whsec_x").body({});
+
+  // @ts-expect-error a delivery cannot be verified before its headers are set
+  webhookDelivery().secret("whsec_x").body("{}").verify();
 
   await paymentMethodSetup(client);
   await manualPaging(client);

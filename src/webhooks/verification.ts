@@ -2,12 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
 import { parseWebhookEvent } from "./events";
-import type {
-  VerifiedWebhookDelivery,
-  WebhookDeliveryInput,
-  WebhookHeaderReader,
-  WebhookHeaders,
-} from "./types";
+import type { VerifiedWebhookDelivery, WebhookHeaderReader, WebhookHeaders } from "./types";
 
 const DEFAULT_TOLERANCE_SECONDS = 300;
 const ENDPOINT_SECRET = /^whsec_[A-Za-z0-9_-]{32,}$/u;
@@ -18,7 +13,53 @@ export const WebhookHeader = {
   SIGNATURE: "x-webhook-signature",
 } as const;
 
-export function verifyWebhookDelivery(input: WebhookDeliveryInput): VerifiedWebhookDelivery {
+interface DeliveryState {
+  secret?: string;
+  body?: string | Uint8Array;
+  headers?: WebhookHeaders;
+  toleranceSeconds?: number;
+  clock?: () => number;
+}
+
+type CompleteDelivery = Required<Pick<DeliveryState, "secret" | "body" | "headers">>;
+
+interface DeliveryMethods<TState extends DeliveryState> {
+  secret(secret: string): WebhookDeliveryBuilder<TState & { secret: string }>;
+  body(body: string | Uint8Array): WebhookDeliveryBuilder<TState & { body: string | Uint8Array }>;
+  headers(headers: WebhookHeaders): WebhookDeliveryBuilder<TState & { headers: WebhookHeaders }>;
+  toleranceSeconds(toleranceSeconds: number): WebhookDeliveryBuilder<TState>;
+  clock(clock: () => number): WebhookDeliveryBuilder<TState>;
+}
+
+export interface VerifiableWebhookDelivery {
+  verify(): VerifiedWebhookDelivery;
+}
+
+export type WebhookDeliveryBuilder<TState extends DeliveryState = DeliveryState> =
+  DeliveryMethods<TState> & (TState extends CompleteDelivery ? VerifiableWebhookDelivery : object);
+
+export function webhookDelivery(): WebhookDeliveryBuilder<Record<never, never>> {
+  return deliveryBuilder({});
+}
+
+function deliveryBuilder<TState extends DeliveryState>(
+  state: TState,
+): WebhookDeliveryBuilder<TState> {
+  const next = (update: DeliveryState) => deliveryBuilder({ ...state, ...update });
+  const builder: Record<string, unknown> = {
+    secret: (secret: string) => next({ secret }),
+    body: (body: string | Uint8Array) => next({ body }),
+    headers: (headers: WebhookHeaders) => next({ headers }),
+    toleranceSeconds: (toleranceSeconds: number) => next({ toleranceSeconds }),
+    clock: (clock: () => number) => next({ clock }),
+  };
+  if (state.secret !== undefined && state.body !== undefined && state.headers !== undefined) {
+    builder.verify = () => verify(state as TState & CompleteDelivery);
+  }
+  return Object.freeze(builder) as WebhookDeliveryBuilder<TState>;
+}
+
+function verify(input: DeliveryState & CompleteDelivery): VerifiedWebhookDelivery {
   assertEndpointSecret(input.secret);
   const toleranceMs = toleranceMilliseconds(input.toleranceSeconds);
   const body = rawBody(input.body);
@@ -35,7 +76,7 @@ export function verifyWebhookDelivery(input: WebhookDeliveryInput): VerifiedWebh
     });
   }
   const sentAt = Number(timestamp);
-  if (Math.abs((input.now ?? Date.now)() - sentAt) > toleranceMs) {
+  if (Math.abs((input.clock ?? Date.now)() - sentAt) > toleranceMs) {
     throw new BuPaymentError("Webhook timestamp is outside the accepted window", {
       code: ErrorCode.WEBHOOK_TIMESTAMP_EXPIRED,
       metadata: { toleranceSeconds: toleranceMs / 1000 },
