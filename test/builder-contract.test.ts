@@ -93,6 +93,8 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.webhooks.endpoint("whe_1"),
     client.webhooks.deliveries(),
     client.webhooks.delivery("whd_1"),
+    client.checkout.sessionDraft(),
+    client.checkout.session("checkout_1"),
   ];
 }
 
@@ -117,6 +119,7 @@ describe("builder contract", () => {
       [client.webhooks, "createEndpoint", "endpointDraft"],
       [client.paymentMethods, "createSetup", "setupDraft"],
       [client.sales, "charge", "draft"],
+      [client.checkout, "createSession", "sessionDraft"],
     ];
     for (const [domain, removed, entry] of entries) {
       expect(removed in domain).toBe(false);

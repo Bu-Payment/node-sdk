@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ErrorCode } from "../../src/constants";
-import { assertNoScopeOverrides } from "../../src/core/scope-guard";
+import { assertNoScopeOverrides, routeBodyFields } from "../../src/core/scope-guard";
 import { BuPaymentError } from "../../src/errors";
 
 describe("assertNoScopeOverrides", () => {
@@ -51,6 +51,43 @@ describe("assertNoScopeOverrides", () => {
   it("refuses a scope key however deeply it is nested", () => {
     const deep = { a: { b: { c: { d: { e: { f: { g: { appId: "app_other" } } } } } } } };
     expect(() => assertNoScopeOverrides(deep)).toThrow(BuPaymentError);
+  });
+
+  it("lets an allowed key through at the top of the body", () => {
+    expect(() =>
+      assertNoScopeOverrides({ priceId: "price_1", provider: "sisp" }, new Set(["provider"])),
+    ).not.toThrow();
+  });
+
+  it("refuses an allowed key once it is nested", () => {
+    expect(() =>
+      assertNoScopeOverrides({ customer: { provider: "sisp" } }, new Set(["provider"])),
+    ).toThrow(BuPaymentError);
+  });
+
+  it("refuses an allowed key inside a top-level array", () => {
+    expect(() => assertNoScopeOverrides([{ provider: "sisp" }], new Set(["provider"]))).toThrow(
+      BuPaymentError,
+    );
+  });
+
+  it("refuses every other scope key beside an allowed one", () => {
+    expect(() =>
+      assertNoScopeOverrides(
+        { provider: "sisp", providerAccountId: "pa_1" },
+        new Set(["provider"]),
+      ),
+    ).toThrow(BuPaymentError);
+  });
+
+  it.each([
+    ["POST", "/v1/checkouts", true],
+    ["post", "/v1/checkouts", true],
+    ["POST", "/v1/payments", false],
+    ["GET", "/v1/checkouts", false],
+    ["POST", "/v1/checkouts/extra", false],
+  ])("allows provider on %s %s: %s", (method, path, allowed) => {
+    expect(routeBodyFields(method, path).has("provider")).toBe(allowed);
   });
 
   it("names the offending field on the error", () => {

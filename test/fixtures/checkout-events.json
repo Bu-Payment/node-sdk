@@ -1,0 +1,78 @@
+[
+  {
+    "version": 1,
+    "id": "evt_c1",
+    "type": "checkout.completed",
+    "occurredAt": "2026-10-08T12:05:00.000Z",
+    "data": {
+      "checkoutId": "checkout_123",
+      "reference": "order-1042",
+      "status": "completed",
+      "previousStatus": "processing",
+      "paymentId": "payment_123",
+      "provider": "sisp",
+      "providerCheckoutId": "provider-session-1",
+      "amount": 1250,
+      "currency": "EUR",
+      "chargedAmount": null,
+      "chargedCurrency": null,
+      "quantity": 1,
+      "customerId": "customer_123"
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_c2",
+    "type": "checkout.failed",
+    "occurredAt": "2026-10-08T12:05:00.000Z",
+    "data": {
+      "checkoutId": "checkout_124",
+      "reference": null,
+      "status": "failed",
+      "previousStatus": "pending",
+      "paymentId": null,
+      "provider": "trust-my-travel",
+      "providerCheckoutId": null,
+      "amount": 2900,
+      "currency": "EUR",
+      "chargedAmount": 3300,
+      "chargedCurrency": "USD",
+      "quantity": 2,
+      "customerId": "customer_124"
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_c3",
+    "type": "checkout.expired",
+    "occurredAt": "2026-10-08T12:35:00.000Z",
+    "data": {
+      "checkoutId": "checkout_125",
+      "reference": "order-1043",
+      "status": "expired",
+      "previousStatus": "pending",
+      "paymentId": null,
+      "provider": null,
+      "providerCheckoutId": null,
+      "amount": null,
+      "currency": null,
+      "chargedAmount": null,
+      "chargedCurrency": null,
+      "quantity": 1,
+      "customerId": "customer_125"
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_c4",
+    "type": "checkout.cancelled",
+    "occurredAt": "2026-10-08T12:10:00.000Z",
+    "data": {
+      "checkoutId": "checkout_126",
+      "reference": "order-1044",
+      "provider": "sisp",
+      "providerCheckoutId": "provider-session-4",
+      "previousStatus": "pending"
+    }
+  }
+]

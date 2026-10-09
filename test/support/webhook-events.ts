@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import { BuPaymentError } from "../../src/errors";
 import { webhookDelivery } from "../../src/webhooks/verification";
 import catalogueEvents from "../fixtures/catalogue-events.json";
+import checkoutEvents from "../fixtures/checkout-events.json";
 import fixture from "../fixtures/webhook-delivery.json";
 
 const SECRET = fixture.secret;
@@ -13,6 +14,9 @@ export type Envelope = Record<string, unknown>;
 
 export const PRODUCT_EVENT = catalogueEvents[0] as Envelope;
 export const PRICE_EVENT = catalogueEvents[7] as Envelope;
+
+export const COMPLETED_EVENT = checkoutEvents[0] as Envelope;
+export const CANCELLED_EVENT = checkoutEvents[3] as Envelope;
 
 export interface Tampering {
   signature?: string;

@@ -52,6 +52,25 @@ try {
 | `webhook_event_version_unsupported` | A verified delivery is not a version `1` envelope; `metadata.version` holds a numeric version. |
 | `webhook_event_invalid` | A verified delivery of a known type does not match its documented shape; `metadata.field` names the field. |
 
+### API codes behind a generic code
+
+Some refusals have no code of their own in the SDK: `error.code` is the generic code for the
+HTTP status, and the API's code is in `error.metadata.apiError`.
+
+| `metadata.apiError` | `error.code` | Raised when |
+| --- | --- | --- |
+| `checkout_live_not_enabled` | `resource_conflict` | A one-time checkout was requested with a Live credential. |
+| `checkout_destination_unavailable` | `resource_conflict` | The checkout destination does not exist or is disabled. |
+| `checkout_provider_unknown` | `operation_failed` | The environment has no account for the provider given (422). |
+| `checkout_provider_failed` | `operation_failed` | The provider rejected the checkout (502). |
+| `checkout_unavailable` | `operation_failed` | The checkout or its provider account is temporarily unavailable (503). |
+
+```ts
+if (error instanceof BuPaymentError && error.metadata?.apiError === "checkout_live_not_enabled") {
+  // a Live credential: one-time checkouts are Test only for now
+}
+```
+
 ## Conflicts that carry the current resource
 
 `stale_resource` and `lookup_key_conflict` set `error.resource` to the resource the API
@@ -104,7 +123,10 @@ These checks run in the SDK, before a request is signed, and all raise `request_
 - a body or query carrying a scope key: `workspace`, `environment`, `application`, `app`,
   `tenant`, `provider`, `providerAccountId` or `providerAccountVersion`, with or without an
   `Id` suffix, in any casing and with any separator. The body is checked as it will be
-  serialized, so a `toJSON` cannot hide a key, and nesting depth is not a way past it;
+  serialized, so a `toJSON` cannot hide a key, and nesting depth is not a way past it. The one
+  exception is `provider` at the top of a `POST /v1/checkouts` body, which picks a provider
+  account inside the credential's environment; nested, on any other route or in a query it is
+  still refused;
 - a shipping product identifier containing a comma, which the wire format would split into
   two.
 

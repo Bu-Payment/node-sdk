@@ -1,4 +1,5 @@
 import type { Price, Product } from "../catalogue/types";
+import type { CheckoutStatus } from "../checkout/types";
 
 export type WebhookEndpointStatus = "enabled" | "disabled";
 
@@ -123,4 +124,46 @@ export interface UnknownWebhookEvent extends WebhookEventEnvelope<"unknown", unk
   receivedType: string;
 }
 
-export type WebhookEvent = CatalogueEvent | UnknownWebhookEvent;
+export type CheckoutTerminalStatus = "completed" | "failed" | "expired";
+
+export interface CheckoutTerminalEventData<TStatus extends CheckoutTerminalStatus> {
+  checkoutId: string;
+  reference: string | null;
+  status: TStatus;
+  previousStatus: CheckoutStatus;
+  paymentId: string | null;
+  provider: string | null;
+  providerCheckoutId: string | null;
+  amount: number | null;
+  currency: string | null;
+  chargedAmount: number | null;
+  chargedCurrency: string | null;
+  quantity: number;
+  customerId: string;
+}
+
+export interface CheckoutCancelledEventData {
+  checkoutId: string;
+  reference: string | null;
+  provider: string | null;
+  providerCheckoutId: string | null;
+  previousStatus: CheckoutStatus;
+}
+
+export type CheckoutTerminalEvent = {
+  [TStatus in CheckoutTerminalStatus]: WebhookEventEnvelope<
+    `checkout.${TStatus}`,
+    CheckoutTerminalEventData<TStatus>
+  >;
+}[CheckoutTerminalStatus];
+
+export type CheckoutCancelledEvent = WebhookEventEnvelope<
+  "checkout.cancelled",
+  CheckoutCancelledEventData
+>;
+
+export type CheckoutEvent = CheckoutTerminalEvent | CheckoutCancelledEvent;
+
+export type CheckoutEventType = CheckoutEvent["type"];
+
+export type WebhookEvent = CatalogueEvent | CheckoutEvent | UnknownWebhookEvent;

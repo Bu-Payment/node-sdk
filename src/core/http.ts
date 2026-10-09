@@ -5,7 +5,7 @@ import type { ClientConfig } from "./config";
 import { generateNonce } from "./nonce";
 import { buildRequestTarget, type QueryInput } from "./request-target";
 import { readResponse } from "./response";
-import { assertNoScopeOverrides } from "./scope-guard";
+import { assertNoScopeOverrides, routeBodyFields } from "./scope-guard";
 import { signCanonicalRequest } from "./signature";
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
@@ -48,7 +48,10 @@ export class SignedTransport {
   async send<T>(request: TransportRequest): Promise<T> {
     assertNoScopeOverrides(request.query);
     const target = buildRequestTarget(this.#config.apiBaseUrl, request.path, request.query);
-    const body = request.body === undefined ? undefined : encodeBody(request.body);
+    const body =
+      request.body === undefined
+        ? undefined
+        : encodeBody(request.body, routeBodyFields(request.method, request.path));
     const response = await this.#fetchSigned(request, target.url, {
       rawPath: target.rawPath,
       rawQuery: target.rawQuery,
@@ -130,9 +133,9 @@ export class SignedTransport {
   }
 }
 
-function encodeBody(body: unknown): Uint8Array {
+function encodeBody(body: unknown, allowedTopLevel: ReadonlySet<string>): Uint8Array {
   const json = JSON.stringify(body) ?? "null";
-  assertNoScopeOverrides(JSON.parse(json) as unknown);
+  assertNoScopeOverrides(JSON.parse(json) as unknown, allowedTopLevel);
   return new Uint8Array(Buffer.from(json, "utf8"));
 }
 

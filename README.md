@@ -48,6 +48,15 @@ const payment = await client.payments
   .idempotencyKey(orderId)
   .create();
 
+const checkout = await client.checkout
+  .sessionDraft()
+  .priceId("price_123")
+  .customerEmail("buyer@example.com")
+  .destination("default")
+  .reference(orderId)
+  .idempotencyKey(orderId)
+  .create();
+
 for await (const event of client.events.list().type("payment.succeeded.v1").all()) {
   handle(event);
 }
@@ -63,6 +72,11 @@ once an amount is set, so a request can never override the price of a canonical 
 capability on the credential. See [the documentation](docs/00-index.md) for the whole surface.
 
 `paymentMethods` also supplies the `paymentMethodId` that payment allocations require.
+
+`checkout.sessionDraft()` creates a hosted one-time checkout and answers the `checkoutUrl` to
+send the buyer to, for providers that cannot be charged directly; `checkout.session(id).get()`
+reads it. The outcome arrives as a typed `checkout.*` webhook event. See
+[Checkout](docs/04-checkout.md#one-time-checkout).
 
 ## Catalogue writes
 
@@ -269,6 +283,10 @@ switch (event.type) {
 | `catalogue.price.reactivated.v1` | price | yes |
 | `catalogue.price.assigned.v1` | price | no |
 | `catalogue.price.unassigned.v1` | price | no |
+
+`checkout.completed`, `checkout.failed`, `checkout.expired` and `checkout.cancelled` are typed
+too, with `data.checkoutId`, the `reference` sent at creation and, once paid, `paymentId`. See
+[Checkout events](docs/08-events-and-webhooks.md#checkout-events).
 
 A product in an event is the `Product` the catalogue reads return, `defaultPriceId` included. A
 price is the `Price` the catalogue reads return. `data` always carries `resourceType`,
