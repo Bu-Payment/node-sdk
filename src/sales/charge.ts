@@ -1,7 +1,7 @@
-import { ErrorCode } from "../constants";
+import { ApiErrorCode, ErrorCode } from "../constants";
 import type { RequestScope, ScopeMethods } from "../core/builder";
 import type { CustomersClient } from "../customers/client";
-import { BuPaymentError, isPriceChanged } from "../errors";
+import { BuPaymentError, isOutcomeUncertain, isPriceChanged } from "../errors";
 import type { PaymentsClient } from "../payments/client";
 import type { Payment } from "../payments/types";
 import type { CompleteSale } from "./draft";
@@ -9,16 +9,10 @@ import type { SaleResult } from "./types";
 
 type PaymentFailure = "unconfirmed" | "needs_reconciliation" | "refused";
 
-const FAILURE_BY_API_CODE: ReadonlyMap<string, PaymentFailure> = new Map([
-  [ErrorCode.NETWORK_UNAVAILABLE, "unconfirmed"],
-  [ErrorCode.REQUEST_CANCELLED, "unconfirmed"],
-  ["idempotency_in_progress", "unconfirmed"],
-  ["idempotency_outcome_unknown", "needs_reconciliation"],
-  [ErrorCode.IDEMPOTENCY_CONFLICT, "needs_reconciliation"],
-  ["financial_preparation_failed", "refused"],
+const NEEDS_RECONCILIATION = new Set<string>([
+  ApiErrorCode.IDEMPOTENCY_OUTCOME_UNKNOWN,
+  ErrorCode.IDEMPOTENCY_CONFLICT,
 ]);
-
-const EMAIL_TAKEN = "app_customer_email_conflict";
 
 export async function chargeSale(
   customers: CustomersClient,
@@ -63,15 +57,12 @@ export async function chargeSale(
 }
 
 function paymentFailureOf(error: BuPaymentError): PaymentFailure {
-  const apiError = error.metadata?.apiError;
-  const known = FAILURE_BY_API_CODE.get(typeof apiError === "string" ? apiError : error.code);
-  if (known !== undefined) {
-    return known;
-  }
-  if (error.status === undefined) {
+  if (!isOutcomeUncertain(error)) {
     return "refused";
   }
-  return error.status >= 400 && error.status <= 499 ? "refused" : "unconfirmed";
+  return NEEDS_RECONCILIATION.has(error.apiError ?? error.code)
+    ? "needs_reconciliation"
+    : "unconfirmed";
 }
 
 async function customerIdOf(customers: CustomersClient, sale: CompleteSale): Promise<string> {
@@ -103,7 +94,9 @@ async function customerIdByEmail(
 }
 
 function isEmailTaken(error: unknown): boolean {
-  return error instanceof BuPaymentError && error.metadata?.apiError === EMAIL_TAKEN;
+  return (
+    error instanceof BuPaymentError && error.apiError === ApiErrorCode.APP_CUSTOMER_EMAIL_CONFLICT
+  );
 }
 
 async function pay(
