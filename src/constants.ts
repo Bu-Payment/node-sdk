@@ -61,6 +61,8 @@ export const ApiErrorCode = {
   IDEMPOTENCY_OUTCOME_UNKNOWN: "idempotency_outcome_unknown",
   FINANCIAL_PREPARATION_FAILED: "financial_preparation_failed",
   APP_CUSTOMER_EMAIL_CONFLICT: "app_customer_email_conflict",
+  PAYMENT_METHOD_REPLACEMENT_INVALID: "payment_method_replacement_invalid",
+  PAYMENT_METHOD_UNUSABLE: "payment_method_unusable",
 } as const;
 
 export type ApiErrorCode = (typeof ApiErrorCode)[keyof typeof ApiErrorCode];

@@ -58,6 +58,7 @@ export {
   isNotFound,
   isOutcomeUncertain,
   isPriceChanged,
+  needsReconciliation,
   requiresHostedCheckout,
 } from "./errors";
 export type { EventsClient } from "./events/client";

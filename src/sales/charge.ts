@@ -1,18 +1,13 @@
-import { ApiErrorCode, ErrorCode } from "../constants";
+import { ApiErrorCode } from "../constants";
 import type { RequestScope, ScopeMethods } from "../core/builder";
 import type { CustomersClient } from "../customers/client";
-import { BuPaymentError, isOutcomeUncertain, isPriceChanged } from "../errors";
+import { BuPaymentError, isOutcomeUncertain, isPriceChanged, needsReconciliation } from "../errors";
 import type { PaymentsClient } from "../payments/client";
 import type { Payment } from "../payments/types";
 import type { CompleteSale } from "./draft";
 import type { SaleResult } from "./types";
 
 type PaymentFailure = "unconfirmed" | "needs_reconciliation" | "refused";
-
-const NEEDS_RECONCILIATION = new Set<string>([
-  ApiErrorCode.IDEMPOTENCY_OUTCOME_UNKNOWN,
-  ErrorCode.IDEMPOTENCY_CONFLICT,
-]);
 
 export async function chargeSale(
   customers: CustomersClient,
@@ -60,9 +55,7 @@ function paymentFailureOf(error: BuPaymentError): PaymentFailure {
   if (!isOutcomeUncertain(error)) {
     return "refused";
   }
-  return NEEDS_RECONCILIATION.has(error.apiError ?? error.code)
-    ? "needs_reconciliation"
-    : "unconfirmed";
+  return needsReconciliation(error) ? "needs_reconciliation" : "unconfirmed";
 }
 
 async function customerIdOf(customers: CustomersClient, sale: CompleteSale): Promise<string> {

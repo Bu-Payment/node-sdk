@@ -65,10 +65,11 @@ const UNCERTAIN_OUTCOMES = new Set<string>([
   ApiErrorCode.IDEMPOTENCY_OUTCOME_UNKNOWN,
 ]);
 
-const DEFINITE_REFUSALS = new Set<string>([
-  ApiErrorCode.CHECKOUT_UNAVAILABLE,
-  ApiErrorCode.CHECKOUT_PROVIDER_FAILED,
-  ApiErrorCode.FINANCIAL_PREPARATION_FAILED,
+const DEFINITE_REFUSALS = new Set<string>([ApiErrorCode.FINANCIAL_PREPARATION_FAILED]);
+
+const RECONCILIATION_REQUIRED = new Set<string>([
+  ErrorCode.IDEMPOTENCY_CONFLICT,
+  ApiErrorCode.IDEMPOTENCY_OUTCOME_UNKNOWN,
 ]);
 
 export function isOutcomeUncertain(error: unknown): boolean {
@@ -86,6 +87,13 @@ export function isOutcomeUncertain(error: unknown): boolean {
     return true;
   }
   return error.status !== undefined && (error.status < 400 || error.status > 499);
+}
+
+export function needsReconciliation(error: unknown): boolean {
+  return (
+    error instanceof BuPaymentError &&
+    (RECONCILIATION_REQUIRED.has(error.code) || RECONCILIATION_REQUIRED.has(error.apiError ?? ""))
+  );
 }
 
 export type HostedCheckoutRequiredError = BuPaymentError & {
