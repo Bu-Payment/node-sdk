@@ -7,9 +7,12 @@ import { harnessReturning } from "./support/harness";
 const TERMINALS_ON_AN_EMPTY_SEGMENT: Record<string, (client: BuPaymentClient) => Promise<unknown>> =
   {
     "catalogue.product.get": (c) => c.catalogue.product("").get(),
+    "catalogue.product.find": (c) => c.catalogue.product("").find(),
     "catalogue.price.get": (c) => c.catalogue.price("").get(),
+    "catalogue.price.find": (c) => c.catalogue.price("").find(),
     "catalogue.crossSells.get": (c) => c.catalogue.crossSells("").get(),
     "catalogue.crossSells.all": (c) => c.catalogue.crossSells("").all().next(),
+    "catalogue.crossSells.collect": (c) => c.catalogue.crossSells("").collect(),
     "catalogue.entitlements.get": (c) => c.catalogue.entitlements("").get(),
     "catalogue.updateProduct.update": (c) => c.catalogue.updateProduct("").name("Plan").update(),
     "catalogue.archiveProduct.archive": (c) => c.catalogue.archiveProduct("").archive(),

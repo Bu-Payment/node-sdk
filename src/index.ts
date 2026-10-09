@@ -3,6 +3,8 @@ export { createBillingClient } from "./billing/client";
 export type * from "./billing/types";
 export type { CatalogueClient } from "./catalogue/client";
 export { createCatalogueClient } from "./catalogue/client";
+export type { PriceTerms } from "./catalogue/price-terms";
+export { priceTerms, sameTerms } from "./catalogue/price-terms";
 export type * from "./catalogue/types";
 export type { CheckoutClient } from "./checkout/client";
 export { createCheckoutClient } from "./checkout/client";
@@ -33,6 +35,8 @@ export {
 } from "./core/canonical-request";
 export type { ClientConfig, ClientConfigInput, Environment } from "./core/config";
 export { parseClientConfig } from "./core/config";
+export type { Stamp } from "./core/freshness";
+export { isStale } from "./core/freshness";
 export type { FetchLike, TransportOptions, TransportRequest } from "./core/http";
 export { SignedTransport } from "./core/http";
 export { generateIdempotencyKey } from "./core/idempotency";

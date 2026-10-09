@@ -1,4 +1,5 @@
 export type * from "./billing/types";
+export type { PriceTerms } from "./catalogue/price-terms";
 export type * from "./catalogue/types";
 export type * from "./checkout/types";
 export type { BuPaymentClient, ClientOptions } from "./client";
@@ -11,11 +12,17 @@ export type {
 } from "./core/builder";
 export type { CanonicalRequestInput } from "./core/canonical-request";
 export type { ClientConfig, ClientConfigInput, Environment } from "./core/config";
+export type { Stamp } from "./core/freshness";
 export type { FetchLike, TransportOptions, TransportRequest } from "./core/http";
 export type { Collection, CursorQuery, Page, PageReader, PageWithMore } from "./core/pagination";
 export type { QueryInput, QueryValue } from "./core/request-target";
 export type * from "./customers/types";
-export type { BuPaymentErrorOptions, PriceChangedError } from "./errors";
+export type {
+  BuPaymentErrorOptions,
+  HostedCheckoutRequiredError,
+  NotFoundError,
+  PriceChangedError,
+} from "./errors";
 export type * from "./events/types";
 export type * from "./invoices/types";
 export type * from "./payment-methods/types";

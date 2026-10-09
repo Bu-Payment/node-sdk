@@ -32,6 +32,7 @@ interface ShippingMethods<TState extends ShippingState>
 export interface ResolvableShippingRates {
   get(): Promise<Page<ShippingRate>>;
   all(): AsyncGenerator<ShippingRate, void, undefined>;
+  collect(): Promise<ShippingRate[]>;
 }
 
 export type ShippingRatesBuilder<TState extends ShippingState = ShippingState> =
@@ -57,9 +58,10 @@ export function shippingRatesBuilder<TState extends ShippingState>(
     limit: (limit: number) => next({ limit }),
   };
   if (isResolvable(state)) {
-    const { get, all } = pageMethods(state, next, read);
+    const { get, all, collect } = pageMethods(state, next, read);
     builder.get = get;
     builder.all = all;
+    builder.collect = collect;
   }
   return Object.freeze(builder) as ShippingRatesBuilder<TState>;
 }
