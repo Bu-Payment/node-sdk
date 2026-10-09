@@ -60,7 +60,14 @@ const checkout = await client.checkout
 for await (const event of client.events.list().type("payment.succeeded.v1").all()) {
   handle(event);
 }
+
+const archived = await client.catalogue.products().active(false).collect();
+const maybePrice = await client.catalogue.price("price_123").find();
 ```
+
+A paginated list answers one page with `get()`, walks every page with `all()`, or reads them
+all into an array with `collect()`. `find()` on a single product or price resolves to `null`
+instead of throwing when the App cannot see it.
 
 Required input is enforced by the type, not by a runtime check: the terminal does not exist until
 every required field is set. `create()` is absent from a payment with no customer, and absent from

@@ -72,7 +72,7 @@ Both require `payments:read`. A payment method carries its `status`, and `brand`
 `list()` answers at most the 100 newest payment methods, with `hasMore` always `false` and
 `nextCursor` always `null`, and the type says exactly that. There is no cursor and nothing in
 the response says whether it was truncated, so a customer with more than 100 stored methods
-silently loses the oldest. The builder offers no `cursor()`, `limit()` or `all()` for the
+silently loses the oldest. The builder offers no `cursor()`, `limit()`, `all()` or `collect()` for the
 same reason: no page follows the first.
 
 ## Revoking a payment method

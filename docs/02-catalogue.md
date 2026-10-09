@@ -21,7 +21,25 @@ environment, App and the `active` filter in force.
 only and archived ones are absent without any signal. The filter is an exact match:
 `active(false)` returns the archived products and nothing else, and no single walk returns
 both. Reconciling a local catalogue means two walks, or `product(id).get()`, which returns a
-product whatever its state.
+product whatever its state. `collect()` reads every page of a walk into an array:
+
+```ts
+const everyProduct = [
+  ...(await client.catalogue.products().active(true).collect()),
+  ...(await client.catalogue.products().active(false).collect()),
+];
+```
+
+`product(id).find()` reads like `get()` but resolves to `null` when the product is unknown
+to the App, instead of throwing `resource_not_found`. Any other failure is thrown unchanged.
+An archived product is still found, with `active: false`.
+
+```ts
+const product = await client.catalogue.product(productId).find();
+if (product === null) {
+  unlinkLocally(productId);
+}
+```
 
 `lookupKey(key)` finds a product by the natural key it was given, which survives a
 reinstall or a repeated import after the original idempotency key is gone:
@@ -55,7 +73,42 @@ with its interval and interval count.
 `active` defaults to `true` here too, and it matters more: a price is archived when it is
 superseded, while the subscriptions on it keep pointing at it. Building a price map from
 `prices().productId(id).all()` leaves every superseded price out, even though
-`price(id).get()` returns it.
+`price(id).get()` returns it. `price(id).find()` resolves to `null` when the price is
+unknown to the App, which includes a price whose assignment ended when it was replaced.
+
+### Comparing prices
+
+`priceTerms(price)` gives what makes two prices interchangeable for a customer, frozen:
+`{ currency, type, interval, intervalCount }`, the last two `null` for a one-time price.
+`sameTerms(a, b)` compares two prices, or a price and terms stored earlier, on exactly
+those fields, so a price that differs only in amount still matches:
+
+```ts
+import { priceTerms, sameTerms } from "@bu-payment/node-sdk";
+
+const stored = priceTerms(linkedPrice);
+const replacement = (await client.catalogue.product(productId).get()).defaultPriceId;
+const candidate = replacement === null ? null : await client.catalogue.price(replacement).find();
+if (candidate !== null && sameTerms(stored, candidate)) {
+  relink(candidate);
+}
+```
+
+### Applying the newer version
+
+A webhook delivery can arrive after a newer read of the same resource. `isStale(candidate,
+stored)` answers `true` when the candidate's `updatedAt` is older than the stored one, or
+does not parse as a date; skip a stale candidate. Both arguments take a resource or the
+stamp itself, and the stamps are compared as instants, so offsets do not matter. A candidate
+with the same stamp is not stale, so applying it again is harmless.
+
+```ts
+import { isStale } from "@bu-payment/node-sdk";
+
+if (!isStale(event.data.resource, local)) {
+  saveLocally(event.data.resource);
+}
+```
 
 ## Cross-sells and entitlements
 
