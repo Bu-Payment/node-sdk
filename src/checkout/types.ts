@@ -83,3 +83,32 @@ export interface CheckoutSession {
   id: string;
   url: string;
 }
+
+export type CheckoutStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "expired"
+  | "cancelled";
+
+export interface Checkout {
+  id: string;
+  status: CheckoutStatus;
+  provider: string | null;
+  checkoutUrl?: string;
+  reference: string | null;
+  amount: number | null;
+  currency: string | null;
+  chargedAmount: number | null;
+  chargedCurrency: string | null;
+  quantity: number;
+  customerId: string;
+  paymentId?: string;
+  declinedAttempts?: number;
+  lastDeclinedAt?: string;
+  lastDeclineReason?: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
