@@ -99,7 +99,7 @@ the key with a different reference, provider, buyer or quantity is refused with
 `idempotency_conflict`.
 
 The checkout refusals below arrive with a generic `error.code` and the API's code in
-`error.metadata.apiError`; see [Errors](10-errors.md#api-codes-behind-a-generic-code).
+`error.apiError`; see [Errors](10-errors.md#api-codes-behind-a-generic-code).
 
 - `destination(key)` names a checkout destination of the App, configured in the dashboard,
   that holds the success and cancel URLs. The request never carries a URL. A destination that

@@ -4,12 +4,12 @@ Every failure is a `BuPaymentError` carrying a `code`, and where the API answere
 `status`, a `requestId` and `metadata`.
 
 ```ts
-import { BuPaymentError, ErrorCode } from "@bu-payment/node-sdk";
+import { isNotFound } from "@bu-payment/node-sdk";
 
 try {
   await client.payments.payment("pay_1").get();
 } catch (error) {
-  if (error instanceof BuPaymentError && error.code === ErrorCode.RESOURCE_NOT_FOUND) {
+  if (isNotFound(error)) {
     return null;
   }
   throw error;
@@ -55,10 +55,13 @@ try {
 ### API codes behind a generic code
 
 Some refusals have no code of their own in the SDK: `error.code` is the generic code for the
-HTTP status, and the API's code is in `error.metadata.apiError`.
+HTTP status, and the API's code is in `error.apiError`, read from `error.metadata.apiError`.
+It is `null` when the API sent no code of its own. `ApiErrorCode` holds the codes this
+documentation names, such as `ApiErrorCode.CHECKOUT_UNAVAILABLE`.
 
-| `metadata.apiError` | `error.code` | Raised when |
+| `error.apiError` | `error.code` | Raised when |
 | --- | --- | --- |
+| `provider_capability_not_supported` | `operation_failed` | The provider cannot charge directly (422); sell through a hosted checkout. |
 | `checkout_live_not_enabled` | `resource_conflict` | A one-time checkout was requested with a Live credential. |
 | `checkout_destination_unavailable` | `resource_conflict` | The checkout destination does not exist or is disabled. |
 | `checkout_provider_unknown` | `operation_failed` | The environment has no account for the provider given (422). |
@@ -66,10 +69,49 @@ HTTP status, and the API's code is in `error.metadata.apiError`.
 | `checkout_unavailable` | `operation_failed` | The checkout or its provider account is temporarily unavailable (503). |
 
 ```ts
-if (error instanceof BuPaymentError && error.metadata?.apiError === "checkout_live_not_enabled") {
+import { ApiErrorCode, BuPaymentError } from "@bu-payment/node-sdk";
+
+if (error instanceof BuPaymentError && error.apiError === ApiErrorCode.CHECKOUT_LIVE_NOT_ENABLED) {
   // a Live credential: one-time checkouts are Test only for now
 }
 ```
+
+## Classifying a failure
+
+Three guards answer the questions a caller asks of a caught value. Each accepts anything and
+answers `false` for a value that is not a `BuPaymentError`.
+
+| Guard | `true` when | Narrows to |
+| --- | --- | --- |
+| `isNotFound(error)` | `code` is `resource_not_found` | `NotFoundError` |
+| `requiresHostedCheckout(error)` | `apiError` is `provider_capability_not_supported` | `HostedCheckoutRequiredError` |
+| `isOutcomeUncertain(error)` | a failed write may still have been applied | nothing, it answers `boolean` |
+
+`isOutcomeUncertain` is the one to read before undoing anything a write was meant to pay for,
+such as releasing stock or offering the customer another way to pay. It answers `true` for
+`network_unavailable`, `request_cancelled`, `response_invalid`, `idempotency_conflict`,
+`idempotency_in_progress`, `idempotency_outcome_unknown`, and any answered status outside
+4xx. It answers `false` for a 4xx refusal, for a refusal the SDK raised before sending, and
+for `checkout_unavailable`, `checkout_provider_failed` and `financial_preparation_failed`,
+which the API raises only when it applied nothing.
+
+```ts
+import { isOutcomeUncertain } from "@bu-payment/node-sdk";
+
+try {
+  await draft.idempotencyKey(orderId).create();
+} catch (error) {
+  if (isOutcomeUncertain(error)) {
+    return keepReservedAndRetryLater(orderId);
+  }
+  await releaseReservation(orderId);
+  throw error;
+}
+```
+
+Retry an uncertain write with the same `Idempotency-Key`: the API answers with the first
+result when it was applied, and applies it when it was not. A [sale](11-sales.md) uses the
+same rules to choose between `unconfirmed`, `needs_reconciliation` and a refusal.
 
 ## Conflicts that carry the current resource
 
