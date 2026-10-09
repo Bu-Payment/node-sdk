@@ -25,7 +25,7 @@ consent is sent as `merchant_initiated_future_payments`, the only kind the API a
 `replacesPaymentMethodId()` names a stored method of the same customer that is still
 `active` or `replacement_required`, in the setup's currency, and stored through the provider
 account the environment uses now. A method stored before the provider account changed does
-not qualify. A refusal fails with `operation_failed`, status 403 and `metadata.apiError` set
+not qualify. A refusal fails with `operation_failed`, status 403 and `error.apiError` set
 to `payment_method_replacement_invalid`.
 
 The route refuses a setup without an idempotency key. The SDK always sends one, but a retry
@@ -86,7 +86,7 @@ method in its new state. It is idempotent: a method already `revoked` or
 `permanently_invalid` is returned unchanged rather than refused.
 
 A payment method that is unknown, or owned by another App, fails with `operation_failed`,
-status 403 and `metadata.apiError` set to `payment_method_unusable`. The answer is the same
+status 403 and `error.apiError` set to `payment_method_unusable`. The answer is the same
 in both cases, so it reveals nothing about another App's data.
 
 ## Charging allocations

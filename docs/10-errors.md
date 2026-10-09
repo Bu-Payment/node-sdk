@@ -56,8 +56,8 @@ try {
 
 Some refusals have no code of their own in the SDK: `error.code` is the generic code for the
 HTTP status, and the API's code is in `error.apiError`, read from `error.metadata.apiError`.
-It is `null` when the API sent no code of its own. `ApiErrorCode` holds the codes this
-documentation names, such as `ApiErrorCode.CHECKOUT_UNAVAILABLE`.
+It is `null` when the API sent no code of its own. `ApiErrorCode` holds every code in this
+table, such as `ApiErrorCode.CHECKOUT_UNAVAILABLE`.
 
 | `error.apiError` | `error.code` | Raised when |
 | --- | --- | --- |
@@ -65,8 +65,14 @@ documentation names, such as `ApiErrorCode.CHECKOUT_UNAVAILABLE`.
 | `checkout_live_not_enabled` | `resource_conflict` | A one-time checkout was requested with a Live credential. |
 | `checkout_destination_unavailable` | `resource_conflict` | The checkout destination does not exist or is disabled. |
 | `checkout_provider_unknown` | `operation_failed` | The environment has no account for the provider given (422). |
-| `checkout_provider_failed` | `operation_failed` | The provider rejected the checkout (502). |
+| `checkout_provider_failed` | `operation_failed` | The provider failed the checkout (502). |
 | `checkout_unavailable` | `operation_failed` | The checkout or its provider account is temporarily unavailable (503). |
+| `idempotency_in_progress` | `resource_conflict` | An earlier request under the same `Idempotency-Key` is still running. |
+| `idempotency_outcome_unknown` | `resource_conflict` | The API lost the outcome of an earlier request under the same key, for good. |
+| `financial_preparation_failed` | `operation_failed` | The API failed to prepare a payment and never sent it to the provider (500). |
+| `app_customer_email_conflict` | `resource_conflict` | Another customer of the App holds the email. |
+| `payment_method_replacement_invalid` | `operation_failed` | The payment method named for replacement does not qualify (403). |
+| `payment_method_unusable` | `operation_failed` | The payment method is unknown or owned by another App (403). |
 
 ```ts
 import { ApiErrorCode, BuPaymentError } from "@bu-payment/node-sdk";
@@ -78,7 +84,7 @@ if (error instanceof BuPaymentError && error.apiError === ApiErrorCode.CHECKOUT_
 
 ## Classifying a failure
 
-Three guards answer the questions a caller asks of a caught value. Each accepts anything and
+Four guards answer the questions a caller asks of a caught value. Each accepts anything and
 answers `false` for a value that is not a `BuPaymentError`.
 
 | Guard | `true` when | Narrows to |
@@ -86,21 +92,37 @@ answers `false` for a value that is not a `BuPaymentError`.
 | `isNotFound(error)` | `code` is `resource_not_found` | `NotFoundError` |
 | `requiresHostedCheckout(error)` | `apiError` is `provider_capability_not_supported` | `HostedCheckoutRequiredError` |
 | `isOutcomeUncertain(error)` | a failed write may still have been applied | nothing, it answers `boolean` |
+| `needsReconciliation(error)` | a failed write may have been applied and no retry will tell | nothing, it answers `boolean` |
 
-`isOutcomeUncertain` is the one to read before undoing anything a write was meant to pay for,
-such as releasing stock or offering the customer another way to pay. It answers `true` for
-`network_unavailable`, `request_cancelled`, `response_invalid`, `idempotency_conflict`,
-`idempotency_in_progress`, `idempotency_outcome_unknown`, and any answered status outside
-4xx. It answers `false` for a 4xx refusal, for a refusal the SDK raised before sending, and
-for `checkout_unavailable`, `checkout_provider_failed` and `financial_preparation_failed`,
-which the API raises only when it applied nothing.
+Read `isOutcomeUncertain` before undoing anything a write was meant to pay for, such as
+releasing stock or offering the customer another way to pay. Its rules apply in this order:
+
+1. `financial_preparation_failed` answers `false`: the API never sent the payment to the
+   provider.
+2. `network_unavailable`, `request_cancelled`, `response_invalid`, `idempotency_conflict`,
+   `idempotency_in_progress` and `idempotency_outcome_unknown` answer `true`, whatever the
+   status.
+3. Any other failure answers `true` when the API answered with a status outside 4xx, such as
+   a 5xx or a redirect, and `false` for a 4xx or for a refusal the SDK raised before sending.
+
+`checkout_unavailable` and `checkout_provider_failed` are 5xx and therefore uncertain: a
+gateway failure can follow a request the provider already accepted.
+
+An uncertain failure is one of two kinds. When `needsReconciliation(error)` is `false`, retry
+the write with the same `Idempotency-Key`: the API answers with the first result when it was
+applied, and applies it when it was not. When it is `true` (`idempotency_conflict` or
+`idempotency_outcome_unknown`), a retry gives the same answer forever: stop, and find out what
+happened from the dashboard, a webhook event or support.
 
 ```ts
-import { isOutcomeUncertain } from "@bu-payment/node-sdk";
+import { isOutcomeUncertain, needsReconciliation } from "@bu-payment/node-sdk";
 
 try {
   await draft.idempotencyKey(orderId).create();
 } catch (error) {
+  if (needsReconciliation(error)) {
+    return keepReservedAndReconcile(orderId, error);
+  }
   if (isOutcomeUncertain(error)) {
     return keepReservedAndRetryLater(orderId);
   }
@@ -109,9 +131,8 @@ try {
 }
 ```
 
-Retry an uncertain write with the same `Idempotency-Key`: the API answers with the first
-result when it was applied, and applies it when it was not. A [sale](11-sales.md) uses the
-same rules to choose between `unconfirmed`, `needs_reconciliation` and a refusal.
+A [sale](11-sales.md) reads the same two guards to choose between `unconfirmed`,
+`needs_reconciliation` and a refusal.
 
 ## Conflicts that carry the current resource
 

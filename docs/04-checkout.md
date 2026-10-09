@@ -103,16 +103,16 @@ The checkout refusals below arrive with a generic `error.code` and the API's cod
 
 - `destination(key)` names a checkout destination of the App, configured in the dashboard,
   that holds the success and cancel URLs. The request never carries a URL. A destination that
-  does not exist or is disabled is refused with `resource_conflict` and `metadata.apiError`
+  does not exist or is disabled is refused with `resource_conflict` and `error.apiError`
   `checkout_destination_unavailable`.
 - `provider(name)` picks a provider account of the environment. Without it the environment's
   default is used; an environment with no default needs it. A name with no account answers
-  `operation_failed` with `metadata.apiError` `checkout_provider_unknown`.
+  `operation_failed` with `error.apiError` `checkout_provider_unknown`.
 - `quantity(n)` is 1 to 100 and defaults to 1. `expectedPrice()` behaves as everywhere else:
   a changed price is refused with `price_changed` and `error.price` holds the current one.
 - Only one-time prices are accepted; a recurring price is refused with `request_invalid`, and
   subscriptions go through `subscriptionSession()`. Only Test credentials are accepted for
-  now; a Live credential is refused with `resource_conflict` and `metadata.apiError`
+  now; a Live credential is refused with `resource_conflict` and `error.apiError`
   `checkout_live_not_enabled`.
 
 The checkout answers `status` (`pending`, `processing`, `completed`, `failed`, `expired` or
