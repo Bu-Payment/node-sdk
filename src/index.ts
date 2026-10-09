@@ -9,7 +9,13 @@ export { createCheckoutClient } from "./checkout/client";
 export type * from "./checkout/types";
 export type { BuPaymentClient, ClientOptions } from "./client";
 export { createBuPaymentClient } from "./client";
-export { ErrorCode, Header, SIGNATURE_ALGORITHM, SIGNATURE_VERSION } from "./constants";
+export {
+  ApiErrorCode,
+  ErrorCode,
+  Header,
+  SIGNATURE_ALGORITHM,
+  SIGNATURE_VERSION,
+} from "./constants";
 export type {
   CursorScope,
   PageMethods,
@@ -41,8 +47,20 @@ export { signCanonicalRequest } from "./core/signature";
 export type { CustomersClient } from "./customers/client";
 export { createCustomersClient } from "./customers/client";
 export type * from "./customers/types";
-export type { BuPaymentErrorOptions, PriceChangedError } from "./errors";
-export { BuPaymentError, isPriceChanged } from "./errors";
+export type {
+  BuPaymentErrorOptions,
+  HostedCheckoutRequiredError,
+  NotFoundError,
+  PriceChangedError,
+} from "./errors";
+export {
+  BuPaymentError,
+  isNotFound,
+  isOutcomeUncertain,
+  isPriceChanged,
+  needsReconciliation,
+  requiresHostedCheckout,
+} from "./errors";
 export type { EventsClient } from "./events/client";
 export { createEventsClient } from "./events/client";
 export type * from "./events/types";

@@ -391,6 +391,13 @@ Before answering an end customer, pass the error through `publicError(error)`: i
 and the canonical code, replaces the message with a fixed one, and maps a status outside 4xx and 5xx,
 or a failure of the merchant's own credential, to `502`. See [Errors](docs/10-errors.md#answering-the-end-customer).
 
+Before undoing anything a failed write was meant to pay for, ask `isOutcomeUncertain(error)`: it
+answers `true` when the write may still have been applied, so the reservation stays. Retry it under
+the same `Idempotency-Key`, unless `needsReconciliation(error)` is also `true`, in which case no retry
+will settle it. `isNotFound(error)` and `requiresHostedCheckout(error)` answer the other common
+questions, and `error.apiError` holds the API's own code when the SDK has none for it. See
+[Errors](docs/10-errors.md#classifying-a-failure).
+
 Pass any `AbortSignal` as `signal` to cancel a request; the SDK reports it as `request_cancelled`.
 A request that outlives its own timeout fails as `network_unavailable`.
 
