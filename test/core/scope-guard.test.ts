@@ -65,6 +65,12 @@ describe("assertNoScopeOverrides", () => {
     ).toThrow(BuPaymentError);
   });
 
+  it("refuses an allowed key inside a top-level array", () => {
+    expect(() => assertNoScopeOverrides([{ provider: "sisp" }], new Set(["provider"]))).toThrow(
+      BuPaymentError,
+    );
+  });
+
   it("refuses every other scope key beside an allowed one", () => {
     expect(() =>
       assertNoScopeOverrides(
