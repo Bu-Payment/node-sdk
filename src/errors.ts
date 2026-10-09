@@ -1,5 +1,5 @@
 import type { CurrentPrice } from "./catalogue/types";
-import { ErrorCode } from "./constants";
+import { ApiErrorCode, ErrorCode } from "./constants";
 
 export interface BuPaymentErrorOptions<TResource = unknown> {
   code: ErrorCode;
@@ -30,6 +30,11 @@ export class BuPaymentError<TResource = unknown> extends Error {
     this.price = options.price;
   }
 
+  get apiError(): string | null {
+    const apiError = this.metadata?.apiError;
+    return typeof apiError === "string" ? apiError : null;
+  }
+
   toJSON() {
     return {
       name: this.name,
@@ -49,4 +54,55 @@ export type PriceChangedError = BuPaymentError & {
 
 export function isPriceChanged(error: unknown): error is PriceChangedError {
   return error instanceof BuPaymentError && error.code === ErrorCode.PRICE_CHANGED;
+}
+
+const UNCERTAIN_OUTCOMES = new Set<string>([
+  ErrorCode.NETWORK_UNAVAILABLE,
+  ErrorCode.REQUEST_CANCELLED,
+  ErrorCode.RESPONSE_INVALID,
+  ErrorCode.IDEMPOTENCY_CONFLICT,
+  ApiErrorCode.IDEMPOTENCY_IN_PROGRESS,
+  ApiErrorCode.IDEMPOTENCY_OUTCOME_UNKNOWN,
+]);
+
+const DEFINITE_REFUSALS = new Set<string>([
+  ApiErrorCode.CHECKOUT_UNAVAILABLE,
+  ApiErrorCode.CHECKOUT_PROVIDER_FAILED,
+  ApiErrorCode.FINANCIAL_PREPARATION_FAILED,
+]);
+
+export function isOutcomeUncertain(error: unknown): boolean {
+  if (!(error instanceof BuPaymentError)) {
+    return false;
+  }
+  const apiError = error.apiError;
+  if (apiError !== null && DEFINITE_REFUSALS.has(apiError)) {
+    return false;
+  }
+  if (
+    UNCERTAIN_OUTCOMES.has(error.code) ||
+    (apiError !== null && UNCERTAIN_OUTCOMES.has(apiError))
+  ) {
+    return true;
+  }
+  return error.status !== undefined && (error.status < 400 || error.status > 499);
+}
+
+export type HostedCheckoutRequiredError = BuPaymentError & {
+  readonly apiError: typeof ApiErrorCode.PROVIDER_CAPABILITY_NOT_SUPPORTED;
+};
+
+export function requiresHostedCheckout(error: unknown): error is HostedCheckoutRequiredError {
+  return (
+    error instanceof BuPaymentError &&
+    error.apiError === ApiErrorCode.PROVIDER_CAPABILITY_NOT_SUPPORTED
+  );
+}
+
+export type NotFoundError = BuPaymentError & {
+  readonly code: typeof ErrorCode.RESOURCE_NOT_FOUND;
+};
+
+export function isNotFound(error: unknown): error is NotFoundError {
+  return error instanceof BuPaymentError && error.code === ErrorCode.RESOURCE_NOT_FOUND;
 }

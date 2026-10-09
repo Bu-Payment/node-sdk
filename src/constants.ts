@@ -49,3 +49,18 @@ export const ErrorCode = {
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
+
+export const ApiErrorCode = {
+  PROVIDER_CAPABILITY_NOT_SUPPORTED: "provider_capability_not_supported",
+  CHECKOUT_LIVE_NOT_ENABLED: "checkout_live_not_enabled",
+  CHECKOUT_DESTINATION_UNAVAILABLE: "checkout_destination_unavailable",
+  CHECKOUT_PROVIDER_UNKNOWN: "checkout_provider_unknown",
+  CHECKOUT_PROVIDER_FAILED: "checkout_provider_failed",
+  CHECKOUT_UNAVAILABLE: "checkout_unavailable",
+  IDEMPOTENCY_IN_PROGRESS: "idempotency_in_progress",
+  IDEMPOTENCY_OUTCOME_UNKNOWN: "idempotency_outcome_unknown",
+  FINANCIAL_PREPARATION_FAILED: "financial_preparation_failed",
+  APP_CUSTOMER_EMAIL_CONFLICT: "app_customer_email_conflict",
+} as const;
+
+export type ApiErrorCode = (typeof ApiErrorCode)[keyof typeof ApiErrorCode];
