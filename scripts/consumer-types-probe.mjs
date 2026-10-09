@@ -2,6 +2,7 @@ export function typesCheck() {
   return `import { createBuPaymentClient, ErrorCode, paginate, webhookDelivery } from "@bu-payment/node-sdk";
 import type {
   BillingCapabilities,
+  Checkout,
   ClientConfigInput,
   OwnedRefund,
   PaymentMethodSetup,
@@ -65,6 +66,10 @@ export async function probe(): Promise<unknown> {
     void defaultPriceId;
     void product;
   }
+  if (event.type === "checkout.completed") {
+    const paymentId: string | null = event.data.paymentId;
+    void paymentId;
+  }
   if (event.type === "unknown") {
     const receivedType: string = event.receivedType;
     void receivedType;
@@ -75,6 +80,21 @@ export async function probe(): Promise<unknown> {
 
   // @ts-expect-error a delivery cannot be verified before its headers are set
   webhookDelivery().secret("whsec_x").body("{}").verify();
+
+  const checkout: Checkout = await client.checkout
+    .sessionDraft()
+    .priceId("price_1")
+    .customerEmail("buyer@example.test")
+    .destination("default")
+    .provider("trust-my-travel")
+    .reference("order-1")
+    .idempotencyKey("order-1")
+    .create();
+  void checkout.checkoutUrl;
+  void (await client.checkout.session(checkout.id).get()).status;
+
+  // @ts-expect-error a checkout cannot be created before its destination is set
+  await client.checkout.sessionDraft().priceId("price_1").customerId("cus_1").idempotencyKey("o").create();
 
   await paymentMethodSetup(client);
   await manualPaging(client);

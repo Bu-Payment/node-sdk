@@ -289,6 +289,10 @@ Log the original error on your side before answering; `publicError` deliberately
 
 ## Capabilities
 
+A provider that does not support a direct charge refuses the sale with
+`provider_capability_not_supported`; sell through a
+[one-time checkout](04-checkout.md#one-time-checkout) instead.
+
 A sale needs `payments:write`. With `customerEmail()` it also needs `customers:read` and,
 for a new customer, `customers:write`.
 

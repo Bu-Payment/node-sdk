@@ -175,6 +175,43 @@ keeps retrying, and the delivery stays retryable once the mismatch is fixed.
 
 Payment and subscription events are not typed yet and arrive as `"unknown"`.
 
+#### Checkout events
+
+The four outcomes of a [one-time checkout](04-checkout.md#one-time-checkout) are typed. Their
+names carry no version suffix: subscribe to them exactly as written.
+
+| Type | Emitted when |
+| --- | --- |
+| `checkout.completed` | The checkout is paid; `data.paymentId` names the payment. |
+| `checkout.failed` | The provider reports the payment failed. |
+| `checkout.expired` | The checkout reached its expiry unpaid. |
+| `checkout.cancelled` | The checkout was cancelled. |
+
+The first three share one `data`: `checkoutId`, `reference` (the one sent at creation, or
+`null`), `status` (narrowed to the event's own status), `previousStatus`, `paymentId`,
+`provider`, `providerCheckoutId`, `amount`, `currency`, `chargedAmount`, `chargedCurrency`,
+`quantity` and `customerId`. `checkout.cancelled` carries `checkoutId`, `reference`,
+`provider`, `providerCheckoutId` and `previousStatus`. The `checkout.callback.*` steps arrive as
+`"unknown"`.
+
+```ts
+switch (event.type) {
+  case "checkout.completed":
+    await orders.markPaid(event.data.checkoutId, event.data.paymentId);
+    break;
+  case "checkout.failed":
+  case "checkout.expired":
+  case "checkout.cancelled":
+    await orders.release(event.data.checkoutId);
+    break;
+}
+```
+
+These events carry no `updatedAt`. Key the business effect on `checkoutId`, once, and use
+`reference` as the cross-check against your order. A checkout that expired or was cancelled
+can still be paid: `checkout.completed` then arrives later with `previousStatus` `expired` or
+`cancelled`, and the order is paid even if it was already released.
+
 ### What stays with the application
 
 Deliveries are at least once and unordered. The SDK keeps no state between calls, so the

@@ -45,6 +45,11 @@ try {
 | `too_many_requests` | The credential is rate limited; read `metadata.retryAfter`. |
 | `application_auth_unavailable` | Authentication or ownership storage is unavailable. |
 | `operation_failed` | The API failed for a reason with no more specific code. |
+| `checkout_live_not_enabled` | A one-time checkout was requested with a Live credential; read it in `metadata.apiError`. |
+| `checkout_destination_unavailable` | The checkout destination does not exist or is disabled; read it in `metadata.apiError`. |
+| `checkout_provider_unknown` | The environment has no account for the provider given; read it in `metadata.apiError`. |
+| `checkout_provider_failed` | The provider rejected the checkout; read it in `metadata.apiError`. |
+| `checkout_unavailable` | The checkout or its provider account is temporarily unavailable; read it in `metadata.apiError`. |
 | `webhook_signature_missing` | A delivery lacks `x-webhook-id`, `x-webhook-timestamp` or `x-webhook-signature`, or carries one more than once. |
 | `webhook_signature_invalid` | A delivery was not signed with the endpoint secret given. |
 | `webhook_timestamp_expired` | A correctly signed delivery is outside the tolerance window. |
@@ -104,7 +109,10 @@ These checks run in the SDK, before a request is signed, and all raise `request_
 - a body or query carrying a scope key: `workspace`, `environment`, `application`, `app`,
   `tenant`, `provider`, `providerAccountId` or `providerAccountVersion`, with or without an
   `Id` suffix, in any casing and with any separator. The body is checked as it will be
-  serialized, so a `toJSON` cannot hide a key, and nesting depth is not a way past it;
+  serialized, so a `toJSON` cannot hide a key, and nesting depth is not a way past it. The one
+  exception is `provider` at the top of a `POST /v1/checkouts` body, which picks a provider
+  account inside the credential's environment; nested, on any other route or in a query it is
+  still refused;
 - a shipping product identifier containing a comma, which the wire format would split into
   two.
 
