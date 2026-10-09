@@ -30,6 +30,20 @@ switch (verifiedEvent.type) {
   case "catalogue.product.unassigned.v1":
     exactly<CatalogueProduct>()(verifiedEvent.data.resource);
     break;
+  case "checkout.completed":
+    exactly<"completed">()(verifiedEvent.data.status);
+    exactly<string | null>()(verifiedEvent.data.paymentId);
+    exactly<import("../src/checkout/types").CheckoutStatus>()(verifiedEvent.data.previousStatus);
+    break;
+  case "checkout.cancelled":
+    exactly<string | null>()(verifiedEvent.data.reference);
+    // @ts-expect-error a cancellation carries no payment
+    verifiedEvent.data.paymentId;
+    break;
+  case "checkout.failed":
+  case "checkout.expired":
+    exactly<number>()(verifiedEvent.data.quantity);
+    break;
   default:
     exactly<EventProduct | CataloguePrice>()(verifiedEvent.data.resource);
 }

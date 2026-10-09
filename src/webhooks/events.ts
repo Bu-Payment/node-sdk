@@ -1,15 +1,27 @@
 import type { Price, PriceInterval } from "../catalogue/types";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
+import { assertCheckoutData, CHECKOUT_EVENT_STATUSES } from "./checkout-events";
+import {
+  booleanField,
+  fieldRejecter,
+  integerField,
+  isKey,
+  type JsonObject,
+  nullableTextField,
+  objectField,
+  type RejectField,
+  requiredTextField,
+  timestampField,
+} from "./fields";
 import type {
   CatalogueEvent,
   CataloguePriceEventType,
   CatalogueProductEventType,
+  CheckoutEvent,
   WebhookEvent,
 } from "./types";
 
-type JsonObject = Record<string, unknown>;
-type RejectField = (field: string) => never;
 type CatalogueResourceType = "product" | "price";
 
 const CATALOGUE_EVENT_RESOURCES: { readonly [T in CatalogueProductEventType]: "product" } & {
@@ -60,11 +72,15 @@ export function parseWebhookEvent(payload: JsonObject): WebhookEvent {
   if (!("data" in payload)) {
     rejectField("data");
   }
-  if (!isKey(CATALOGUE_EVENT_RESOURCES, type)) {
-    return { version: 1, id, type: "unknown", receivedType: type, occurredAt, data: payload.data };
+  if (isKey(CATALOGUE_EVENT_RESOURCES, type)) {
+    assertCatalogueData(payload.data, CATALOGUE_EVENT_RESOURCES[type], occurredAt, rejectField);
+    return { version: 1, id, type, occurredAt, data: payload.data } as CatalogueEvent;
   }
-  assertCatalogueData(payload.data, CATALOGUE_EVENT_RESOURCES[type], occurredAt, rejectField);
-  return { version: 1, id, type, occurredAt, data: payload.data } as CatalogueEvent;
+  if (isKey(CHECKOUT_EVENT_STATUSES, type)) {
+    assertCheckoutData(payload.data, type, rejectField);
+    return { version: 1, id, type, occurredAt, data: payload.data } as CheckoutEvent;
+  }
+  return { version: 1, id, type: "unknown", receivedType: type, occurredAt, data: payload.data };
 }
 
 function assertCatalogueData(
@@ -90,13 +106,6 @@ function assertCatalogueData(
   if (resource.updatedAt !== updatedAt) {
     rejectField("data.updatedAt");
   }
-}
-
-function isKey<TKey extends string>(
-  map: Readonly<Record<TKey, unknown>>,
-  key: unknown,
-): key is TKey {
-  return typeof key === "string" && Object.hasOwn(map, key);
 }
 
 function assertProduct(resource: JsonObject, rejectField: RejectField): void {
@@ -132,86 +141,4 @@ function assertPrice(resource: JsonObject, rejectField: RejectField): void {
   booleanField(resource, "active", prefix, rejectField);
   timestampField(resource, "createdAt", prefix, rejectField);
   timestampField(resource, "updatedAt", prefix, rejectField);
-}
-
-function objectField(value: unknown, field: string, rejectField: RejectField): JsonObject {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return rejectField(field);
-  }
-  return value as JsonObject;
-}
-
-function requiredTextField(
-  source: JsonObject,
-  key: string,
-  prefix: string,
-  rejectField: RejectField,
-): string {
-  const value = source[key];
-  if (typeof value !== "string" || value === "") {
-    return rejectField(`${prefix}${key}`);
-  }
-  return value;
-}
-
-function nullableTextField(
-  source: JsonObject,
-  key: string,
-  prefix: string,
-  rejectField: RejectField,
-): void {
-  if (source[key] !== null && typeof source[key] !== "string") {
-    rejectField(`${prefix}${key}`);
-  }
-}
-
-function booleanField(
-  source: JsonObject,
-  key: string,
-  prefix: string,
-  rejectField: RejectField,
-): void {
-  if (typeof source[key] !== "boolean") {
-    rejectField(`${prefix}${key}`);
-  }
-}
-
-function integerField(
-  source: JsonObject,
-  key: string,
-  minimum: number,
-  prefix: string,
-  rejectField: RejectField,
-): void {
-  const value = source[key];
-  if (!Number.isSafeInteger(value) || (value as number) < minimum) {
-    rejectField(`${prefix}${key}`);
-  }
-}
-
-function timestampField(
-  source: JsonObject,
-  key: string,
-  prefix: string,
-  rejectField: RejectField,
-): string {
-  const value = requiredTextField(source, key, prefix, rejectField);
-  const time = Date.parse(value);
-  if (Number.isNaN(time) || new Date(time).toISOString() !== value) {
-    rejectField(`${prefix}${key}`);
-  }
-  return value;
-}
-
-function fieldRejecter(payload: JsonObject): RejectField {
-  const context = {
-    ...(typeof payload.id === "string" ? { eventId: payload.id } : {}),
-    ...(typeof payload.type === "string" ? { eventType: payload.type } : {}),
-  };
-  return (field: string) => {
-    throw new BuPaymentError(`Webhook event field ${field} does not match its documented shape`, {
-      code: ErrorCode.WEBHOOK_EVENT_INVALID,
-      metadata: { ...context, field },
-    });
-  };
 }
