@@ -59,7 +59,6 @@ export function isPriceChanged(error: unknown): error is PriceChangedError {
 const UNCERTAIN_OUTCOMES = new Set<string>([
   ErrorCode.NETWORK_UNAVAILABLE,
   ErrorCode.REQUEST_CANCELLED,
-  ErrorCode.RESPONSE_INVALID,
   ErrorCode.IDEMPOTENCY_CONFLICT,
   ApiErrorCode.IDEMPOTENCY_IN_PROGRESS,
   ApiErrorCode.IDEMPOTENCY_OUTCOME_UNKNOWN,

@@ -99,11 +99,12 @@ releasing stock or offering the customer another way to pay. Its rules apply in 
 
 1. `financial_preparation_failed` answers `false`: the API never sent the payment to the
    provider.
-2. `network_unavailable`, `request_cancelled`, `response_invalid`, `idempotency_conflict`,
+2. `network_unavailable`, `request_cancelled`, `idempotency_conflict`,
    `idempotency_in_progress` and `idempotency_outcome_unknown` answer `true`, whatever the
    status.
 3. Any other failure answers `true` when the API answered with a status outside 4xx, such as
-   a 5xx or a redirect, and `false` for a 4xx or for a refusal the SDK raised before sending.
+   a 5xx, a redirect, or a 2xx whose body was not JSON (`response_invalid`), and `false` for a
+   4xx or for a refusal the SDK raised before sending.
 
 `checkout_unavailable` and `checkout_provider_failed` are 5xx and therefore uncertain: a
 gateway failure can follow a request the provider already accepted.

@@ -114,6 +114,12 @@ describe("isOutcomeUncertain", () => {
     expect(isOutcomeUncertain(error)).toBe(false);
   });
 
+  it("reads an unreadable answer by its status, as a sale always has", () => {
+    expect(isOutcomeUncertain(failure(ErrorCode.RESPONSE_INVALID, { status: 201 }))).toBe(true);
+    expect(isOutcomeUncertain(failure(ErrorCode.RESPONSE_INVALID, { status: 422 }))).toBe(false);
+    expect(isOutcomeUncertain(failure(ErrorCode.RESPONSE_INVALID))).toBe(false);
+  });
+
   it("lets a definite refusal win over an uncertain code", () => {
     const error = failure(ErrorCode.NETWORK_UNAVAILABLE, {
       apiError: ApiErrorCode.FINANCIAL_PREPARATION_FAILED,
