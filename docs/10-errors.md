@@ -45,17 +45,31 @@ try {
 | `too_many_requests` | The credential is rate limited; read `metadata.retryAfter`. |
 | `application_auth_unavailable` | Authentication or ownership storage is unavailable. |
 | `operation_failed` | The API failed for a reason with no more specific code. |
-| `checkout_live_not_enabled` | A one-time checkout was requested with a Live credential; read it in `metadata.apiError`. |
-| `checkout_destination_unavailable` | The checkout destination does not exist or is disabled; read it in `metadata.apiError`. |
-| `checkout_provider_unknown` | The environment has no account for the provider given; read it in `metadata.apiError`. |
-| `checkout_provider_failed` | The provider rejected the checkout; read it in `metadata.apiError`. |
-| `checkout_unavailable` | The checkout or its provider account is temporarily unavailable; read it in `metadata.apiError`. |
 | `webhook_signature_missing` | A delivery lacks `x-webhook-id`, `x-webhook-timestamp` or `x-webhook-signature`, or carries one more than once. |
 | `webhook_signature_invalid` | A delivery was not signed with the endpoint secret given. |
 | `webhook_timestamp_expired` | A correctly signed delivery is outside the tolerance window. |
 | `webhook_payload_invalid` | A delivery body is not raw bytes or text, or is not a JSON object. |
 | `webhook_event_version_unsupported` | A verified delivery is not a version `1` envelope; `metadata.version` holds a numeric version. |
 | `webhook_event_invalid` | A verified delivery of a known type does not match its documented shape; `metadata.field` names the field. |
+
+### API codes behind a generic code
+
+Some refusals have no code of their own in the SDK: `error.code` is the generic code for the
+HTTP status, and the API's code is in `error.metadata.apiError`.
+
+| `metadata.apiError` | `error.code` | Raised when |
+| --- | --- | --- |
+| `checkout_live_not_enabled` | `resource_conflict` | A one-time checkout was requested with a Live credential. |
+| `checkout_destination_unavailable` | `resource_conflict` | The checkout destination does not exist or is disabled. |
+| `checkout_provider_unknown` | `operation_failed` | The environment has no account for the provider given (422). |
+| `checkout_provider_failed` | `operation_failed` | The provider rejected the checkout (502). |
+| `checkout_unavailable` | `operation_failed` | The checkout or its provider account is temporarily unavailable (503). |
+
+```ts
+if (error instanceof BuPaymentError && error.metadata?.apiError === "checkout_live_not_enabled") {
+  // a Live credential: one-time checkouts are Test only for now
+}
+```
 
 ## Conflicts that carry the current resource
 

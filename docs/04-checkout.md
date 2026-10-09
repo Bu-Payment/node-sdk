@@ -84,7 +84,9 @@ const checkout = await client.checkout
   .idempotencyKey(orderId)
   .create();
 
-redirect(checkout.checkoutUrl);
+if (checkout.checkoutUrl !== undefined) {
+  redirect(checkout.checkoutUrl);
+}
 
 const current = await client.checkout.session(checkout.id).get();
 ```
@@ -96,17 +98,22 @@ idempotency key is required: use the order id, so a retry answers the same check
 the key with a different reference, provider, buyer or quantity is refused with
 `idempotency_conflict`.
 
+The checkout refusals below arrive with a generic `error.code` and the API's code in
+`error.metadata.apiError`; see [Errors](10-errors.md#api-codes-behind-a-generic-code).
+
 - `destination(key)` names a checkout destination of the App, configured in the dashboard,
   that holds the success and cancel URLs. The request never carries a URL. A destination that
-  does not exist or is disabled is refused with `checkout_destination_unavailable`.
+  does not exist or is disabled is refused with `resource_conflict` and `metadata.apiError`
+  `checkout_destination_unavailable`.
 - `provider(name)` picks a provider account of the environment. Without it the environment's
   default is used; an environment with no default needs it. A name with no account answers
-  `checkout_provider_unknown`.
+  `operation_failed` with `metadata.apiError` `checkout_provider_unknown`.
 - `quantity(n)` is 1 to 100 and defaults to 1. `expectedPrice()` behaves as everywhere else:
   a changed price is refused with `price_changed` and `error.price` holds the current one.
 - Only one-time prices are accepted; a recurring price is refused with `request_invalid`, and
   subscriptions go through `subscriptionSession()`. Only Test credentials are accepted for
-  now; a Live credential is refused with `checkout_live_not_enabled`.
+  now; a Live credential is refused with `resource_conflict` and `metadata.apiError`
+  `checkout_live_not_enabled`.
 
 The checkout answers `status` (`pending`, `processing`, `completed`, `failed`, `expired` or
 `cancelled`), the canonical `amount` and `currency` (unit amount times quantity, in minor
