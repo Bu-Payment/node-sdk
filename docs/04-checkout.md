@@ -60,7 +60,7 @@ const shipping = await client.checkout
 ```
 
 Products accumulate one call at a time and reach the API as one comma-separated parameter.
-`get()` and `all()` do not exist until a currency, a destination and at least one product
+`get()`, `all()` and `collect()` do not exist until a currency, a destination and at least one product
 are set, so an empty resolution is unrepresentable rather than a runtime error. An
 identifier containing a comma is refused, because the wire format would split it in two.
 

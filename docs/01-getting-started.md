@@ -37,8 +37,8 @@ const products = await client.catalogue.products().active(true).limit(20).get();
   point is the resource noun, `catalogue.product(id)`.
 - Every configuration method returns a new frozen builder. An earlier builder is never
   mutated, so it is safe to hold one and branch from it.
-- Nothing reaches the network until a terminal: `get()`, `all()`, `create()`, `update()`,
-  `remove()`, `cancel()`, `pause()`, `resume()`, `evaluate()`, `redeem()`, `calculate()`,
+- Nothing reaches the network until a terminal: `get()`, `find()`, `all()`, `collect()`,
+  `create()`, `update()`, `remove()`, `cancel()`, `pause()`, `resume()`, `evaluate()`, `redeem()`, `calculate()`,
   `retry()`, `reschedule()`.
 - Required input is type-state. `client.payments.draft().customerId("cus_1")` has no
   `create()` method at all until it is priced, and the compiler says so.

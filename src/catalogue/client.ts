@@ -12,6 +12,7 @@ import {
   scopeMethods,
 } from "../core/builder";
 import type { Page } from "../core/pagination";
+import { isNotFound } from "../errors";
 import { type DefaultPriceChange, defaultPriceChange } from "./default-price";
 import { pricePath, productPath } from "./paths";
 import { type PriceDraft, priceDraft } from "./price-writes";
@@ -42,6 +43,7 @@ export interface ProductListBuilder extends PageMethods<ProductListBuilder, Prod
 
 export interface ProductBuilder extends ScopeMethods<ProductBuilder> {
   get(): Promise<Product>;
+  find(): Promise<Product | null>;
 }
 
 export interface PriceListBuilder extends PageMethods<PriceListBuilder, Price> {
@@ -52,6 +54,7 @@ export interface PriceListBuilder extends PageMethods<PriceListBuilder, Price> {
 
 export interface PriceBuilder extends ScopeMethods<PriceBuilder> {
   get(): Promise<Price>;
+  find(): Promise<Price | null>;
 }
 
 export interface CrossSellListBuilder extends PageMethods<CrossSellListBuilder, ProductCrossSell> {}
@@ -128,9 +131,11 @@ function singleProduct(
 ): ProductBuilder {
   const next = (update: Partial<RequestScope>) =>
     singleProduct(send, productId, { ...state, ...update });
+  const get = () => send<Product>(() => readRequest(productPath(productId), state));
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<Product>(() => readRequest(productPath(productId), state)),
+    get,
+    find: () => orNullWhenNotFound(get()),
   });
 }
 
@@ -159,9 +164,11 @@ function priceList(send: DeferredSender, state: PriceListState): PriceListBuilde
 function singlePrice(send: DeferredSender, priceId: string, state: RequestScope): PriceBuilder {
   const next = (update: Partial<RequestScope>) =>
     singlePrice(send, priceId, { ...state, ...update });
+  const get = () => send<Price>(() => readRequest(pricePath(priceId), state));
   return Object.freeze({
     ...scopeMethods(next),
-    get: () => send<Price>(() => readRequest(pricePath(priceId), state)),
+    get,
+    find: () => orNullWhenNotFound(get()),
   });
 }
 
@@ -193,4 +200,26 @@ function entitlements(
         readRequest(`${productPath(productId)}/entitlements`, state),
       ),
   });
+}
+
+const CATALOGUE_NOT_FOUND = "not_found";
+
+async function orNullWhenNotFound<T>(read: Promise<T>): Promise<T | null> {
+  try {
+    return await read;
+  } catch (error) {
+    if (isApiNotFound(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function isApiNotFound(error: unknown): boolean {
+  if (!isNotFound(error)) {
+    return false;
+  }
+  return error.apiError === null
+    ? error.metadata?.codeFromStatus !== true
+    : error.apiError === CATALOGUE_NOT_FOUND;
 }

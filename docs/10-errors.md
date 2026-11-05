@@ -25,7 +25,7 @@ try {
 | `request_cancelled` | The caller's `AbortSignal` fired. |
 | `network_unavailable` | The API could not be reached, the request timed out, or the response was cut off before it was read. |
 | `response_invalid` | The API answered something that is not JSON. |
-| `resource_not_found` | The resource is unknown, unassigned, or owned by another App. |
+| `resource_not_found` | The resource is unknown, unassigned, or owned by another App. A 404 from outside the API maps here too. |
 | `resource_conflict` | The mutation conflicts with current App-owned state. |
 | `stale_resource` | The resource changed after the `expectedUpdatedAt` given; `resource` holds it now. |
 | `lookup_key_conflict` | Another product holds the lookup key; `resource` holds it when it is assigned to the App. |
@@ -56,8 +56,8 @@ try {
 
 Some refusals have no code of their own in the SDK: `error.code` is the generic code for the
 HTTP status, and the API's code is in `error.apiError`, read from `error.metadata.apiError`.
-It is `null` when the API sent no code of its own. `ApiErrorCode` holds every code in this
-table, such as `ApiErrorCode.CHECKOUT_UNAVAILABLE`.
+It is `null` when the API sent no code, or one the SDK already reports as `error.code`.
+`ApiErrorCode` holds every code in this table, such as `ApiErrorCode.CHECKOUT_UNAVAILABLE`.
 
 | `error.apiError` | `error.code` | Raised when |
 | --- | --- | --- |
@@ -81,6 +81,13 @@ if (error instanceof BuPaymentError && error.apiError === ApiErrorCode.CHECKOUT_
   // a Live credential: one-time checkouts are Test only for now
 }
 ```
+
+When the response carries no code at all, such as a 404 page from a proxy, `error.code` comes
+from the HTTP status alone and `error.metadata.codeFromStatus` is `true`. `isNotFound` is
+`true` for any 404, including that one and one whose code is foreign to the API, such as
+`Not Found` from a route that does not exist. Catalogue `find()` is stricter: it resolves to
+`null` only on the API's own not-found code and throws anything else, so prefer it to catching
+a not-found from `get()`.
 
 ## Classifying a failure
 
@@ -201,7 +208,7 @@ method to call. The same holds for a shipping resolution with no product, a cust
 no email, and every other required field: the terminal is absent, so the mistake cannot
 reach the network.
 
-`paginate` and every `all()` raise `response_invalid` when a page answers a cursor already
+`paginate`, every `all()` and every `collect()` raise `response_invalid` when a page answers a cursor already
 served, a `nextCursor` that is missing or empty, no `data` array, or `hasMore` with no
 cursor to follow. Every one of those would otherwise end the walk in silence, repeat it
 forever, or escape as a bare `TypeError`.

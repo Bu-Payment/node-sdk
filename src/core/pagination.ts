@@ -51,6 +51,14 @@ export async function* paginate<TItem, TQuery extends CursorQuery>(
   }
 }
 
+export async function collectWalk<TItem>(walk: AsyncIterable<TItem>): Promise<TItem[]> {
+  const items: TItem[] = [];
+  for await (const item of walk) {
+    items.push(item);
+  }
+  return items;
+}
+
 function malformed(message: string): BuPaymentError {
   return new BuPaymentError(message, { code: ErrorCode.RESPONSE_INVALID });
 }

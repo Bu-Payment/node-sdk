@@ -21,7 +21,36 @@ environment, App and the `active` filter in force.
 only and archived ones are absent without any signal. The filter is an exact match:
 `active(false)` returns the archived products and nothing else, and no single walk returns
 both. Reconciling a local catalogue means two walks, or `product(id).get()`, which returns a
-product whatever its state.
+product whatever its state. `collect()` reads every page of a walk into an array:
+
+```ts
+const everyProduct = [
+  ...(await client.catalogue.products().active(true).collect()),
+  ...(await client.catalogue.products().active(false).collect()),
+];
+```
+
+The two walks are not a snapshot. A product that changes state between them can appear twice
+or not at all, so keep the copy with the newest `updatedAt` for a duplicate, and read a
+missing product with `product(id).find()`. A `null` there means this App cannot see it, which
+is a reason to review the record, not proof that it is gone.
+
+`product(id).find()` reads like `get()` but resolves to `null` when the product is unknown
+to the App, instead of throwing `resource_not_found`. It does so only when the API itself
+answered that the record is not found. Any other failure is thrown unchanged, including a 404
+from a proxy, a wrong base URL or a route that does not exist. An archived product is still
+found, with `active: false`.
+
+`null` means this App cannot see the product, not that it never existed, so do not delete
+anything on it alone. See
+[what a not-found does not tell you](10-errors.md#what-a-not-found-does-not-tell-you).
+
+```ts
+const product = await client.catalogue.product(productId).find();
+if (product === null) {
+  flagForReview(productId);
+}
+```
 
 `lookupKey(key)` finds a product by the natural key it was given, which survives a
 reinstall or a repeated import after the original idempotency key is gone:
@@ -55,7 +84,52 @@ with its interval and interval count.
 `active` defaults to `true` here too, and it matters more: a price is archived when it is
 superseded, while the subscriptions on it keep pointing at it. Building a price map from
 `prices().productId(id).all()` leaves every superseded price out, even though
-`price(id).get()` returns it.
+`price(id).get()` returns it. `price(id).find()` finds a superseded price too, and resolves
+to `null` when the price is unknown to the App, which includes a price no longer assigned to
+it.
+
+### Comparing prices
+
+`priceTerms(price)` gives what makes two prices interchangeable for a customer, frozen:
+`{ currency, type, interval, intervalCount }`, the last two `null` for a one-time price.
+`sameTerms(a, b)` compares two prices, or a price and terms stored earlier, on exactly
+those fields, so a price that differs only in amount still matches:
+
+```ts
+import { priceTerms, sameTerms } from "@bu-payment/node-sdk";
+
+const stored = priceTerms(linkedPrice);
+const replacement = (await client.catalogue.product(productId).get()).defaultPriceId;
+const candidate = replacement === null ? null : await client.catalogue.price(replacement).find();
+if (candidate !== null && sameTerms(stored, candidate)) {
+  relink(candidate);
+}
+```
+
+### Applying the newer version
+
+A read can finish after a newer version was stored. `isStale(candidate, stored)` answers
+`true` when the candidate's `updatedAt` is older than the stored one, or does not parse as a
+date. Both arguments take a resource or the stamp itself, and the stamps are compared as
+instants, so offsets do not matter.
+
+To save a read only when it moves the stored copy forward, ask whether the stored copy is
+stale against the read, which makes the stored copy the candidate:
+
+```ts
+import { isStale } from "@bu-payment/node-sdk";
+
+const product = await client.catalogue.product(productId).get();
+if (isStale(local, product)) {
+  saveLocally(product);
+}
+```
+
+A stored stamp that does not parse counts as stale, so the read replaces it. Equal stamps
+answer `false` and prove nothing either way: an assignment, an unassignment and a default
+price change caused by one keep `updatedAt`. A read that began after the stored copy was saved
+is current, so save it without asking `isStale`. Do not order webhook events with `isStale`
+alone. Order them by `data.updatedAt`, then `occurredAt`, as [Events and webhooks](08-events-and-webhooks.md) describes.
 
 ## Cross-sells and entitlements
 

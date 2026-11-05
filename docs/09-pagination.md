@@ -7,7 +7,7 @@ Products, prices, cross-sells, customers, shipping rates and events answer
 `hasMore`, which is always `nextCursor !== null`. Applicable tax rates answer `{ data }`
 alone. Webhook endpoints and webhook deliveries answer a plain array. A customer's payment methods
 answer `{ data, hasMore: false, nextCursor: null }`: at most 100 rows and never a second page,
-so their builder has no `cursor()`, `limit()` or `all()`. The return type of each terminal
+so their builder has no `cursor()`, `limit()`, `all()` or `collect()`. The return type of each terminal
 says which shape that call produces.
 
 ## The cursor is scoped
@@ -51,6 +51,21 @@ Nothing is requested until the iterator is pulled. It ends on a null cursor, and
 `hasMore` with no cursor to follow it. Each of those would otherwise walk the same pages
 forever, stop early while reporting success, or surface a bare `TypeError`. A walk that
 ends without an error read every page.
+
+## Reading every page into an array
+
+`collect()` is the third terminal on every paginated list. It walks the pages exactly as
+`all()` does and resolves to an array of every item, or rejects with whatever failed the
+walk, such as `response_invalid`, and returns nothing partial:
+
+```ts
+const archived = await client.catalogue.products().active(false).collect();
+```
+
+It holds the whole list in memory. Prefer `all()` for a list that can grow without bound,
+such as events or payments. `limit()` sets the page size, not the total, so
+`events.list().limit(10).collect()` still reads the whole list. `timeoutMs()` bounds each
+request, not the walk, so `signal()` is the way to bound a whole `collect()`.
 
 ## Building your own
 

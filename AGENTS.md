@@ -10,8 +10,8 @@ the BuPayment browser SDK.
 - Every builder instance must be frozen and every configuration method must
   return a new builder without mutating an earlier instance.
 - Network requests begin only in an explicit terminal method. The terminal names
-  the action the caller is taking: `get()`, `all()`, `create()`, `update()`,
-  `remove()`, `cancel()`, `pause()`, `resume()`, `approve()`, `settle()`,
+  the action the caller is taking: `get()`, `find()`, `all()`, `collect()`,
+  `create()`, `update()`, `remove()`, `cancel()`, `pause()`, `resume()`, `approve()`, `settle()`,
   `evaluate()`, `redeem()`, `calculate()`, `retry()`, `reschedule()`. The set is
   open, but a new terminal must be a verb for what the caller asked for, never a
   transport detail.
@@ -40,8 +40,9 @@ the BuPayment browser SDK.
   a draft, never a verb, so the terminal alone says `create()`: `draft()` where
   the domain creates one thing, and the thing's name followed by `Draft` where
   it creates several: `payments.draft()` and `webhooks.endpointDraft()`.
-- A paginated list carries both terminals: `get()` for one page and `all()` for
-  an async iterator that captures the query once and only advances the cursor.
+- A paginated list carries three terminals: `get()` for one page, `all()` for an
+  async iterator that captures the query once and only advances the cursor, and
+  `collect()` for the same walk resolved to an array.
 
 Canonical public style:
 

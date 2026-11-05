@@ -141,6 +141,9 @@ setupWithoutCurrency.create();
 // @ts-expect-error a payment method list carries no cursor
 paymentMethods.list("cus_1").cursor("cur_2");
 
+// @ts-expect-error a payment method list is one bounded page, with nothing to collect
+paymentMethods.list("cus_1").collect();
+
 // @ts-expect-error a webhook endpoint cannot be created before its url is set
 webhooks.endpointDraft().event("payment.succeeded.v1").create();
 

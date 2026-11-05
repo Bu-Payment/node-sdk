@@ -218,7 +218,9 @@ Deliveries are at least once and unordered. The SDK keeps no state between calls
 replay store, the deduplication on the event `id`, the last `updatedAt` and `occurredAt`
 applied per resource and applying the event are the application's, as is reconciling
 periodically with the list reads: a delivery that exhausted its attempts is not sent again
-unless retried.
+unless retried. `isStale(candidate, stored)` compares `updatedAt` alone, so it cannot order
+events that share one; compare the pair above for those. See
+[Catalogue](02-catalogue.md#applying-the-newer-version).
 
 ## Deliveries
 

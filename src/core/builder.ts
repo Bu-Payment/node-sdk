@@ -1,6 +1,6 @@
 import type { TransportRequest } from "./http";
 import { generateIdempotencyKey } from "./idempotency";
-import { type Page, paginate } from "./pagination";
+import { collectWalk, type Page, paginate } from "./pagination";
 import type { QueryInput } from "./request-target";
 
 export interface RequestScope {
@@ -23,6 +23,7 @@ export interface PageMethods<TBuilder, TItem, TPage = Page<TItem>> extends Scope
   limit(limit: number): TBuilder;
   get(): Promise<TPage>;
   all(): AsyncGenerator<TItem, void, undefined>;
+  collect(): Promise<TItem[]>;
 }
 
 export type Sender = <T>(request: TransportRequest) => Promise<T>;
@@ -60,16 +61,18 @@ export function pageMethods<TState extends CursorScope, TPage extends Page<unkno
   next: (update: Partial<CursorScope>) => TBuilder,
   read: (state: TState) => Promise<TPage>,
 ): PageMethods<TBuilder, ItemOf<TPage>, TPage> {
+  const all = () =>
+    paginate<ItemOf<TPage>, TState>(
+      async (page: TState) => (await read(page)) as Page<ItemOf<TPage>>,
+      state,
+    );
   return {
     ...scopeMethods<TBuilder>(next),
     cursor: (cursor: string) => next({ cursor }),
     limit: (limit: number) => next({ limit }),
     get: () => read(state),
-    all: () =>
-      paginate<ItemOf<TPage>, TState>(
-        async (page: TState) => (await read(page)) as Page<ItemOf<TPage>>,
-        state,
-      ),
+    all,
+    collect: () => collectWalk(all()),
   };
 }
 
