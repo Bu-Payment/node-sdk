@@ -55,8 +55,8 @@ ends without an error read every page.
 ## Reading every page into an array
 
 `collect()` is the third terminal on every paginated list. It walks the pages exactly as
-`all()` does and resolves to an array of every item, or rejects with the same
-`response_invalid` and returns nothing partial:
+`all()` does and resolves to an array of every item, or rejects with whatever failed the
+walk, such as `response_invalid`, and returns nothing partial:
 
 ```ts
 const archived = await client.catalogue.products().active(false).collect();
@@ -64,8 +64,8 @@ const archived = await client.catalogue.products().active(false).collect();
 
 It holds the whole list in memory. Prefer `all()` for a list that can grow without bound,
 such as events or payments. `limit()` sets the page size, not the total, so
-`events.list().limit(10).collect()` still reads the whole list. Only `signal()` stops a
-`collect()` midway; `timeoutMs()` applies to each request.
+`events.list().limit(10).collect()` still reads the whole list. `timeoutMs()` bounds each
+request, not the walk, so `signal()` is the way to bound a whole `collect()`.
 
 ## Building your own
 

@@ -31,16 +31,19 @@ const everyProduct = [
 ```
 
 The two walks are not a snapshot. A product that changes state between them can appear twice
-or not at all, so deduplicate by `id` and confirm a missing product with `product(id).get()`
-before treating it as gone.
+or not at all, so keep the copy with the newest `updatedAt` for a duplicate, and read a
+missing product with `product(id).find()`. A `null` there means this App cannot see it, which
+is a reason to review the record, not proof that it is gone.
 
 `product(id).find()` reads like `get()` but resolves to `null` when the product is unknown
-to the App, instead of throwing `resource_not_found`. Any other failure is thrown unchanged,
-including a 404 that carries no API error, such as one from a proxy or a wrong base URL. An
-archived product is still found, with `active: false`.
+to the App, instead of throwing `resource_not_found`. It does so only when the API itself
+answered that the record is not found. Any other failure is thrown unchanged, including a 404
+from a proxy, a wrong base URL or a route that does not exist. An archived product is still
+found, with `active: false`.
 
-`null` means this App cannot see the product, not that it never existed, so confirm before
-acting on it destructively. See [Errors](10-errors.md).
+`null` means this App cannot see the product, not that it never existed, so do not delete
+anything on it alone. See
+[what a not-found does not tell you](10-errors.md#what-a-not-found-does-not-tell-you).
 
 ```ts
 const product = await client.catalogue.product(productId).find();
@@ -114,15 +117,16 @@ stamps are compared as instants, so offsets do not matter.
 import { isStale } from "@bu-payment/node-sdk";
 
 const product = await client.catalogue.product(productId).get();
-if (!isStale(product, local)) {
+if (isStale(local, product)) {
   saveLocally(product);
 }
 ```
 
-A candidate with the same stamp is not stale, but it is not proven newer either: an
-assignment, an unassignment and a default price change caused by one keep `updatedAt`. Do not
-order webhook events with `isStale` alone. Order them by `data.updatedAt`, then `occurredAt`,
-as [Events and webhooks](08-events-and-webhooks.md) describes.
+Passing the stored copy as the candidate saves only a strictly newer read. Equal stamps prove
+nothing either way: an assignment, an unassignment and a default price change caused by one
+keep `updatedAt`. Apply an equal stamp only from a read that began after the stored copy was
+saved. Do not order webhook events with `isStale` alone. Order them by `data.updatedAt`, then
+`occurredAt`, as [Events and webhooks](08-events-and-webhooks.md) describes.
 
 ## Cross-sells and entitlements
 

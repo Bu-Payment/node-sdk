@@ -25,7 +25,7 @@ try {
 | `request_cancelled` | The caller's `AbortSignal` fired. |
 | `network_unavailable` | The API could not be reached, the request timed out, or the response was cut off before it was read. |
 | `response_invalid` | The API answered something that is not JSON. |
-| `resource_not_found` | The resource is unknown, unassigned, or owned by another App. |
+| `resource_not_found` | The resource is unknown, unassigned, or owned by another App. A 404 from outside the API maps here too, see `metadata.codeFromStatus`. |
 | `resource_conflict` | The mutation conflicts with current App-owned state. |
 | `stale_resource` | The resource changed after the `expectedUpdatedAt` given; `resource` holds it now. |
 | `lookup_key_conflict` | Another product holds the lookup key; `resource` holds it when it is assigned to the App. |
@@ -59,8 +59,11 @@ HTTP status, and the API's code is in `error.apiError`, read from `error.metadat
 It is `null` when the API sent no code of its own. `ApiErrorCode` holds every code in this
 table, such as `ApiErrorCode.CHECKOUT_UNAVAILABLE`.
 
-When the response carries no API code at all, such as a 404 page from a proxy, `error.code`
-comes from the HTTP status alone and `error.metadata.codeFromStatus` is `true`.
+When the response carries no code at all, such as a 404 page from a proxy, `error.code` comes
+from the HTTP status alone and `error.metadata.codeFromStatus` is `true`. `error.apiError` is
+`null` both then and when the SDK knows the API's code, so read the flag to tell them apart.
+`isNotFound` is `true` for such a 404 too. Catalogue `find()` is stricter: it resolves to
+`null` only when the API answered not found itself, and throws anything else.
 
 | `error.apiError` | `error.code` | Raised when |
 | --- | --- | --- |

@@ -10,8 +10,8 @@ the BuPayment browser SDK.
 - Every builder instance must be frozen and every configuration method must
   return a new builder without mutating an earlier instance.
 - Network requests begin only in an explicit terminal method. The terminal names
-  the action the caller is taking: `get()`, `all()`, `create()`, `update()`,
-  `remove()`, `cancel()`, `pause()`, `resume()`, `approve()`, `settle()`,
+  the action the caller is taking: `get()`, `find()`, `all()`, `collect()`,
+  `create()`, `update()`, `remove()`, `cancel()`, `pause()`, `resume()`, `approve()`, `settle()`,
   `evaluate()`, `redeem()`, `calculate()`, `retry()`, `reschedule()`. The set is
   open, but a new terminal must be a verb for what the caller asked for, never a
   transport detail.
