@@ -59,6 +59,9 @@ HTTP status, and the API's code is in `error.apiError`, read from `error.metadat
 It is `null` when the API sent no code of its own. `ApiErrorCode` holds every code in this
 table, such as `ApiErrorCode.CHECKOUT_UNAVAILABLE`.
 
+When the response carries no API code at all, such as a 404 page from a proxy, `error.code`
+comes from the HTTP status alone and `error.metadata.codeFromStatus` is `true`.
+
 | `error.apiError` | `error.code` | Raised when |
 | --- | --- | --- |
 | `provider_capability_not_supported` | `operation_failed` | The provider cannot charge directly (422); sell through a hosted checkout. |
@@ -201,7 +204,7 @@ method to call. The same holds for a shipping resolution with no product, a cust
 no email, and every other required field: the terminal is absent, so the mistake cannot
 reach the network.
 
-`paginate` and every `all()` raise `response_invalid` when a page answers a cursor already
+`paginate`, every `all()` and every `collect()` raise `response_invalid` when a page answers a cursor already
 served, a `nextCursor` that is missing or empty, no `data` array, or `hasMore` with no
 cursor to follow. Every one of those would otherwise end the walk in silence, repeat it
 forever, or escape as a bare `TypeError`.

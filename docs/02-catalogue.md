@@ -30,14 +30,22 @@ const everyProduct = [
 ];
 ```
 
+The two walks are not a snapshot. A product that changes state between them can appear twice
+or not at all, so deduplicate by `id` and confirm a missing product with `product(id).get()`
+before treating it as gone.
+
 `product(id).find()` reads like `get()` but resolves to `null` when the product is unknown
-to the App, instead of throwing `resource_not_found`. Any other failure is thrown unchanged.
-An archived product is still found, with `active: false`.
+to the App, instead of throwing `resource_not_found`. Any other failure is thrown unchanged,
+including a 404 that carries no API error, such as one from a proxy or a wrong base URL. An
+archived product is still found, with `active: false`.
+
+`null` means this App cannot see the product, not that it never existed, so confirm before
+acting on it destructively. See [Errors](10-errors.md).
 
 ```ts
 const product = await client.catalogue.product(productId).find();
 if (product === null) {
-  unlinkLocally(productId);
+  flagForReview(productId);
 }
 ```
 
@@ -73,8 +81,9 @@ with its interval and interval count.
 `active` defaults to `true` here too, and it matters more: a price is archived when it is
 superseded, while the subscriptions on it keep pointing at it. Building a price map from
 `prices().productId(id).all()` leaves every superseded price out, even though
-`price(id).get()` returns it. `price(id).find()` resolves to `null` when the price is
-unknown to the App, which includes a price whose assignment ended when it was replaced.
+`price(id).get()` returns it. `price(id).find()` finds a superseded price too, and resolves
+to `null` when the price is unknown to the App, which includes a price no longer assigned to
+it.
 
 ### Comparing prices
 
@@ -96,19 +105,24 @@ if (candidate !== null && sameTerms(stored, candidate)) {
 
 ### Applying the newer version
 
-A webhook delivery can arrive after a newer read of the same resource. `isStale(candidate,
-stored)` answers `true` when the candidate's `updatedAt` is older than the stored one, or
-does not parse as a date; skip a stale candidate. Both arguments take a resource or the
-stamp itself, and the stamps are compared as instants, so offsets do not matter. A candidate
-with the same stamp is not stale, so applying it again is harmless.
+A read can finish after a newer version was stored. `isStale(candidate, stored)` answers
+`true` when the candidate's `updatedAt` is older than the stored one, or does not parse as a
+date; skip a stale candidate. Both arguments take a resource or the stamp itself, and the
+stamps are compared as instants, so offsets do not matter.
 
 ```ts
 import { isStale } from "@bu-payment/node-sdk";
 
-if (!isStale(event.data.resource, local)) {
-  saveLocally(event.data.resource);
+const product = await client.catalogue.product(productId).get();
+if (!isStale(product, local)) {
+  saveLocally(product);
 }
 ```
+
+A candidate with the same stamp is not stale, but it is not proven newer either: an
+assignment, an unassignment and a default price change caused by one keep `updatedAt`. Do not
+order webhook events with `isStale` alone. Order them by `data.updatedAt`, then `occurredAt`,
+as [Events and webhooks](08-events-and-webhooks.md) describes.
 
 ## Cross-sells and entitlements
 
