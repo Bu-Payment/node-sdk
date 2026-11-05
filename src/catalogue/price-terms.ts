@@ -7,7 +7,7 @@ export interface PriceTerms {
   readonly intervalCount: number | null;
 }
 
-type PricedTerms = Pick<Price, "currency" | "type" | "recurring">;
+export type PricedTerms = Pick<Price, "currency" | "type" | "recurring">;
 
 export function priceTerms(price: PricedTerms): PriceTerms {
   return Object.freeze({

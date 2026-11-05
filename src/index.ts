@@ -3,7 +3,7 @@ export { createBillingClient } from "./billing/client";
 export type * from "./billing/types";
 export type { CatalogueClient } from "./catalogue/client";
 export { createCatalogueClient } from "./catalogue/client";
-export type { PriceTerms } from "./catalogue/price-terms";
+export type { PricedTerms, PriceTerms } from "./catalogue/price-terms";
 export { priceTerms, sameTerms } from "./catalogue/price-terms";
 export type * from "./catalogue/types";
 export type { CheckoutClient } from "./checkout/client";

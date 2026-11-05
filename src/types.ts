@@ -1,5 +1,5 @@
 export type * from "./billing/types";
-export type { PriceTerms } from "./catalogue/price-terms";
+export type { PricedTerms, PriceTerms } from "./catalogue/price-terms";
 export type * from "./catalogue/types";
 export type * from "./checkout/types";
 export type { BuPaymentClient, ClientOptions } from "./client";

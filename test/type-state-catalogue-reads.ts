@@ -1,5 +1,5 @@
 import type { createCatalogueClient } from "../src/catalogue/client";
-import type { PriceTerms } from "../src/catalogue/price-terms";
+import type { PricedTerms, PriceTerms } from "../src/catalogue/price-terms";
 import type { Price, Product } from "../src/catalogue/types";
 import type { createCheckoutClient } from "../src/checkout/client";
 
@@ -17,8 +17,11 @@ const assumed: Promise<Product> = catalogue.product("prod_1").find();
 // @ts-expect-error the shipping rates cannot be read before the quote is complete
 checkout.shippingRates().currency("EUR").destinationCountry("PT").collect();
 
+declare const priced: PricedTerms;
+const pricedCurrency: string = priced.currency;
+
 declare const terms: PriceTerms;
 // @ts-expect-error price terms are read from a price, never edited
 terms.currency = "USD";
 
-void [products, prices, product, price, assumed];
+void [products, prices, product, price, assumed, pricedCurrency];
