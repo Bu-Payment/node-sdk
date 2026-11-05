@@ -139,7 +139,7 @@ describe("stored payment methods", () => {
   it("offers no cursor, limit or walk over a list the API caps at 100", () => {
     const { client } = harnessReturning();
     const list = client.paymentMethods.list("cus_1");
-    expect(["cursor", "limit", "all"].filter((method) => method in list)).toEqual([]);
+    expect(["cursor", "limit", "all", "collect"].filter((method) => method in list)).toEqual([]);
     expectTypeOf<Awaited<ReturnType<typeof list.get>>["hasMore"]>().toEqualTypeOf<false>();
     expectTypeOf<Awaited<ReturnType<typeof list.get>>["nextCursor"]>().toEqualTypeOf<null>();
   });

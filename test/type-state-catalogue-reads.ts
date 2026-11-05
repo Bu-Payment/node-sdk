@@ -16,6 +16,10 @@ const assumed: Promise<Product> = catalogue.product("prod_1").find();
 
 // @ts-expect-error the shipping rates cannot be read before the quote is complete
 checkout.shippingRates().currency("EUR").destinationCountry("PT").collect();
+// @ts-expect-error the shipping rates cannot be read without a currency
+checkout.shippingRates().destinationCountry("PT").product("prod_1").collect();
+// @ts-expect-error the shipping rates cannot be read without a destination
+checkout.shippingRates().currency("EUR").product("prod_1").collect();
 
 declare const priced: PricedTerms;
 const pricedCurrency: string = priced.currency;

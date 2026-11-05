@@ -1,13 +1,94 @@
 import { describe, expect, it } from "vitest";
 import { ErrorCode } from "../src/constants";
-import { callAt, harnessOf, harnessReturning, json, pathOf } from "./support/harness";
+import { callAt, harnessOf, harnessReturning, json, pathOf, queryOf } from "./support/harness";
 
 type Client = ReturnType<typeof harnessReturning>["client"];
+type Collecting = { collect(): Promise<unknown[]> };
+
+const twoPages = [
+  { data: [{ id: "a" }], nextCursor: "cur_2", hasMore: true },
+  { data: [{ id: "b" }], nextCursor: null, hasMore: false },
+];
+
+const paginatedLists: Record<string, (client: Client) => Collecting> = {
+  products: (client) => client.catalogue.products(),
+  prices: (client) => client.catalogue.prices(),
+  crossSells: (client) => client.catalogue.crossSells("prod_1"),
+  customers: (client) => client.customers.list(),
+  payments: (client) => client.payments.list(),
+  invoices: (client) => client.invoices.list(),
+  subscriptions: (client) => client.subscriptions.list(),
+  refunds: (client) => client.refunds.list(),
+  events: (client) => client.events.list(),
+  priceMigrations: (client) => client.priceMigrations.list(),
+  shippingRates: (client) =>
+    client.checkout.shippingRates().currency("EUR").destinationCountry("PT").product("prod_1"),
+};
 
 const records = {
   product: (client: Client) => client.catalogue.product("rec_1"),
   price: (client: Client) => client.catalogue.price("rec_1"),
 };
+
+describe("collect on every paginated list", () => {
+  it.each(Object.keys(paginatedLists))("%s walks every page only once called", async (name) => {
+    const { client, calls } = harnessReturning(...twoPages);
+    const list = (paginatedLists[name] as (client: Client) => Collecting)(client);
+    expect(calls).toHaveLength(0);
+    expect(await list.collect()).toEqual([{ id: "a" }, { id: "b" }]);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("walks again from the start each time the same builder is collected", async () => {
+    const { client } = harnessReturning(...twoPages, ...twoPages);
+    const list = client.customers.list();
+    const first = await list.collect();
+    expect(first).toHaveLength(2);
+    expect(await list.collect()).toEqual(first);
+  });
+
+  it("leaves the builder it branched from untouched", async () => {
+    const { client, calls } = harnessReturning(
+      { data: [], nextCursor: null },
+      { data: [], nextCursor: null },
+    );
+    const base = client.customers.list();
+    await base.limit(5).collect();
+    await base.collect();
+    expect(queryOf(callAt(calls, 0))).toBe("?limit=5");
+    expect(queryOf(callAt(calls, 1))).toBe("");
+  });
+
+  it("starts from the cursor and keeps the limit the builder was given", async () => {
+    const { client, calls } = harnessReturning(...twoPages);
+    await client.customers.list().cursor("cur_1").limit(10).collect();
+    expect(queryOf(callAt(calls, 0))).toContain("cursor=cur_1");
+    expect(queryOf(callAt(calls, 0))).toContain("limit=10");
+    expect(queryOf(callAt(calls, 1))).toContain("cursor=cur_2");
+  });
+
+  it("rejects with no partial array when a later page fails", async () => {
+    let served = 0;
+    const { client } = harnessOf(() => {
+      served += 1;
+      return served === 1
+        ? json({ data: [{ id: "a" }], nextCursor: "cur_2" })
+        : json({ error: "operation_failed" }, 503);
+    });
+    await expect(client.customers.list().collect()).rejects.toMatchObject({
+      code: ErrorCode.OPERATION_FAILED,
+      status: 503,
+    });
+  });
+
+  it("does not exist on shipping rates until the quote is complete", () => {
+    const { client } = harnessReturning();
+    const rates = client.checkout.shippingRates();
+    expect("collect" in rates.currency("EUR").destinationCountry("PT")).toBe(false);
+    expect("collect" in rates.destinationCountry("PT").product("prod_1")).toBe(false);
+    expect("collect" in rates.currency("EUR").product("prod_1")).toBe(false);
+  });
+});
 
 describe.each(Object.keys(records))("find on a catalogue %s", (name) => {
   const record = records[name as keyof typeof records];
