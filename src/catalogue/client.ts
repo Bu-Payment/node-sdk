@@ -202,13 +202,24 @@ function entitlements(
   });
 }
 
+const CATALOGUE_NOT_FOUND = "not_found";
+
 async function orNullWhenNotFound<T>(read: Promise<T>): Promise<T | null> {
   try {
     return await read;
   } catch (error) {
-    if (isNotFound(error) && error.metadata?.codeFromStatus !== true) {
+    if (isApiNotFound(error)) {
       return null;
     }
     throw error;
   }
+}
+
+function isApiNotFound(error: unknown): boolean {
+  if (!isNotFound(error)) {
+    return false;
+  }
+  return error.apiError === null
+    ? error.metadata?.codeFromStatus !== true
+    : error.apiError === CATALOGUE_NOT_FOUND;
 }
