@@ -59,6 +59,7 @@ describe("collect on every paginated list", () => {
     expect(await list.collect()).toEqual([{ id: "a" }, { id: "b" }]);
     expect(await list.collect()).toEqual([{ id: "c" }]);
     expect(calls).toHaveLength(3);
+    expect(queryOf(callAt(calls, 2))).not.toContain("cursor=");
   });
 
   it("leaves the builder it branched from untouched", async () => {
@@ -101,6 +102,20 @@ describe("collect on every paginated list", () => {
       { code: ErrorCode.REQUEST_CANCELLED },
     );
     expect(calls).toHaveLength(1);
+  });
+
+  it("stops at a signal aborted during the walk", async () => {
+    const controller = new AbortController();
+    const { client, calls } = harnessStalling(() => {
+      if (calls.length > 1) {
+        return undefined;
+      }
+      controller.abort();
+      return json({ data: [{ id: "a" }], nextCursor: "cur_2" });
+    });
+    await expect(client.customers.list().signal(controller.signal).collect()).rejects.toMatchObject(
+      { code: ErrorCode.REQUEST_CANCELLED },
+    );
   });
 
   it("rejects with no partial array when a later page fails", async () => {
