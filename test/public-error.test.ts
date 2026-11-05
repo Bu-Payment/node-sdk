@@ -96,6 +96,23 @@ describe("publicError", () => {
     });
   });
 
+  it.each([
+    [400],
+    [402],
+    [422],
+    [500],
+    [503],
+  ])("keeps the status of an operation failure answering %s", (status) => {
+    const view = publicError(
+      new BuPaymentError(leaky, { code: ErrorCode.OPERATION_FAILED, status }),
+    );
+    expect(view).toEqual({
+      status,
+      code: ErrorCode.OPERATION_FAILED,
+      message: "The payment could not be completed.",
+    });
+  });
+
   it("keeps the status of an SDK code answering 403", () => {
     const view = publicError(
       new BuPaymentError(leaky, { code: ErrorCode.RESOURCE_CONFLICT, status: 403 }),
