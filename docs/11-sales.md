@@ -279,6 +279,8 @@ const failure = publicError(error);
   `application_auth_*` code, `application_capability_denied`) becomes
   `{ status: 502, code: "operation_failed" }`. A `401` or `403` would tell the browser its own
   session was refused, when the fault is between your server and BuPayment.
+- A `401` or `403` with no code the SDK knows, such as a proxy page, is treated the same way. A
+  `403` with a code from `ApiErrorCode`, such as `payment_method_unusable`, keeps its status.
 - `message` is fixed. The API's message is never copied, because it can quote details of
   your request or your credential that the end customer must not see.
 - A value that is not a `BuPaymentError`, such as a bug in your own code or a failing

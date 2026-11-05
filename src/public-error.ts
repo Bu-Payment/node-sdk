@@ -1,4 +1,4 @@
-import { ErrorCode } from "./constants";
+import { ApiErrorCode, ErrorCode } from "./constants";
 import { BuPaymentError } from "./errors";
 
 export interface PublicError {
@@ -22,14 +22,24 @@ const MERCHANT_SIDE_CODES = new Set<ErrorCode>([
   ErrorCode.APPLICATION_CAPABILITY_DENIED,
 ]);
 
+const DOCUMENTED_API_CODES = new Set<string>(Object.values(ApiErrorCode));
+
 export function publicError(error: unknown): PublicError {
   if (!(error instanceof BuPaymentError)) {
     return { status: 500, code: ErrorCode.OPERATION_FAILED, message: REQUEST_FAILED };
   }
-  if (MERCHANT_SIDE_CODES.has(error.code)) {
+  if (MERCHANT_SIDE_CODES.has(error.code) || isUnattributedRefusal(error)) {
     return { status: 502, code: ErrorCode.OPERATION_FAILED, message: PAYMENT_FAILED };
   }
   return { status: publicStatus(error.status), code: error.code, message: PAYMENT_FAILED };
+}
+
+function isUnattributedRefusal(error: BuPaymentError): boolean {
+  return (
+    (error.status === 401 || error.status === 403) &&
+    error.code === ErrorCode.OPERATION_FAILED &&
+    !DOCUMENTED_API_CODES.has(error.apiError ?? "")
+  );
 }
 
 function publicStatus(status: number | undefined): number {
