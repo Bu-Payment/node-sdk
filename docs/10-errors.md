@@ -229,6 +229,7 @@ try {
 | `BuPaymentError` with a 4xx or 5xx status | that status | the error's `code` | fixed |
 | `BuPaymentError` with any other status, or none | `502` | the error's `code` | fixed |
 | `configuration_invalid`, any `application_auth_*`, `application_capability_denied` | `502` | `operation_failed` | fixed |
+| `operation_failed` with `401` or `403` and no `error.apiError` from `ApiErrorCode` | `502` | `operation_failed` | fixed |
 | anything else | `500` | `operation_failed` | fixed |
 
 The message is always one of two fixed sentences and never the API's. A status outside
@@ -236,6 +237,9 @@ The message is always one of two fixed sentences and never the API's. A status o
 failure is between your server and BuPayment rather than in the request your customer made.
 A refused credential is mapped the same way: answering `401` or `403` would tell the browser that
 its own session was refused.
+That holds for a `401` or `403` with no code the SDK knows, such as a proxy page. A `403` with a
+code from `ApiErrorCode`, such as `payment_method_unusable`, is a refusal of the request and keeps
+its status.
 
 ---
 
