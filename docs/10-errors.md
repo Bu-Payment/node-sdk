@@ -177,8 +177,10 @@ instead of throwing it, so code that sells through `client.sales` never needs th
 ## What a not-found does not tell you
 
 A resource owned by another App, an unassigned catalogue identifier and an identifier that
-never existed all answer `resource_not_found`. Do not read existence out of it, and do not
-retry against another environment: Test and Live never share commerce data.
+never existed all surface as `resource_not_found`. `error.apiError` holds the API's own code,
+such as `not_found` or `app_customer_not_found`, so match on `error.code` or `isNotFound`. Do
+not read existence out of it, and do not retry against another environment: Test and Live
+never share commerce data.
 
 ## Refusals before signing
 
