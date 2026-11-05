@@ -228,10 +228,10 @@ try {
 
 | Input | `status` | `code` | `message` |
 | --- | --- | --- | --- |
-| `BuPaymentError` with a 4xx or 5xx status | that status | the error's `code` | fixed |
-| `BuPaymentError` with any other status, or none | `502` | the error's `code` | fixed |
 | `configuration_invalid`, any `application_auth_*`, `application_capability_denied` | `502` | `operation_failed` | fixed |
 | `operation_failed` with `401` or `403` and no `error.apiError` from `ApiErrorCode` | `502` | `operation_failed` | fixed |
+| any other `BuPaymentError` with a 4xx or 5xx status | that status | the error's `code` | fixed |
+| any other `BuPaymentError` | `502` | the error's `code` | fixed |
 | anything else | `500` | `operation_failed` | fixed |
 
 The message is always one of two fixed sentences and never the API's. A status outside
