@@ -1,7 +1,9 @@
 import type { createCatalogueClient } from "../src/catalogue/client";
-import type { PricedTerms, PriceTerms } from "../src/catalogue/price-terms";
+import type { PriceTerms } from "../src/catalogue/price-terms";
 import type { Price, Product } from "../src/catalogue/types";
 import type { createCheckoutClient } from "../src/checkout/client";
+import type { PricedTerms } from "../src/index";
+import type { PricedTerms as PricedTermsFromTypes } from "../src/types";
 
 declare const catalogue: ReturnType<typeof createCatalogueClient>;
 declare const checkout: ReturnType<typeof createCheckoutClient>;
@@ -22,10 +24,11 @@ checkout.shippingRates().destinationCountry("PT").product("prod_1").collect();
 checkout.shippingRates().currency("EUR").product("prod_1").collect();
 
 declare const priced: PricedTerms;
+const pricedFromTypes: PricedTermsFromTypes = priced;
 const pricedCurrency: string = priced.currency;
 
 declare const terms: PriceTerms;
 // @ts-expect-error price terms are read from a price, never edited
 terms.currency = "USD";
 
-void [products, prices, product, price, assumed, pricedCurrency];
+void [products, prices, product, price, assumed, pricedCurrency, pricedFromTypes];
