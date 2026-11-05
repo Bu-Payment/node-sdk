@@ -58,6 +58,9 @@ function responseFailure(response: Response, text: string): BuPaymentError {
   if (serverCode !== undefined && serverCode !== code) {
     metadata.apiError = serverCode;
   }
+  if (serverCode === undefined) {
+    metadata.codeFromStatus = true;
+  }
   if (retryAfter !== null) {
     metadata.retryAfter = retryAfter;
   }

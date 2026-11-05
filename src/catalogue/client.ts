@@ -206,7 +206,7 @@ async function orNullWhenNotFound<T>(read: Promise<T>): Promise<T | null> {
   try {
     return await read;
   } catch (error) {
-    if (isNotFound(error)) {
+    if (isNotFound(error) && error.metadata?.codeFromStatus !== true) {
       return null;
     }
     throw error;
