@@ -110,8 +110,11 @@ if (candidate !== null && sameTerms(stored, candidate)) {
 
 A read can finish after a newer version was stored. `isStale(candidate, stored)` answers
 `true` when the candidate's `updatedAt` is older than the stored one, or does not parse as a
-date; skip a stale candidate. Both arguments take a resource or the stamp itself, and the
-stamps are compared as instants, so offsets do not matter.
+date. Both arguments take a resource or the stamp itself, and the stamps are compared as
+instants, so offsets do not matter.
+
+To save a read only when it moves the stored copy forward, ask whether the stored copy is
+stale against the read, which makes the stored copy the candidate:
 
 ```ts
 import { isStale } from "@bu-payment/node-sdk";
@@ -122,11 +125,11 @@ if (isStale(local, product)) {
 }
 ```
 
-Passing the stored copy as the candidate saves only a strictly newer read. Equal stamps prove
-nothing either way: an assignment, an unassignment and a default price change caused by one
-keep `updatedAt`. Apply an equal stamp only from a read that began after the stored copy was
-saved. Do not order webhook events with `isStale` alone. Order them by `data.updatedAt`, then
-`occurredAt`, as [Events and webhooks](08-events-and-webhooks.md) describes.
+A stored stamp that does not parse counts as stale, so the read replaces it. Equal stamps
+answer `false` and prove nothing either way: an assignment, an unassignment and a default
+price change caused by one keep `updatedAt`. A read that began after the stored copy was saved
+is current, so save it without asking `isStale`. Do not order webhook events with `isStale`
+alone. Order them by `data.updatedAt`, then `occurredAt`, as [Events and webhooks](08-events-and-webhooks.md) describes.
 
 ## Cross-sells and entitlements
 
