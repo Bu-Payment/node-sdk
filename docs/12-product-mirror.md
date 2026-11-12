@@ -40,7 +40,8 @@ call instead, before anything is sent.
 ## Steps
 
 1. With `knownId()`, reads the product by id. A product unknown to the App, or one that holds
-   another lookup key, moves on to the lookup and is left untouched; any other failure rejects.
+   another lookup key or none, moves on to the lookup and is left untouched; any other failure
+   rejects.
 2. Looks the lookup key up among the active products, then among the archived ones.
 3. When nothing holds the key, creates the product with its name and lookup key. A creation
    refused with `lookup_key_conflict` takes the holder the API names when it holds this
@@ -70,8 +71,8 @@ interface ProductMirrorResult {
 ```
 
 - `found`: the product was read by its known id, or by its lookup key when no id was given.
-- `recovered`: the known id was not found or holds another lookup key, and the lookup key led
-  to the product, so the saved id is out of date and should be replaced with
+- `recovered`: the known id was not found or holds another lookup key or none, and the lookup
+  key led to the product, so the saved id is out of date and should be replaced with
   `result.product.id`.
 - `created`: no product held the lookup key, and `ensure()` created it.
 
@@ -87,7 +88,7 @@ depends on:
 | Write | Step | The digest covers |
 | --- | --- | --- |
 | Product creation | `create-product` | the lookup key and the name |
-| Default price creation | `create-price` | the product id, the amount and the currency |
+| Default price creation | `create-price` | the product id |
 | Rename | `rename` | the product id, its `updatedAt` and the name |
 | Archive, reactivation | `archive`, `reactivate` | the product id and its `updatedAt` |
 
@@ -95,9 +96,10 @@ The derivation is deterministic, so a retry with the same base and the same inpu
 builder or on a new one after a restart, repeats each step under the key it used the first
 time. After a timeout or a network failure, call `ensure()` again: a creation the API stored
 replays instead of creating a second product or price, and a step that was never stored runs
-now. A changed name, amount or currency gets a key of its own instead of
-`idempotency_conflict`; the lookup that runs first finds a product that was created, and the
-price check finds a price.
+now. A changed name gets a key of its own, and the lookup that runs first finds a product that
+was created. A changed amount or currency keeps the key, so while the API still holds a price
+creation it was not yet visible to the read before, the retry fails with
+`idempotency_conflict` instead of creating a second price.
 
 A write whose body carries a version takes that version into its key. A later sync that
 renames, archives or reactivates the same product again, under the same base, reads a newer

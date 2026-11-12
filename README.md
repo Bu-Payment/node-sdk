@@ -185,7 +185,7 @@ await localProducts.saveRemoteId(lookupKey, result.product.id);
 only after `defaultUnitAmount()`. It reads the product by `knownId()`, falls back to the lookup key
 among active and archived products, and creates the product, with its default price, when none
 holds the key. `outcome` is `found`, `recovered` when the known id was not found or holds another
-lookup key and the lookup key led to the product, or `created`; `changes` lists the writes made:
+lookup key or none and the lookup key led to the product, or `created`; `changes` lists the writes made:
 `priced`, `renamed`, `archived`, `reactivated`. Each write derives its own key from the base, and a rename, archive or
 reactivation also from the product version it asserts, so calling `ensure()` again after a timeout
 repeats each step instead of duplicating it, and a later rename, archive or reactivation under
