@@ -14,6 +14,12 @@ export type {
   PayableCheckoutStatus,
 } from "./checkout/outcome";
 export { checkoutOutcome, isPayableCheckout, laterCheckoutStatus } from "./checkout/outcome";
+export type {
+  CheckoutCompletedEvent,
+  MatchablePayment,
+  PaidAsExpectedBuilder,
+} from "./checkout/paid-as-expected";
+export { paidAsExpected } from "./checkout/paid-as-expected";
 export type * from "./checkout/types";
 export type { BuPaymentClient, ClientOptions } from "./client";
 export { createBuPaymentClient } from "./client";
