@@ -21,7 +21,8 @@ app.post("/checkout", async (request, response) => {
     const sale = await client.sales
       .draft()
       .priceId(product.priceId)
-      .displayedPrice({ unitAmount: product.amount, currency: product.currency })
+      .displayedUnitAmount(product.amount)
+      .displayedCurrency(product.currency)
       .customerEmail(email)
       .reference(sku)
       .reservation({
@@ -62,7 +63,8 @@ ever added.
 | Method | Required | What it sets |
 | --- | --- | --- |
 | `priceId(id)` | yes | The canonical price to charge. |
-| `displayedPrice({ unitAmount, currency })` | yes | The amount the customer saw. The API refuses the charge if the price no longer matches. |
+| `displayedUnitAmount(amount)` | yes | The amount the customer saw. The API refuses the charge if the price no longer matches. |
+| `displayedCurrency(code)` | yes | The currency of that amount. Appears only after `displayedUnitAmount()`. |
 | `customerEmail(email)` | one of the two | The customer, found or created by email. |
 | `customerId(id)` | one of the two | A customer you already hold the identifier of. No lookup is made. |
 | `reference(text)` | no | Your reference on the payment, such as a SKU or an order number. |
@@ -88,8 +90,7 @@ builder, and the other way round, so a sale can never carry two customers.
 
 Like every builder in the SDK, a sale is frozen: each method returns a new builder and
 leaves the earlier one untouched, and no request is made until `charge()`. You can keep a
-base sale for a product and branch from it per customer. `displayedPrice()` keeps only
-`unitAmount` and `currency`, so a `Price` read from the catalogue can be passed as is.
+base sale for a product and branch from it per customer.
 `reservation()` keeps the two functions it was given, bound to the object that carried them,
 so a class instance works as a reservation and replacing a hook on your object afterwards does
 not change a sale already configured.
@@ -105,8 +106,8 @@ In this order:
    creates one.
    If another sale created the same customer in between, the creation is refused with a
    conflict and the sale reads the customer again and uses it.
-3. It creates the payment with the price, the displayed price as `expectedPrice`, the
-   idempotency key, and the reference and description you set.
+3. It creates the payment with the price, the displayed amount and currency as the expected
+   price, the idempotency key, and the reference and description you set.
 4. It reads the result:
    - a payment whose status is `succeeded` resolves to `paid` and the unit stays reserved;
    - a payment with any other status releases the unit and resolves to `unpaid`;
@@ -134,7 +135,7 @@ The rule to remember: when `charge()` throws, the unit has been released.
 | `needs_reconciliation` | `error` | The API lost track of an attempt under this key while it was with the payment provider, or the key was already used for a different sale. The customer may have been charged, and retrying will never tell. | Stop retrying. Check the payment in BuPayment, wait for the `payment.succeeded.v1` event, or contact support. The unit is still reserved. |
 | `unavailable` | none | `reserve()` answered `false`. | Tell the customer the product is out of stock. Nothing was sent to BuPayment. |
 
-`shown` is the displayed price you passed. `current` is the price BuPayment holds now,
+`shown` is the displayed amount and currency you set, as `{ unitAmount, currency }`. `current` is the price BuPayment holds now,
 `{ id, unitAmount, currency, active, updatedAt }`, or `null` when the API response did not
 carry one. Treat `null` as "the price changed, reload the product" rather than as a price.
 
@@ -221,7 +222,8 @@ Key it by the order, not by the attempt, so every retry of the same order is rec
 const sale = client.sales
   .draft()
   .priceId(priceId)
-  .displayedPrice(shown)
+  .displayedUnitAmount(shown.unitAmount)
+  .displayedCurrency(shown.currency)
   .customerEmail(email)
   .idempotencyKey(`order-${orderId}`);
 ```
@@ -235,7 +237,10 @@ new price, charge again with the same key:
 ```ts
 const first = await sale.charge();
 if (first.outcome === "price_changed" && first.current !== null) {
-  const again = await sale.displayedPrice(first.current).charge();
+  const again = await sale
+    .displayedUnitAmount(first.current.unitAmount)
+    .displayedCurrency(first.current.currency)
+    .charge();
 }
 ```
 

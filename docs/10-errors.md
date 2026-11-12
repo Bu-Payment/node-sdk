@@ -29,7 +29,7 @@ try {
 | `resource_conflict` | The mutation conflicts with current App-owned state. |
 | `stale_resource` | The resource changed after the `expectedUpdatedAt` given; `resource` holds it now. |
 | `lookup_key_conflict` | Another product holds the lookup key; `resource` holds it when it is assigned to the App. |
-| `price_changed` | The canonical price no longer matches the `expectedPrice` given; `price` holds the current one. |
+| `price_changed` | The canonical price no longer matches the expected amount and currency given; `price` holds the current one. |
 | `default_price_in_use` | The price is its product's default and cannot be archived until another price is. |
 | `default_price_not_owned` | The product's default price belongs to another App, which alone can move it. |
 | `price_product_mismatch` | The price belongs to another product. |
@@ -155,7 +155,7 @@ and it appears in `toJSON()` only when the API sent it. No other code carries a 
 `{ id, unitAmount, currency, active, updatedAt }`. It is `undefined` when the API sent none,
 and it appears in `toJSON()` only when the API sent it. The request created nothing, so show
 the current price, ask the customer to confirm, and send it again with
-`expectedPrice(error.price)`. The refusal is never stored against the `Idempotency-Key`, so
+`expectedUnitAmount(error.price.unitAmount).expectedCurrency(error.price.currency)`. The refusal is never stored against the `Idempotency-Key`, so
 the retry may reuse it.
 
 `isPriceChanged(error)` recognises the refusal from any caught value and narrows it to
@@ -165,7 +165,7 @@ the retry may reuse it.
 import { isPriceChanged } from "@bu-payment/node-sdk";
 
 try {
-  await draft.expectedPrice(displayed).create();
+  await draft.expectedUnitAmount(1_500).expectedCurrency("EUR").create();
 } catch (error) {
   if (isPriceChanged(error) && error.price) {
     return askCustomerToConfirm(error.price);
@@ -205,8 +205,8 @@ These checks run in the SDK, before a request is signed, and all raise `request_
 
 Everything the previous release checked at runtime about a payment's pricing is now a
 compile error instead. A payment priced both ways, priced by neither, carrying an amount
-without a currency, or carrying allocations without a payment method has no `create()`
-method to call. The same holds for a shipping resolution with no product, a customer with
+without a currency, carrying allocations without a payment method, or holding an allocation
+that is not closed has no `create()` method to call. The same holds for a shipping resolution with no product, a customer with
 no email, and every other required field: the terminal is absent, so the mistake cannot
 reach the network.
 

@@ -27,13 +27,16 @@ await client.payments
   .draft()
   .customerId("cus_1")
   .priceId("price_1")
-  .expectedPrice({ unitAmount: 1500, currency: "EUR" })
+  .expectedUnitAmount(1500)
+  .expectedCurrency("EUR")
   .idempotencyKey(orderId)
   .create();
 ```
 
-`expectedPrice()` exists only after `priceId()`, because an ad hoc amount is already the
-amount charged and the API refuses the assertion beside it. When the price has changed, the
+`expectedUnitAmount()` exists only after `priceId()`, because an ad hoc amount is already the
+amount charged and the API refuses the assertion beside it. `expectedCurrency()` exists only
+after `expectedUnitAmount()`, and `create()` is absent while the amount is set without its
+currency. When the price has changed, the
 payment is refused with `price_changed` and nothing is charged; see
 [Errors](10-errors.md#a-price-that-changed).
 
@@ -52,10 +55,19 @@ await client.payments
   .customerId("cus_1")
   .priceId("price_1")
   .paymentMethodId("pm_1")
-  .allocation("line_1", 2500, "EUR")
-  .allocation("line_2", 2500, "EUR")
+  .allocationReference("line_1")
+  .allocationAmount(2500)
+  .allocationCurrency("EUR")
+  .allocationReference("line_2")
+  .allocationAmount(2500)
+  .allocationCurrency("EUR")
   .create();
 ```
+
+Each allocation is three steps: `allocationReference()`, then `allocationAmount()`, then
+`allocationCurrency()`, which closes it and makes `allocationReference()` available for the
+next one. `create()` is absent while an allocation is open. The allocations are sent in the
+order they were closed.
 
 Requires `payments:write`. The API rejects a creation without an idempotency key; the SDK
 always sends one.

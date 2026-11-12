@@ -74,7 +74,8 @@ cannot be charged directly from a server. It is the hosted counterpart of
 const checkout = await client.checkout
   .sessionDraft()
   .priceId("price_1")
-  .expectedPrice({ unitAmount: 2900, currency: "EUR" })
+  .expectedUnitAmount(2900)
+  .expectedCurrency("EUR")
   .customerEmail("buyer@example.com")
   .customerName("Ana Silva")
   .quantity(1)
@@ -91,7 +92,8 @@ if (checkout.checkoutUrl !== undefined) {
 const current = await client.checkout.session(checkout.id).get();
 ```
 
-`create()` appears once a price, a buyer, a destination and an idempotency key are set. The
+`create()` appears once a price, a buyer, a destination and an idempotency key are set, and
+stays absent while an expected amount is set without its currency. The
 buyer is named once, by `customerId()` or by `customerEmail()`; `customerName()` exists only
 after `customerEmail()`, and an email that matches an existing customer reuses it. The
 idempotency key is required: use the order id, so a retry answers the same checkout. Reusing
@@ -108,8 +110,9 @@ The checkout refusals below arrive with a generic `error.code` and the API's cod
 - `provider(name)` picks a provider account of the environment. Without it the environment's
   default is used; an environment with no default needs it. A name with no account answers
   `operation_failed` with `error.apiError` `checkout_provider_unknown`.
-- `quantity(n)` is 1 to 100 and defaults to 1. `expectedPrice()` behaves as everywhere else:
-  a changed price is refused with `price_changed` and `error.price` holds the current one.
+- `quantity(n)` is 1 to 100 and defaults to 1. `expectedUnitAmount()` and `expectedCurrency()`
+  behave as everywhere else: the currency follows the amount, `create()` waits for both, and a
+  changed price is refused with `price_changed` and `error.price` holds the current one.
 - Only one-time prices are accepted; a recurring price is refused with `request_invalid`, and
   subscriptions go through `subscriptionSession()`. Only Test credentials are accepted for
   now; a Live credential is refused with `resource_conflict` and `error.apiError`
@@ -153,8 +156,9 @@ The session answers an `id` and a `url` to redirect the buyer to. The price must
 assigned to the App and the customer must belong to it. `trialDays()` and `customerName()`
 are optional; the other six are required and `create()` is absent until all six are set.
 
-`expectedPrice({ unitAmount, currency })` asserts the price the buyer was shown. When the
-price has changed, the session is refused with `price_changed` and `error.price` holds the
+`expectedUnitAmount(amount)` followed by `expectedCurrency(code)` asserts the price the buyer
+was shown; `create()` is absent while the amount is set without its currency. When the price
+has changed, the session is refused with `price_changed` and `error.price` holds the
 current one; see [Errors](10-errors.md#a-price-that-changed).
 
 ---

@@ -178,7 +178,8 @@ try {
   const sale = await client.sales
     .draft()
     .priceId(priceId)
-    .displayedPrice({ unitAmount: 1_500, currency: "EUR" })
+    .displayedUnitAmount(1_500)
+    .displayedCurrency("EUR")
     .customerEmail(email)
     .reference(sku)
     .reservation({ reserve: () => stock.take(sku), release: () => stock.giveBack(sku) })
@@ -221,7 +222,8 @@ credential.
 
 ## Charging the price the customer saw
 
-Every builder that charges a canonical price accepts the price the customer was shown. When the
+Every builder that charges a canonical price accepts the price the customer was shown, and
+`sales.draft()` requires it through `displayedUnitAmount()` and `displayedCurrency()`. When the
 price in BuPayment no longer matches, the API refuses the request with `price_changed` before
 anything is created, so the customer is never charged an amount they did not see:
 
@@ -235,12 +237,15 @@ const draft = client.payments
   .idempotencyKey(orderId);
 
 try {
-  await draft.expectedPrice({ unitAmount: 1_500, currency: "EUR" }).create();
+  await draft.expectedUnitAmount(1_500).expectedCurrency("EUR").create();
 } catch (error) {
   if (isPriceChanged(error) && error.price) {
     const confirmed = await askCustomerToConfirm(error.price);
     if (confirmed) {
-      await draft.expectedPrice(error.price).create();
+      await draft
+        .expectedUnitAmount(error.price.unitAmount)
+        .expectedCurrency(error.price.currency)
+        .create();
     }
   }
 }
@@ -251,13 +256,15 @@ try {
 `undefined` when the API response carried none, which is why it is still checked. Show it
 to the customer, ask them to confirm, and retry with the new amount. A `price_changed` is never
 stored against the `Idempotency-Key`, so the retry may reuse the same key. After a success, the
-key is bound to the price it asserted, and a different `expectedPrice` under it is
+key is bound to the price it asserted, and a different expected price under it is
 `idempotency_conflict`.
 
-`expectedPrice()` takes any object with `unitAmount` and `currency`, including a `Price` read from
-the catalogue; only those two fields are sent. It exists on `payments.draft()` once `priceId()`
-is set, on `subscriptions.draft()`, on `checkout.subscriptionSession()` and on a subscription's
-`priceMigration()`, where it is compared with `targetPriceId`. Omitting it changes nothing.
+`expectedUnitAmount(amount)` and `expectedCurrency(code)` are set together: `expectedCurrency()`
+appears only after `expectedUnitAmount()`, and `create()` disappears while the amount is set
+without its currency. They exist on `payments.draft()` once `priceId()` is set, on
+`subscriptions.draft()`, on `checkout.sessionDraft()`, on `checkout.subscriptionSession()` and on
+a subscription's `priceMigration()`, where they are compared with `targetPriceId`. Omitting both
+changes nothing.
 
 ## Webhook events
 

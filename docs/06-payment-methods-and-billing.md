@@ -91,7 +91,8 @@ in both cases, so it reveals nothing about another App's data.
 
 ## Charging allocations
 
-`allocation()` is reachable on a payment only after `paymentMethodId()`. The most reliable
+`allocationReference()` is reachable on a payment only after `paymentMethodId()`. It is
+followed by `allocationAmount()`, and `allocationCurrency()` closes the allocation. The most reliable
 identifier is the one stored when the setup succeeded, `setup.paymentMethod.id`. Reading it
 back from `list()` works while the customer has at most 100 stored methods; beyond that, and
 revoked methods count towards the 100, an older active card is missing from the list and the
@@ -109,7 +110,9 @@ await client.payments
   .customerId("cus_1")
   .priceId("price_1")
   .paymentMethodId(method.id)
-  .allocation("line_1", 5000, "EUR")
+  .allocationReference("line_1")
+  .allocationAmount(5000)
+  .allocationCurrency("EUR")
   .create();
 ```
 
