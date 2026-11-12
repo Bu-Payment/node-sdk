@@ -41,12 +41,17 @@ interface MirrorRun {
   catalogue: MirrorCatalogue;
   lookupKey: string;
   state: ReadyState;
-  keyFor: (step: string, ...versionedBy: string[]) => string;
+  keyFor: (step: string, ...dependsOn: string[]) => string;
 }
 
 interface DefaultPrice {
   unitAmount: number;
   currency: string;
+}
+
+interface Creation {
+  product: Product;
+  held: boolean;
 }
 
 interface Located {
@@ -92,9 +97,8 @@ export async function ensureMirror(
 }
 
 function derivedKeys(base: string): MirrorRun["keyFor"] {
-  return (step, ...versionedBy) => {
-    const suffix =
-      versionedBy.length === 0 ? step : `${step}:${idempotencyDigest(JSON.stringify(versionedBy))}`;
+  return (step, ...dependsOn) => {
+    const suffix = `${step}:${idempotencyDigest(JSON.stringify(dependsOn))}`;
     const key = `${base}:${suffix}`;
     return [...key].length <= MAX_IDEMPOTENCY_KEY_LENGTH
       ? key
@@ -114,7 +118,7 @@ async function locateOrCreate(run: MirrorRun): Promise<Located> {
   const { knownId } = run.state;
   if (knownId !== undefined) {
     const known = await scoped(run.catalogue.product(knownId), run.state).find();
-    if (known !== null) {
+    if (known?.lookupKey === run.lookupKey) {
       return { product: known, outcome: "found" };
     }
   }
@@ -131,26 +135,34 @@ async function findByLookupKey(run: MirrorRun, active: boolean): Promise<Product
 }
 
 async function create(run: MirrorRun, outcomeWhenHeld: ProductMirrorOutcome): Promise<Located> {
+  const key = run.keyFor("create-product", run.lookupKey, run.state.name);
+  const creation = await createUnder(run, key);
+  return { product: creation.product, outcome: creation.held ? outcomeWhenHeld : "created" };
+}
+
+async function createUnder(run: MirrorRun, idempotencyKey: string): Promise<Creation> {
   const draft = run.catalogue
     .productDraft()
     .name(run.state.name)
     .lookupKey(run.lookupKey)
-    .idempotencyKey(run.keyFor("create-product"));
+    .idempotencyKey(idempotencyKey);
   try {
-    return { product: await scoped(draft, run.state).create(), outcome: "created" };
+    return { product: await scoped(draft, run.state).create(), held: false };
   } catch (error) {
-    const holder = lookupKeyHolder(error);
+    const holder = lookupKeyHolder(run, error);
     if (holder === undefined) {
       throw error;
     }
-    return { product: holder, outcome: outcomeWhenHeld };
+    return { product: holder, held: true };
   }
 }
 
-function lookupKeyHolder(error: unknown): Product | undefined {
-  return error instanceof BuPaymentError && error.code === ErrorCode.LOOKUP_KEY_CONFLICT
-    ? (error as BuPaymentError<Product>).resource
-    : undefined;
+function lookupKeyHolder(run: MirrorRun, error: unknown): Product | undefined {
+  if (!(error instanceof BuPaymentError) || error.code !== ErrorCode.LOOKUP_KEY_CONFLICT) {
+    return undefined;
+  }
+  const holder = (error as BuPaymentError<Product>).resource;
+  return holder?.lookupKey === run.lookupKey ? holder : undefined;
 }
 
 function defaultPriceOf(state: MirrorState): DefaultPrice | undefined {
@@ -164,8 +176,12 @@ async function lacksPrice(run: MirrorRun, product: Product): Promise<boolean> {
   if (!product.active || product.defaultPriceId !== null) {
     return false;
   }
-  const prices = run.catalogue.prices().productId(product.id).limit(1);
-  return (await scoped(prices, run.state).get()).data.length === 0;
+  return !(await holdsPrice(run, product, true)) && !(await holdsPrice(run, product, false));
+}
+
+async function holdsPrice(run: MirrorRun, product: Product, active: boolean): Promise<boolean> {
+  const prices = run.catalogue.prices().productId(product.id).active(active).limit(1);
+  return (await scoped(prices, run.state).get()).data.length > 0;
 }
 
 async function createDefaultPrice(
@@ -177,7 +193,9 @@ async function createDefaultPrice(
     .priceDraft(product.id)
     .unitAmount(price.unitAmount)
     .currency(price.currency)
-    .idempotencyKey(run.keyFor("create-price", product.id));
+    .idempotencyKey(
+      run.keyFor("create-price", product.id, String(price.unitAmount), price.currency),
+    );
   await scoped(draft, run.state).create();
   return await scoped(run.catalogue.product(product.id), run.state).get();
 }

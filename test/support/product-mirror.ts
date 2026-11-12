@@ -27,15 +27,17 @@ interface Answer {
 
 interface FakeOptions {
   products?: Product[];
+  prices?: Price[];
   lostResponse?: (call: Call) => boolean;
   refused?: (call: Call) => boolean;
   unlisted?: string[];
+  conflictResource?: Product | null;
   answered?: (call: Call) => void;
 }
 
 export function fakeMirrorCatalogue(options: FakeOptions = {}) {
   const products = new Map((options.products ?? []).map((product) => [product.id, product]));
-  const prices: Price[] = [];
+  const prices: Price[] = [...(options.prices ?? [])];
   const replays = new Map<string, { request: string; answer: Answer }>();
   let version = 0;
   const stamp = () => {
@@ -60,7 +62,9 @@ export function fakeMirrorCatalogue(options: FakeOptions = {}) {
     const product = products.get(segments[1] ?? "");
     if (call.method === "GET" && segments[0] === "prices") {
       const productId = url.searchParams.get("productId");
-      return { status: 200, body: { data: prices.filter((p) => p.productId === productId) } };
+      const active = url.searchParams.get("active") !== "false";
+      const data = prices.filter((p) => p.productId === productId && p.active === active);
+      return { status: 200, body: { data, nextCursor: null } };
     }
     if (call.method === "GET" && segments.length === 1) {
       const lookupKey = url.searchParams.get("lookupKey");
@@ -74,8 +78,9 @@ export function fakeMirrorCatalogue(options: FakeOptions = {}) {
     if (call.method === "POST" && segments.length === 1) {
       const body = call.body as { name: string; lookupKey: string };
       const holder = [...products.values()].find((p) => p.lookupKey === body.lookupKey);
-      if (holder !== undefined) {
-        return { status: 409, body: { error: "lookup_key_conflict", resource: holder } };
+      const resource = options.conflictResource === undefined ? holder : options.conflictResource;
+      if (holder !== undefined || options.conflictResource !== undefined) {
+        return { status: 409, body: { error: "lookup_key_conflict", resource } };
       }
       const id = `prod_${products.size + 1}`;
       return store(productOf({ id, ...body, createdAt: stamp(), updatedAt: `v${version}` }));
@@ -88,9 +93,12 @@ export function fakeMirrorCatalogue(options: FakeOptions = {}) {
     }
     if (segments[2] === "prices") {
       const body = call.body as { unitAmount: number; currency: string };
-      const price = { id: `price_${prices.length + 1}`, productId: product.id, ...body } as Price;
+      const id = `price_${prices.length + 1}`;
+      const price = { id, productId: product.id, active: true, ...body } as Price;
       prices.push(price);
-      store({ ...product, defaultPriceId: product.defaultPriceId ?? price.id });
+      if (product.defaultPriceId === null) {
+        store({ ...product, defaultPriceId: id, updatedAt: stamp() });
+      }
       return { status: 200, body: price };
     }
     if (call.method === "PATCH") {

@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ErrorCode } from "../src/constants";
-import { harnessReturning, harnessStalling } from "./support/harness";
+import { harnessReturning, harnessStalling, json } from "./support/harness";
+import { routeOf } from "./support/price-replacement";
+import { productOf } from "./support/product-mirror";
 
 type Client = ReturnType<typeof harnessReturning>["client"];
 
@@ -44,11 +46,11 @@ describe("product mirror builder contract", () => {
   });
 
   it("leaves the builder it branched from untouched", async () => {
-    const { client, calls } = harnessReturning({ id: "prod_1", name: "Gold", active: true });
+    const { client, calls } = harnessReturning(productOf({ id: "prod_1", defaultPriceId: "p_1" }));
     const base = complete(client);
     const archived = base.active(false);
     expect(archived).not.toBe(base);
-    await base.ensure();
+    expect(await base.ensure()).toMatchObject({ outcome: "found", changes: [] });
     expect(calls).toHaveLength(1);
   });
 
@@ -90,22 +92,29 @@ describe("product mirror builder contract", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("carries the abort signal to the requests it sends", async () => {
-    const { client, calls } = harnessStalling();
+  const stallingOnTheRename = () =>
+    harnessStalling((call) =>
+      routeOf(call) === "GET /v1/products/prod_1"
+        ? json(productOf({ id: "prod_1", name: "Silver", defaultPriceId: "p_1" }))
+        : undefined,
+    );
+
+  it("carries the abort signal to the writes it sends", async () => {
+    const { client, calls } = stallingOnTheRename();
     const controller = new AbortController();
+    const ensuring = complete(client).signal(controller.signal).ensure();
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
     controller.abort();
-    await expect(complete(client).signal(controller.signal).ensure()).rejects.toMatchObject({
-      code: ErrorCode.REQUEST_CANCELLED,
-    });
-    expect(calls).toHaveLength(1);
+    await expect(ensuring).rejects.toMatchObject({ code: ErrorCode.REQUEST_CANCELLED });
+    expect(calls.map(routeOf)).toEqual(["GET /v1/products/prod_1", "PATCH /v1/products/prod_1"]);
   });
 
-  it("carries the timeout to the requests it sends", async () => {
-    const { client, calls } = harnessStalling();
+  it("carries the timeout to the writes it sends", async () => {
+    const { client, calls } = stallingOnTheRename();
     await expect(complete(client).timeoutMs(5).ensure()).rejects.toMatchObject({
       code: ErrorCode.NETWORK_UNAVAILABLE,
       metadata: { timeoutMs: 5 },
     });
-    expect(calls).toHaveLength(1);
+    expect(calls.map(routeOf)).toEqual(["GET /v1/products/prod_1", "PATCH /v1/products/prod_1"]);
   });
 });

@@ -67,9 +67,7 @@ describe("product mirror retried after a failure midway", () => {
     const result = await priced(catalogue.client).ensure();
     expect(result).toMatchObject({ outcome: "found", changes: ["priced"] });
     expect(catalogue.products.size).toBe(1);
-    expect(writeKeys(catalogue.calls, "POST /v1/products")).toEqual([
-      "mirror-sku-1:create-product",
-    ]);
+    expect(writeKeys(catalogue.calls, "POST /v1/products")).toHaveLength(1);
   });
 
   it("replays the creation under the same key when the lookup cannot see it yet", async () => {
@@ -83,10 +81,20 @@ describe("product mirror retried after a failure midway", () => {
     const result = await priced(catalogue.client).ensure();
     expect(result).toMatchObject({ outcome: "created", changes: ["priced"] });
     expect(catalogue.products.size).toBe(1);
-    expect(writeKeys(catalogue.calls, "POST /v1/products")).toEqual([
-      "mirror-sku-1:create-product",
-      "mirror-sku-1:create-product",
-    ]);
+    const [first, retried] = writeKeys(catalogue.calls, "POST /v1/products");
+    expect(retried).toBe(first);
+  });
+
+  it("creates under a new key when the name changed after a creation that failed", async () => {
+    const catalogue = fakeMirrorCatalogue({ refused: firstOf("POST /v1/products") });
+    const mirroring = (name: string) =>
+      catalogue.client.catalogue.productMirror("sku-1").name(name).idempotencyKey("mirror-sku-1");
+    await expect(mirroring("Gold").ensure()).rejects.toMatchObject({
+      code: ErrorCode.OPERATION_FAILED,
+    });
+    await expect(mirroring("Platinum").ensure()).resolves.toMatchObject({ outcome: "created" });
+    const [first, renamed] = writeKeys(catalogue.calls, "POST /v1/products");
+    expect(renamed).not.toBe(first);
   });
 });
 
@@ -128,15 +136,18 @@ describe("product mirror keys across syncs", () => {
     expect(keys[1]).toMatch(/^mirror-sku-1:reactivate:[\w-]{43}$/u);
   });
 
-  it("keeps every derived key within the header limit for a long base key", async () => {
+  it.each([
+    ["keeps a base that fits", 196, "m".repeat(196)],
+    ["replaces a base one character too long by its digest", 197, undefined],
+  ])("%s with the creation suffix", async (_case, length, prefix) => {
     const catalogue = fakeMirrorCatalogue();
-    const base = "m".repeat(255);
-    await priced(catalogue.client, base).ensure();
+    await priced(catalogue.client, "m".repeat(length)).ensure();
     const keys = writesOf(catalogue.calls).map((call) => keyOf(call) ?? "");
     expect(keys).toHaveLength(2);
     for (const key of keys) {
       expect([...key].length).toBeLessThanOrEqual(255);
-      expect(key).toMatch(/^[\w-]{43}:create-(product|price)/u);
     }
+    expect(keys[0]?.split(":create-product:")[0]).toMatch(prefix ?? /^[\w-]{43}$/u);
+    expect([...(keys[0] ?? "")].length).toBe(length === 196 ? 255 : 102);
   });
 });

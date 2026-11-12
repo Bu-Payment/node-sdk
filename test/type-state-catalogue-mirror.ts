@@ -34,10 +34,20 @@ catalogue.productMirror("sku-1").defaultCurrency("EUR");
 // @ts-expect-error a default amount without its currency is not a default price
 catalogue.productMirror("sku-1").name("Gold").idempotencyKey("k").defaultUnitAmount(100).ensure();
 
+const unnamed = catalogue.productMirror("sku-1").idempotencyKey("mirror-sku-1");
+const named = unnamed.name("Gold");
+// @ts-expect-error the terminal is omitted, not typed never, until the mirror carries a name
+void unnamed.ensure;
+// @ts-expect-error the default currency is omitted, not typed never, before the default amount
+void named.defaultCurrency;
+// @ts-expect-error naming returns a new builder and leaves the earlier one without the terminal
+unnamed.ensure();
+const namedEnsured: Promise<ProductMirrorResult> = named.ensure();
+
 declare const result: ProductMirrorResult;
 const outcome: ProductMirrorOutcome = result.outcome;
 const changes: ProductMirrorChange[] = result.changes;
 // @ts-expect-error the outcome names only how the product was reached
 const updated: ProductMirrorOutcome = "updated";
 
-void [ensured, keyedFirst, outcome, changes, updated];
+void [ensured, keyedFirst, namedEnsured, outcome, changes, updated];
