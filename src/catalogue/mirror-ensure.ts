@@ -193,9 +193,7 @@ async function createDefaultPrice(
     .priceDraft(product.id)
     .unitAmount(price.unitAmount)
     .currency(price.currency)
-    .idempotencyKey(
-      run.keyFor("create-price", product.id, String(price.unitAmount), price.currency),
-    );
+    .idempotencyKey(run.keyFor("create-price", product.id));
   await scoped(draft, run.state).create();
   return await scoped(run.catalogue.product(product.id), run.state).get();
 }

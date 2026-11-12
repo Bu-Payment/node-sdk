@@ -85,6 +85,23 @@ describe("product mirror retried after a failure midway", () => {
     expect(retried).toBe(first);
   });
 
+  it("keeps the price creation key when only the amount or the currency changed", async () => {
+    const keysFor = async (unitAmount: number, currency: string) => {
+      const catalogue = fakeMirrorCatalogue();
+      await catalogue.client.catalogue
+        .productMirror("sku-1")
+        .name("Gold")
+        .defaultUnitAmount(unitAmount)
+        .defaultCurrency(currency)
+        .idempotencyKey("mirror-sku-1")
+        .ensure();
+      return writeKeys(catalogue.calls, "POST /v1/products/prod_1/prices");
+    };
+    const original = await keysFor(100, "EUR");
+    expect(await keysFor(200, "USD")).toEqual(original);
+    expect(original).toHaveLength(1);
+  });
+
   it("creates under a new key when the name changed after a creation that failed", async () => {
     const catalogue = fakeMirrorCatalogue({ refused: firstOf("POST /v1/products") });
     const mirroring = (name: string) =>
