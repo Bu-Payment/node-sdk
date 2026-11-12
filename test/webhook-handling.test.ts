@@ -57,6 +57,29 @@ describe("webhook delivery handle", () => {
     expect(outcome.status === 400 && outcome.error.code).toBe(ErrorCode.WEBHOOK_SIGNATURE_MISSING);
   });
 
+  it.each([
+    [
+      "no body",
+      () => incoming().body(undefined as unknown as string),
+      ErrorCode.WEBHOOK_PAYLOAD_INVALID,
+    ],
+    [
+      "no headers",
+      () => incoming().headers(undefined as unknown as Headers),
+      ErrorCode.WEBHOOK_SIGNATURE_MISSING,
+    ],
+    [
+      "null headers",
+      () => incoming().headers(null as unknown as Headers),
+      ErrorCode.WEBHOOK_SIGNATURE_MISSING,
+    ],
+  ])("answers 400 for a request with %s, as a framework passes it", async (_name, build, code) => {
+    const outcome = await build().handle(() => {
+      throw new Error("the handler must not run");
+    });
+    expect(outcome.status === 400 && outcome.error.code).toBe(code);
+  });
+
   it("propagates the error a handler throws, so the application answers 500", async () => {
     const failure = new Error("database unavailable");
     await expect(

@@ -75,7 +75,7 @@ function deliveryBuilder<TState extends DeliveryState>(
     clock: (clock: () => number) => next({ clock }),
     deduplicateWith: (store: WebhookEventStore) => next({ store }),
   };
-  if (state.secret !== undefined && state.body !== undefined && state.headers !== undefined) {
+  if ("secret" in state && "body" in state && "headers" in state) {
     const complete = state as TState & CompleteDelivery;
     builder.handle = (handler: WebhookEventHandler) =>
       handleDelivery(() => verify(complete), handler, complete.store);
@@ -176,6 +176,9 @@ function requiredHeader(headers: WebhookHeaders, name: string): string {
 }
 
 function headerValue(headers: WebhookHeaders, name: string): string | undefined {
+  if (typeof headers !== "object" || headers === null) {
+    return undefined;
+  }
   if (isFetchHeaders(headers)) {
     return headers.get(name) ?? undefined;
   }
