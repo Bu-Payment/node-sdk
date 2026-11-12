@@ -74,5 +74,43 @@
       "providerCheckoutId": "provider-session-4",
       "previousStatus": "pending"
     }
+  },
+  {
+    "version": 1,
+    "id": "evt_c5",
+    "type": "checkout.created",
+    "occurredAt": "2026-10-08T12:00:00.000Z",
+    "data": {
+      "checkoutId": "checkout_127",
+      "reference": "booking-7",
+      "amount": 12100,
+      "currency": "EUR",
+      "amountSource": "app_amount",
+      "description": "Room 12, 3 nights",
+      "productId": "prod_rooms",
+      "priceId": null,
+      "quantity": 1,
+      "customerId": "customer_127",
+      "expiresAt": "2026-10-08T12:30:00.000Z"
+    }
+  },
+  {
+    "version": 1,
+    "id": "evt_c6",
+    "type": "checkout.created",
+    "occurredAt": "2026-10-08T12:00:00.000Z",
+    "data": {
+      "checkoutId": "checkout_128",
+      "reference": null,
+      "amount": 5800,
+      "currency": "EUR",
+      "amountSource": "price",
+      "description": null,
+      "productId": null,
+      "priceId": "price_1",
+      "quantity": 2,
+      "customerId": "customer_128",
+      "expiresAt": "2026-10-08T12:30:00.000Z"
+    }
   }
 ]

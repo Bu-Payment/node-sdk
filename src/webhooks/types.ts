@@ -1,5 +1,5 @@
 import type { Price, Product } from "../catalogue/types";
-import type { CheckoutStatus } from "../checkout/types";
+import type { CheckoutAmountSource, CheckoutStatus } from "../checkout/types";
 import type { BuPaymentError } from "../errors";
 
 export type WebhookEndpointStatus = "enabled" | "disabled";
@@ -163,7 +163,34 @@ export type CheckoutCancelledEvent = WebhookEventEnvelope<
   CheckoutCancelledEventData
 >;
 
-export type CheckoutEvent = CheckoutTerminalEvent | CheckoutCancelledEvent;
+interface CheckoutCreatedEventFields {
+  checkoutId: string;
+  reference: string | null;
+  amount: number;
+  currency: string;
+  description: string | null;
+  productId: string | null;
+  quantity: number;
+  customerId: string;
+  expiresAt: string;
+}
+
+export type CheckoutCreatedEventData = CheckoutCreatedEventFields &
+  (
+    | { amountSource: Extract<CheckoutAmountSource, "price">; priceId: string }
+    | { amountSource: Extract<CheckoutAmountSource, "app_amount">; priceId: null }
+  );
+
+export type CheckoutCreatedEvent = WebhookEventEnvelope<
+  "checkout.created",
+  CheckoutCreatedEventData
+>;
+
+export type CheckoutOutcomeEvent = CheckoutTerminalEvent | CheckoutCancelledEvent;
+
+export type CheckoutOutcomeEventType = CheckoutOutcomeEvent["type"];
+
+export type CheckoutEvent = CheckoutCreatedEvent | CheckoutOutcomeEvent;
 
 export type CheckoutEventType = CheckoutEvent["type"];
 

@@ -468,13 +468,17 @@ store is set.
 | `catalogue.price.assigned.v1` | price | no |
 | `catalogue.price.unassigned.v1` | price | no |
 
-`checkout.completed`, `checkout.failed`, `checkout.expired` and `checkout.cancelled` are typed
-too, with `data.checkoutId`, the `reference` sent at creation and, once paid, `paymentId`. See
-[Checkout events](docs/08-events-and-webhooks.md#checkout-events).
+The five checkout events are typed too. `checkout.created` arrives once, when the checkout is
+ready, with its `amount`, `currency`, `amountSource` (`price` or `app_amount`), `description`,
+`productId`, `priceId` (`null` for an amount the App calculated), `quantity`, `customerId` and
+`expiresAt`. `checkout.completed`, `checkout.failed`, `checkout.expired` and `checkout.cancelled`
+are its outcomes, with `data.checkoutId`, the `reference` sent at creation and, once paid,
+`paymentId`. See [Checkout events](docs/08-events-and-webhooks.md#checkout-events).
 
-Four helpers handle them without a request. `checkoutOutcome(event)` reads any of the four into
-one shape, `{ checkoutId, reference, status, paymentId, amount, currency, chargedAmount,
-chargedCurrency }`, with `null` where `checkout.cancelled` carries nothing.
+Four helpers handle the outcomes without a request. `checkoutOutcome(event)` reads any of the four
+outcome events into one shape, `{ checkoutId, reference, status, paymentId, amount, currency, chargedAmount,
+chargedCurrency }`, with `null` where `checkout.cancelled` carries nothing. It does not accept
+`checkout.created`, which announces a checkout rather than settling one: narrow the event first.
 `laterCheckoutStatus(current, incoming)` answers the status that prevails when events arrive out
 of order (`completed` over `failed`, `cancelled`, `expired`, `processing` and `pending`).
 `paidAsExpected(event)` takes only a `checkout.completed` and compares its canonical amount and

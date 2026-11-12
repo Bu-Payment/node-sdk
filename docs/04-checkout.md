@@ -135,6 +135,8 @@ Travel it is a BuPayment page that opens the provider's payment window; for SISP
 BuPayment page that submits the payment form; for a redirect provider it is the provider's
 own page.
 
+`checkout.created` arrives once the checkout is ready, before the buyer pays, with the amount, the
+currency, the `amountSource` and the expiry; it is a record of what was opened, not an outcome.
 The buyer returning to the success URL does not prove payment. Learn the outcome from
 `checkout.completed`, `checkout.failed`, `checkout.expired` and `checkout.cancelled` (see
 [Events and webhooks](08-events-and-webhooks.md#checkout-events)) or from
@@ -240,10 +242,13 @@ switch (event.type) {
 }
 ```
 
-`checkoutOutcome(event)` reads the four `checkout.*` events into one shape:
+`checkoutOutcome(event)` reads the four outcome events into one shape:
 `{ checkoutId, reference, status, paymentId, amount, currency, chargedAmount, chargedCurrency }`.
 `checkout.cancelled` carries no payment or amounts, so those fields are `null` there, never
-`undefined`. The result is frozen.
+`undefined`. The result is frozen. Its parameter is `CheckoutOutcomeEvent`, which leaves out
+`checkout.created`: that event settles nothing, carries no payment and no previous status, and the
+checkout it announces is the one `create()` already answered. A `CheckoutEvent` is narrowed first,
+as the `switch` above does.
 
 `laterCheckoutStatus(current, incoming)` answers the status that prevails when events arrive
 late or out of order, with the precedence the API applies: `completed`, then `failed`,
@@ -265,7 +270,8 @@ if (isPayableCheckout(checkout.status) && checkout.checkoutUrl !== undefined) {
 `paidAsExpected(event)` accepts only a `checkout.completed` event. `amount()` takes the amount in
 minor units, `currency()` exists only after it, and `matches()` only once both are set. It
 compares the checkout's canonical `amount` and `currency`, which is the catalogue unit amount
-times the quantity, not the converted `chargedAmount` the provider may have charged. An amount
+times the quantity, or the total the App sent through `amount()`, not the converted
+`chargedAmount` the provider may have charged. An amount
 that is not a non-negative integer, or a currency that is not three letters, is refused with
 `request_invalid` when `matches()` runs.
 
