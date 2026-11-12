@@ -44,8 +44,9 @@ Values are trimmed, and an empty or blank value counts as missing.
 
 When required variables are missing the client is not built. One `BuPaymentError` with
 `ErrorCode.CONFIGURATION_MISSING` names all of them, in its message and in
-`error.metadata.variables`, and never carries a value. `isConfigured(env)` answers the same
-question without throwing, for a feature that should switch off rather than fail:
+`error.metadata.variables`, and never carries a value. `isConfigured(env)` tells whether every
+required variable holds a value, without throwing, for a feature that should switch off rather
+than fail. It checks presence only; a malformed value is still refused when the client is built:
 
 ```ts
 import { isConfigured } from "@bu-payment/node-sdk";

@@ -79,6 +79,10 @@ app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (r
 });
 ```
 
+The client reads the whole credential from the environment. A service that only receives
+webhooks and holds no confidential credential can skip the client and pass
+`process.env.BU_PAYMENT_WEBHOOK_SECRET` to `secret()` directly.
+
 `handle()` resolves to `{ status: 200 }` once your function has finished, and to
 `{ status: 400, error }` when the delivery failed verification, without calling your function.
 Everything else rejects, and the rejection should answer `500`: an error thrown by your
