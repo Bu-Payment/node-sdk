@@ -20,6 +20,33 @@ describe("checkout amount builder contract", () => {
     expect("create" in described.idempotencyKey("order-1")).toBe(true);
   });
 
+  it("offers create only once the amount, currency and description are all set", () => {
+    const keyed = draft().idempotencyKey("order-1");
+    expect("create" in keyed.amount(12_100)).toBe(false);
+    expect("create" in keyed.amount(12_100).currency("EUR")).toBe(false);
+    expect("create" in keyed.amount(12_100).productId("prod_1").currency("EUR")).toBe(false);
+    expect("create" in keyed.amount(12_100).currency("EUR").description("Room 12")).toBe(true);
+  });
+
+  it("keeps two drafts branched from one base independent", async () => {
+    const { client, calls } = harnessReturning();
+    const base = client.checkout
+      .sessionDraft()
+      .amount(12_100)
+      .currency("EUR")
+      .customerId("customer_1")
+      .destination("d")
+      .idempotencyKey("order-1");
+    await base.description("Room 12").create();
+    await base.amount(9_900).description("Room 9").create();
+    await base.description("Room 12").create();
+    expect(calls.map((call) => call.body)).toEqual([
+      expect.objectContaining({ amount: 12_100, description: "Room 12" }),
+      expect.objectContaining({ amount: 9_900, description: "Room 9" }),
+      expect.objectContaining({ amount: 12_100, description: "Room 12" }),
+    ]);
+  });
+
   it("closes the catalogue methods once an amount is set", () => {
     const withAmount = draft().amount(12_100);
     for (const method of ["priceId", "quantity", "expectedUnitAmount", "expectedCurrency"]) {

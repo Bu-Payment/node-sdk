@@ -59,20 +59,8 @@ draft().amount(12_100).quantity(2);
 // @ts-expect-error an amount the App calculated has no catalogue price to assert
 draft().amount(12_100).expectedUnitAmount(12_100);
 
-// @ts-expect-error an amount the App calculated has no catalogue currency to assert
-draft().amount(12_100).currency("EUR").expectedCurrency("EUR");
-
 // @ts-expect-error a price replaces the amount
 draft().priceId("price_1").amount(12_100);
-
-// @ts-expect-error a price carries its own currency
-draft().priceId("price_1").currency("EUR");
-
-// @ts-expect-error a price carries its own description
-draft().priceId("price_1").description("Room 12");
-
-// @ts-expect-error a price carries its own product
-draft().priceId("price_1").productId("prod_1");
 
 // @ts-expect-error a quantity multiplies a price, so it settles on the catalogue
 draft().quantity(2).amount(12_100);

@@ -21,6 +21,11 @@ describe("checkout.created", () => {
     expect(deliver(unfiled).event.data).toEqual(unfiled.data);
   });
 
+  it("accepts a free checkout from a catalogue price", () => {
+    const free = withData(FROM_PRICE, { amount: 0 });
+    expect(deliver(free).event.data).toEqual(free.data);
+  });
+
   it("accepts a price without a reference", () => {
     const event = deliver(FROM_PRICE).event as CheckoutCreatedEvent;
     expect(event.data.amountSource).toBe("price");
@@ -44,6 +49,7 @@ describe("checkout.created", () => {
     ["a numeric reference", withData(FROM_AMOUNT, { reference: 7 }), "data.reference"],
     ["a null amount", withData(FROM_AMOUNT, { amount: null }), "data.amount"],
     ["a fractional amount", withData(FROM_AMOUNT, { amount: 121.5 }), "data.amount"],
+    ["a negative amount", withData(FROM_AMOUNT, { amount: -1 }), "data.amount"],
     ["no currency", withData(FROM_AMOUNT, { currency: null }), "data.currency"],
     [
       "an unknown amount source",
@@ -54,6 +60,7 @@ describe("checkout.created", () => {
     ["a numeric product", withData(FROM_AMOUNT, { productId: 1 }), "data.productId"],
     ["an amount that names a price", withData(FROM_AMOUNT, { priceId: "price_1" }), "data.priceId"],
     ["an amount with an empty price", withData(FROM_AMOUNT, { priceId: "" }), "data.priceId"],
+    ["an amount with no price key", withData(FROM_AMOUNT, { priceId: undefined }), "data.priceId"],
     ["a price source without a price", withData(FROM_PRICE, { priceId: null }), "data.priceId"],
     ["a zero quantity", withData(FROM_PRICE, { quantity: 0 }), "data.quantity"],
     ["no customerId", withData(FROM_PRICE, { customerId: null }), "data.customerId"],
