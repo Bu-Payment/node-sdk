@@ -28,12 +28,14 @@ export function clientConfigFromEnv(env: BuPaymentEnv): ClientConfigInput {
     );
   }
   const webhookSecret = settingOf(env, EnvVariable.WEBHOOK_SECRET);
+  const destinationKey = settingOf(env, EnvVariable.DESTINATION_KEY);
   return {
     apiBaseUrl,
     applicationId,
     keyId,
     secret,
     ...(webhookSecret === undefined ? {} : { webhookSecret }),
+    ...(destinationKey === undefined ? {} : { destinationKey }),
   };
 }
 

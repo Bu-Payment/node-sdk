@@ -21,7 +21,7 @@ export type {
 } from "./checkout/paid-as-expected";
 export { paidAsExpected } from "./checkout/paid-as-expected";
 export type * from "./checkout/types";
-export type { BuPaymentClient, ClientOptions } from "./client";
+export type { BuPaymentClient, ClientOptions, DefaultDestination } from "./client";
 export { createBuPaymentClient, createBuPaymentClientFromEnv } from "./client";
 export {
   ApiErrorCode,

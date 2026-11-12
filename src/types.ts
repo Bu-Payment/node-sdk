@@ -2,7 +2,7 @@ export type * from "./billing/types";
 export type { PricedTerms, PriceTerms } from "./catalogue/price-terms";
 export type * from "./catalogue/types";
 export type * from "./checkout/types";
-export type { BuPaymentClient, ClientOptions } from "./client";
+export type { BuPaymentClient, ClientOptions, DefaultDestination } from "./client";
 export type {
   CursorScope,
   PageMethods,

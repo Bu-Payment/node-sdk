@@ -105,9 +105,11 @@ export async function probe(): Promise<unknown> {
   // @ts-expect-error a checkout cannot be created before its destination is set
   await client.checkout.sessionDraft().priceId("price_1").customerId("cus_1").idempotencyKey("o").create();
 
-  const env: BuPaymentEnv = { [EnvVariable.WEBHOOK_SECRET]: "whsec_x" };
+  const env: BuPaymentEnv = { [EnvVariable.DESTINATION_KEY]: "default" };
   if (isConfigured(env)) {
-    webhookDelivery().secret(createBuPaymentClientFromEnv(env).webhookSecret);
+    const configured = createBuPaymentClientFromEnv(env);
+    webhookDelivery().secret(configured.webhookSecret);
+    await configured.checkout.sessionDraft().priceId("price_1").customerId("cus_1").idempotencyKey("o").create();
   }
 
   await paymentMethodSetup(client);

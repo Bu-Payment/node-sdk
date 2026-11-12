@@ -1,6 +1,7 @@
 import { type BillingClient, createBillingClient } from "./billing/client";
 import { type CatalogueClient, createCatalogueClient } from "./catalogue/client";
-import { type CheckoutClient, createCheckoutClient } from "./checkout/client";
+import { type CheckoutClient, seededCheckoutClient } from "./checkout/client";
+import type { CheckoutSessionState } from "./checkout/one-time";
 import { EnvVariable } from "./constants";
 import type { Sender } from "./core/builder";
 import { type ClientConfigInput, parseClientConfig, parseClientDefaults } from "./core/config";
@@ -20,15 +21,19 @@ import { createWebhooksClient, type WebhooksClient } from "./webhooks/client";
 
 export type ClientOptions = TransportOptions;
 
+export interface DefaultDestination {
+  destination: string;
+}
+
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-export interface BuPaymentClient {
+export interface BuPaymentClient<TSession extends CheckoutSessionState = Record<never, never>> {
   readonly applicationId: string;
   readonly environment: "test" | "live";
   readonly webhookSecret: string;
   readonly catalogue: CatalogueClient;
   readonly customers: CustomersClient;
-  readonly checkout: CheckoutClient;
+  readonly checkout: CheckoutClient<TSession>;
   readonly payments: PaymentsClient;
   readonly sales: SalesClient;
   readonly paymentMethods: PaymentMethodsClient;
@@ -43,11 +48,37 @@ export interface BuPaymentClient {
 }
 
 export function createBuPaymentClient(
+  input: ClientConfigInput & { destinationKey: string },
+  options?: ClientOptions,
+): BuPaymentClient<DefaultDestination>;
+export function createBuPaymentClient(
+  input: ClientConfigInput,
+  options?: ClientOptions,
+): BuPaymentClient;
+export function createBuPaymentClient(
   input: ClientConfigInput,
   options: ClientOptions = {},
-): BuPaymentClient {
+): BuPaymentClient<CheckoutSessionState> {
+  return buildClient(input, options, {});
+}
+
+export function createBuPaymentClientFromEnv(
+  env: BuPaymentEnv = process.env,
+  options: ClientOptions = {},
+): BuPaymentClient<DefaultDestination> {
+  const input = clientConfigFromEnv(env);
+  const session: CheckoutSessionState =
+    input.destinationKey === undefined ? { unconfiguredDestination: true } : {};
+  return buildClient(input, options, session) as BuPaymentClient<DefaultDestination>;
+}
+
+function buildClient(
+  input: ClientConfigInput,
+  options: ClientOptions,
+  session: CheckoutSessionState,
+): BuPaymentClient<CheckoutSessionState> {
   const config = parseClientConfig(input);
-  const { webhookSecret } = parseClientDefaults(input);
+  const { destinationKey, webhookSecret } = parseClientDefaults(input);
   const transport = new SignedTransport(config, options);
   const send: Sender = async (request) => await transport.send(withIdempotencyKey(request));
   const customers = createCustomersClient(send);
@@ -57,7 +88,10 @@ export function createBuPaymentClient(
     environment: config.environment,
     catalogue: createCatalogueClient(send),
     customers,
-    checkout: createCheckoutClient(send),
+    checkout: seededCheckoutClient<CheckoutSessionState>(send, {
+      ...(destinationKey === undefined ? {} : { destination: destinationKey }),
+      ...session,
+    }),
     payments,
     sales: createSalesClient(customers, payments),
     paymentMethods: createPaymentMethodsClient(send),
@@ -74,14 +108,7 @@ export function createBuPaymentClient(
     enumerable: false,
     get: () => webhookSecret ?? missingWebhookSecret(),
   });
-  return Object.freeze(client) as BuPaymentClient;
-}
-
-export function createBuPaymentClientFromEnv(
-  env: BuPaymentEnv = process.env,
-  options: ClientOptions = {},
-): BuPaymentClient {
-  return createBuPaymentClient(clientConfigFromEnv(env), options);
+  return Object.freeze(client) as BuPaymentClient<CheckoutSessionState>;
 }
 
 function missingWebhookSecret(): never {
