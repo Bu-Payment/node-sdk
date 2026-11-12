@@ -8,6 +8,12 @@ export { priceTerms, sameTerms } from "./catalogue/price-terms";
 export type * from "./catalogue/types";
 export type { CheckoutClient } from "./checkout/client";
 export { createCheckoutClient } from "./checkout/client";
+export type {
+  CheckoutOutcome,
+  CheckoutOutcomeStatus,
+  PayableCheckoutStatus,
+} from "./checkout/outcome";
+export { checkoutOutcome, isPayableCheckout, laterCheckoutStatus } from "./checkout/outcome";
 export type * from "./checkout/types";
 export type { BuPaymentClient, ClientOptions } from "./client";
 export { createBuPaymentClient } from "./client";
