@@ -1,14 +1,10 @@
-import { createHmac } from "node:crypto";
 import { expect } from "vitest";
 import { BuPaymentError } from "../../src/errors";
-import { webhookDelivery } from "../../src/webhooks/verification";
 import catalogueEvents from "../fixtures/catalogue-events.json";
 import checkoutEvents from "../fixtures/checkout-events.json";
-import fixture from "../fixtures/webhook-delivery.json";
+import { incoming } from "./webhook-handling";
 
-const SECRET = fixture.secret;
-
-export const TIMESTAMP = fixture.timestamp;
+export { TIMESTAMP } from "./webhook-handling";
 
 export type Envelope = Record<string, unknown>;
 
@@ -24,19 +20,7 @@ export interface Tampering {
 }
 
 export function deliver(envelope: unknown, tampering: Tampering = {}) {
-  const body = JSON.stringify(envelope);
-  return webhookDelivery()
-    .secret(SECRET)
-    .body(body)
-    .headers({
-      "x-webhook-id": "whd_1",
-      "x-webhook-timestamp": TIMESTAMP,
-      "x-webhook-signature":
-        tampering.signature ??
-        createHmac("sha256", SECRET).update(`${TIMESTAMP}.${body}`).digest("hex"),
-    })
-    .clock(() => tampering.now ?? Number(TIMESTAMP))
-    .verify();
+  return incoming({ ...tampering, body: JSON.stringify(envelope) }).verify();
 }
 
 export function failure(envelope: unknown, tampering: Tampering = {}): BuPaymentError {
