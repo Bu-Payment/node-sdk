@@ -169,6 +169,11 @@ export type CheckoutEventType = CheckoutEvent["type"];
 
 export type WebhookEvent = CatalogueEvent | CheckoutEvent | UnknownWebhookEvent;
 
+export interface WebhookEventStore {
+  claim(eventId: string): Promise<boolean>;
+  release(eventId: string): Promise<void>;
+}
+
 export type WebhookEventHandler = (
   event: WebhookEvent,
   delivery: VerifiedWebhookDelivery,

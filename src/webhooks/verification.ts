@@ -6,6 +6,7 @@ import { handleDelivery } from "./handling";
 import type {
   VerifiedWebhookDelivery,
   WebhookEventHandler,
+  WebhookEventStore,
   WebhookHeaderReader,
   WebhookHeaders,
   WebhookOutcome,
@@ -26,6 +27,7 @@ interface DeliveryState {
   headers?: WebhookHeaders;
   toleranceSeconds?: number;
   clock?: () => number;
+  store?: WebhookEventStore;
 }
 
 type CompleteDelivery = Required<Pick<DeliveryState, "secret" | "body" | "headers">>;
@@ -36,6 +38,9 @@ interface DeliveryMethods<TState extends DeliveryState> {
   headers(headers: WebhookHeaders): WebhookDeliveryBuilder<TState & { headers: WebhookHeaders }>;
   toleranceSeconds(toleranceSeconds: number): WebhookDeliveryBuilder<TState>;
   clock(clock: () => number): WebhookDeliveryBuilder<TState>;
+  deduplicateWith(
+    store: WebhookEventStore,
+  ): WebhookDeliveryBuilder<TState & { store: WebhookEventStore }>;
 }
 
 export interface VerifiableWebhookDelivery {
@@ -47,7 +52,8 @@ export interface HandleableWebhookDelivery {
 }
 
 type DeliveryTerminals<TState extends DeliveryState> = TState extends CompleteDelivery
-  ? HandleableWebhookDelivery & VerifiableWebhookDelivery
+  ? HandleableWebhookDelivery &
+      (TState extends { store: WebhookEventStore } ? object : VerifiableWebhookDelivery)
   : object;
 
 export type WebhookDeliveryBuilder<TState extends DeliveryState = DeliveryState> =
@@ -67,12 +73,15 @@ function deliveryBuilder<TState extends DeliveryState>(
     headers: (headers: WebhookHeaders) => next({ headers }),
     toleranceSeconds: (toleranceSeconds: number) => next({ toleranceSeconds }),
     clock: (clock: () => number) => next({ clock }),
+    deduplicateWith: (store: WebhookEventStore) => next({ store }),
   };
   if (state.secret !== undefined && state.body !== undefined && state.headers !== undefined) {
     const complete = state as TState & CompleteDelivery;
     builder.handle = (handler: WebhookEventHandler) =>
-      handleDelivery(() => verify(complete), handler);
-    builder.verify = () => verify(complete);
+      handleDelivery(() => verify(complete), handler, complete.store);
+    if (complete.store === undefined) {
+      builder.verify = () => verify(complete);
+    }
   }
   return Object.freeze(builder) as WebhookDeliveryBuilder<TState>;
 }

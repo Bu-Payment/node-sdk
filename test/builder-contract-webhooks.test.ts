@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { webhookDelivery } from "../src/webhooks/verification";
 import fixture from "./fixtures/webhook-delivery.json";
+import { memoryStore } from "./support/webhook-handling";
 
 const HEADERS = {
   "x-webhook-id": fixture.deliveryId,
@@ -56,11 +57,20 @@ describe("webhook delivery builder contract", () => {
     expect(() => configured.verify()).toThrow();
   });
 
+  it("returns a new frozen builder from deduplicateWith and leaves the verifier unchanged", () => {
+    const verifier = webhookDelivery().secret(fixture.secret);
+    const deduplicated = verifier.deduplicateWith(memoryStore());
+    expect(Object.isFrozen(deduplicated)).toBe(true);
+    expect(deduplicated).not.toBe(verifier);
+    expect("verify" in verifier.body(fixture.body).headers(HEADERS)).toBe(true);
+  });
+
   it("offers handle only once the secret, body and headers are set", () => {
+    const store = memoryStore();
     const incomplete: object[] = [
-      webhookDelivery(),
+      webhookDelivery().deduplicateWith(store),
       webhookDelivery().secret(fixture.secret).body(fixture.body),
-      webhookDelivery().secret(fixture.secret).headers(HEADERS),
+      webhookDelivery().secret(fixture.secret).headers(HEADERS).deduplicateWith(store),
       webhookDelivery().body(fixture.body).headers(HEADERS),
     ];
     for (const builder of incomplete) {
@@ -68,20 +78,34 @@ describe("webhook delivery builder contract", () => {
     }
     const complete = webhookDelivery().secret(fixture.secret).body(fixture.body).headers(HEADERS);
     expect("handle" in complete).toBe(true);
+    expect("handle" in complete.deduplicateWith(store)).toBe(true);
   });
 
-  it("calls the handler only once handle is called", async () => {
+  it("withholds verify once a store is set, so no delivery bypasses the deduplication", () => {
+    const deduplicated = webhookDelivery()
+      .secret(fixture.secret)
+      .body(fixture.body)
+      .headers(HEADERS)
+      .deduplicateWith(memoryStore());
+    expect("verify" in deduplicated).toBe(false);
+  });
+
+  it("touches neither the store nor the handler before handle is called", async () => {
+    const store = memoryStore();
     let calls = 0;
     const handler = () => {
       calls += 1;
     };
     const ready = webhookDelivery()
       .secret(fixture.secret)
+      .deduplicateWith(store)
       .body(fixture.body)
       .headers(HEADERS)
       .clock(() => Number(fixture.timestamp));
+    expect(store.calls).toEqual([]);
     expect(calls).toBe(0);
     expect(await ready.handle(handler)).toEqual({ status: 200 });
+    expect(store.calls).toEqual(["claim evt_02"]);
     expect(calls).toBe(1);
   });
 

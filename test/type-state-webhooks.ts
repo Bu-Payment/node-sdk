@@ -1,4 +1,4 @@
-import type { WebhookOutcome } from "../src/webhooks/types";
+import type { WebhookEventStore, WebhookOutcome } from "../src/webhooks/types";
 import { webhookDelivery } from "../src/webhooks/verification";
 
 const headers = {};
@@ -20,6 +20,7 @@ webhookDelivery()
 const verifier = webhookDelivery().secret("whsec_x").toleranceSeconds(60);
 void verifier.body(new Uint8Array()).headers(new Headers()).verify().event;
 
+const store: WebhookEventStore = { claim: async () => true, release: async () => {} };
 const handler = () => {};
 
 // @ts-expect-error a delivery cannot be handled before its secret is set
@@ -31,7 +32,14 @@ void webhookDelivery().secret("whsec_x").headers(headers).handle(handler);
 // @ts-expect-error a delivery cannot be handled before its headers are set
 void webhookDelivery().secret("whsec_x").body("{}").handle(handler);
 
-const outcome: Promise<WebhookOutcome> = verifier
+// @ts-expect-error a deduplicated delivery is handled, so it skips the store if verified alone
+webhookDelivery().secret("whsec_x").deduplicateWith(store).body("{}").headers(headers).verify();
+
+// @ts-expect-error a store must release the claim of a handler that failed
+webhookDelivery().deduplicateWith({ claim: async () => true });
+
+const deduplicated = webhookDelivery().secret("whsec_x").deduplicateWith(store);
+const outcome: Promise<WebhookOutcome> = deduplicated
   .body("{}")
   .headers(headers)
   .handle(async (event, delivery) => {

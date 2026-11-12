@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import type { WebhookEventStore } from "../../src/webhooks/types";
 import { webhookDelivery } from "../../src/webhooks/verification";
 import fixture from "../fixtures/webhook-delivery.json";
 
@@ -28,6 +29,32 @@ export function incoming(signing: Signing = {}) {
 
 export function bodyOf(envelope: unknown): string {
   return JSON.stringify(envelope);
+}
+
+export interface MemoryStore extends WebhookEventStore {
+  readonly calls: string[];
+  readonly claimed: Set<string>;
+}
+
+export function memoryStore(): MemoryStore {
+  const claimed = new Set<string>();
+  const calls: string[] = [];
+  return {
+    calls,
+    claimed,
+    async claim(eventId) {
+      calls.push(`claim ${eventId}`);
+      if (claimed.has(eventId)) {
+        return false;
+      }
+      claimed.add(eventId);
+      return true;
+    },
+    async release(eventId) {
+      calls.push(`release ${eventId}`);
+      claimed.delete(eventId);
+    },
+  };
 }
 
 export interface Gate {
