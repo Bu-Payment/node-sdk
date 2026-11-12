@@ -83,6 +83,8 @@ export type * from "./events/types";
 export type { InvoicesClient } from "./invoices/client";
 export { createInvoicesClient } from "./invoices/client";
 export type * from "./invoices/types";
+export type { MinorUnitsBuilder, MinorUnitsConversion } from "./money/minor-units";
+export { minorUnits } from "./money/minor-units";
 export type { PaymentMethodsClient } from "./payment-methods/client";
 export { createPaymentMethodsClient } from "./payment-methods/client";
 export type * from "./payment-methods/types";
