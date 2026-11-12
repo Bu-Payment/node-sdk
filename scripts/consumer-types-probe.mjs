@@ -126,7 +126,9 @@ async function paymentMethodSetup(client: Client): Promise<void> {
       .customerId("cus_1")
       .priceId("price_1")
       .paymentMethodId(method.id)
-      .allocation("line_1", 100, "EUR")
+      .allocationReference("line_1")
+      .allocationAmount(100)
+      .allocationCurrency("EUR")
       .create();
   }
   const capabilities: BillingCapabilities = await client.billing.capabilities().get();

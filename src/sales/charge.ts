@@ -98,7 +98,8 @@ async function pay(
   sale: CompleteSale,
 ): Promise<Payment> {
   let draft = scoped(payments.draft().customerId(customerId).priceId(sale.priceId), sale)
-    .expectedPrice(sale.displayedPrice)
+    .expectedUnitAmount(sale.displayedPrice.unitAmount)
+    .expectedCurrency(sale.displayedPrice.currency)
     .idempotencyKey(sale.idempotencyKey);
   if (sale.reference !== undefined) {
     draft = draft.reference(sale.reference);

@@ -83,21 +83,13 @@ describe("sales", () => {
     await client.sales
       .draft()
       .priceId("price_1")
-      .displayedPrice(displayed)
+      .displayedUnitAmount(displayed.unitAmount)
+      .displayedCurrency(displayed.currency)
       .customerId("cus_9")
       .idempotencyKey("order-9")
       .charge();
     expect(calls.map(routeOf)).toEqual(["POST /v1/payments"]);
     expect(callAt(calls, 0).body).toMatchObject({ customerId: "cus_9" });
-  });
-
-  it("keeps only the amount and currency of the displayed price", async () => {
-    const { client, calls } = shop({ payment: () => json(priceChanged, 409) });
-    const sale = await saleOf(client)
-      .displayedPrice({ ...current, unitAmount: 1_500 })
-      .charge();
-    expect(callAt(calls, 1).body).toMatchObject({ expectedPrice: displayed });
-    expect(sale).toMatchObject({ shown: displayed });
   });
 
   it("reports a payment that did not succeed as unpaid", async () => {

@@ -15,25 +15,29 @@ describe("sales builder contract", () => {
     const complete = client.sales
       .draft()
       .priceId("price_1")
-      .displayedPrice({ unitAmount: 1, currency: "EUR" })
+      .displayedUnitAmount(1)
+      .displayedCurrency("EUR")
       .customerId("cus_1")
       .idempotencyKey("order-1");
     const incomplete: object[] = [
       client.sales
         .draft()
-        .displayedPrice({ unitAmount: 1, currency: "EUR" })
+        .displayedUnitAmount(1)
+        .displayedCurrency("EUR")
         .customerId("cus_1")
         .idempotencyKey("order-1"),
       client.sales.draft().priceId("price_1").customerId("cus_1").idempotencyKey("order-1"),
       client.sales
         .draft()
         .priceId("price_1")
-        .displayedPrice({ unitAmount: 1, currency: "EUR" })
+        .displayedUnitAmount(1)
+        .displayedCurrency("EUR")
         .idempotencyKey("order-1"),
       client.sales
         .draft()
         .priceId("price_1")
-        .displayedPrice({ unitAmount: 1, currency: "EUR" })
+        .displayedUnitAmount(1)
+        .displayedCurrency("EUR")
         .customerId("cus_1"),
     ];
     expect("charge" in complete).toBe(true);

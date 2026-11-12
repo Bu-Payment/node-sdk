@@ -1,5 +1,12 @@
-import { expectedPriceField, pinExpectedPrice } from "../catalogue/expected-price";
-import type { ExpectedPrice } from "../catalogue/types";
+import {
+  type ExpectedCurrencyMethod,
+  type ExpectedPriceSettled,
+  type ExpectedPriceState,
+  type ExpectedUnitAmountMethod,
+  expectedPriceField,
+  expectedPriceMethods,
+  isExpectedPriceSettled,
+} from "../catalogue/expected-price";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type {
@@ -9,9 +16,8 @@ import type {
   SubscriptionPriceMigration,
 } from "../price-migrations/types";
 
-export interface MigrationDraftState extends RequestScope {
+export interface MigrationDraftState extends RequestScope, ExpectedPriceState {
   targetPriceId?: string;
-  expectedPrice?: ExpectedPrice;
   itemId?: string;
   quantity?: number;
   timing?: MigrationTiming;
@@ -23,7 +29,6 @@ export interface MigrationDraftState extends RequestScope {
 interface DraftMethods<TState extends MigrationDraftState>
   extends ScopeMethods<MigrationDraft<TState>> {
   targetPriceId(targetPriceId: string): MigrationDraft<TState & { targetPriceId: string }>;
-  expectedPrice(expected: ExpectedPrice): MigrationDraft<TState>;
   itemId(itemId: string): MigrationDraft<TState>;
   quantity(quantity: number): MigrationDraft<TState>;
   immediately(): MigrationDraft<TState & { timing: MigrationTiming }>;
@@ -50,7 +55,16 @@ type MigrationReady = {
 };
 
 export type MigrationDraft<TState extends MigrationDraftState = MigrationDraftState> =
-  DraftMethods<TState> & (TState extends MigrationReady ? CreatableMigration : object);
+  DraftMethods<TState> &
+    ExpectedUnitAmountMethod<MigrationDraft<TState & { expectedUnitAmount: number }>> &
+    (TState extends { expectedUnitAmount: number }
+      ? ExpectedCurrencyMethod<MigrationDraft<TState & { expectedCurrency: string }>>
+      : object) &
+    (TState extends MigrationReady
+      ? ExpectedPriceSettled<TState> extends true
+        ? CreatableMigration
+        : object
+      : object);
 
 export function migrationDraft<TState extends MigrationDraftState>(
   send: DeferredSender,
@@ -62,7 +76,7 @@ export function migrationDraft<TState extends MigrationDraftState>(
   const builder: Record<string, unknown> = {
     ...scopeMethods(next),
     targetPriceId: (targetPriceId: string) => next({ targetPriceId }),
-    expectedPrice: (expected: ExpectedPrice) => next({ expectedPrice: pinExpectedPrice(expected) }),
+    ...expectedPriceMethods(state, next),
     itemId: (itemId: string) => next({ itemId }),
     quantity: (quantity: number) => next({ quantity }),
     immediately: () => next({ timing: { kind: "immediate" } }),
@@ -78,7 +92,7 @@ export function migrationDraft<TState extends MigrationDraftState>(
       send<SubscriptionPriceMigration>(() =>
         writeRequest("POST", `${subscriptionPath()}/price-migrations`, state, {
           targetPriceId: state.targetPriceId,
-          ...expectedPriceField(state.expectedPrice),
+          ...expectedPriceField(state),
           ...(state.itemId === undefined ? {} : { itemId: state.itemId }),
           ...(state.quantity === undefined ? {} : { quantity: state.quantity }),
           timing: state.timing,
@@ -95,6 +109,7 @@ function isReady(state: MigrationDraftState): boolean {
     state.targetPriceId !== undefined &&
     state.timing !== undefined &&
     state.prorationPolicy !== undefined &&
-    state.paymentFailurePolicy !== undefined
+    state.paymentFailurePolicy !== undefined &&
+    isExpectedPriceSettled(state)
   );
 }

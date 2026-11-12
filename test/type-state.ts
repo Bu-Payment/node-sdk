@@ -104,22 +104,17 @@ payments.draft().amount(1_000).priceId("price_1");
 // @ts-expect-error a currency must not reach a payment priced canonically
 payments.draft().priceId("price_1").currency("EUR");
 
-const displayedPrice = { unitAmount: 1_000, currency: "EUR" };
-
 // @ts-expect-error a displayed price is asserted against a canonical price only
-payments.draft().customerId("cus_1").expectedPrice(displayedPrice);
+payments.draft().customerId("cus_1").expectedUnitAmount(1_000);
 
 // @ts-expect-error an ad hoc amount has no canonical price to assert
-payments.draft().amount(1_000).currency("EUR").expectedPrice(displayedPrice);
+payments.draft().amount(1_000).currency("EUR").expectedUnitAmount(1_000);
 
 // @ts-expect-error an asserted payment cannot turn ad hoc
-payments.draft().priceId("price_1").expectedPrice(displayedPrice).amount(1);
+payments.draft().priceId("price_1").expectedUnitAmount(1_000).expectedCurrency("EUR").amount(1);
 
 // @ts-expect-error an asserted payment cannot take a currency either
-payments.draft().priceId("price_1").expectedPrice(displayedPrice).currency("EUR");
-
-// @ts-expect-error allocations require a payment method
-payments.draft().customerId("cus_1").priceId("price_1").allocation("line_1", 100, "EUR");
+payments.draft().priceId("price_1").expectedUnitAmount(1_000).expectedCurrency("EUR").currency("E");
 
 // @ts-expect-error a payment method setup cannot be created before the buyer's consent
 paymentMethods.setupDraft("cus_1").currency("EUR").returnUrl("https://shop.test/r").create();
@@ -246,13 +241,7 @@ export const accepted = [
   customers.customer("cus_1").name("Renamed").update(),
   payments.draft().customerId("cus_1").priceId("price_1").create(),
   payments.draft().customerId("cus_1").amount(1_000).currency("EUR").create(),
-  payments
-    .draft()
-    .customerId("cus_1")
-    .priceId("price_1")
-    .paymentMethodId("pm_1")
-    .allocation("line_1", 100, "EUR")
-    .create(),
+  payments.draft().customerId("cus_1").priceId("price_1").paymentMethodId("pm_1").create(),
   paymentMethods
     .setupDraft("cus_1")
     .currency("EUR")

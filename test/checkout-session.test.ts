@@ -58,7 +58,8 @@ describe("one-time checkout", () => {
     const checkout = await client.checkout
       .sessionDraft()
       .priceId("price_1")
-      .expectedPrice({ unitAmount: 2900, currency: "EUR" })
+      .expectedUnitAmount(2900)
+      .expectedCurrency("EUR")
       .customerEmail("buyer@example.test")
       .customerName("Ana")
       .quantity(2)
@@ -145,7 +146,8 @@ describe("one-time checkout", () => {
       client.checkout
         .sessionDraft()
         .priceId("price_1")
-        .expectedPrice({ unitAmount: 2900, currency: "EUR" })
+        .expectedUnitAmount(2900)
+        .expectedCurrency("EUR")
         .customerId("customer_1")
         .destination("default")
         .idempotencyKey("order-4")

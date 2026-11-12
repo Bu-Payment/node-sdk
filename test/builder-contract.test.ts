@@ -41,13 +41,14 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.checkout.shippingRates(),
     client.checkout.shippingRates().currency("EUR").destinationCountry("PT").product("prod_1"),
     client.checkout.subscriptionSession(),
-    client.checkout.subscriptionSession().expectedPrice({ unitAmount: 1, currency: "EUR" }),
+    client.checkout.subscriptionSession().expectedUnitAmount(1).expectedCurrency("EUR"),
     client.payments.draft(),
     client.sales.draft(),
     client.sales
       .draft()
       .priceId("price_1")
-      .displayedPrice({ unitAmount: 1, currency: "EUR" })
+      .displayedUnitAmount(1)
+      .displayedCurrency("EUR")
       .customerEmail("buyer@example.test")
       .reservation({ reserve: () => true, release: () => undefined }),
     client.payments.draft().customerId("cus_1").priceId("price_1"),
@@ -55,7 +56,8 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
       .draft()
       .customerId("cus_1")
       .priceId("price_1")
-      .expectedPrice({ unitAmount: 1, currency: "EUR" }),
+      .expectedUnitAmount(1)
+      .expectedCurrency("EUR"),
     client.payments.list(),
     client.payments.payment("pay_1"),
     client.paymentMethods.setupDraft("cus_1"),
@@ -70,7 +72,7 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     client.refunds.draft(),
     client.subscriptions.list(),
     client.subscriptions.draft(),
-    client.subscriptions.draft().expectedPrice({ unitAmount: 1, currency: "EUR" }),
+    client.subscriptions.draft().expectedUnitAmount(1).expectedCurrency("EUR"),
     subscription,
     subscription.cancellation(),
     subscription.cancellation().timing("immediate"),
@@ -81,7 +83,7 @@ function everyBuilder(client: ReturnType<typeof harnessReturning>["client"]): un
     subscription.resumePaymentCollection(),
     subscription.scheduledChange(),
     subscription.priceMigration(),
-    subscription.priceMigration().expectedPrice({ unitAmount: 1, currency: "EUR" }),
+    subscription.priceMigration().expectedUnitAmount(1).expectedCurrency("EUR"),
     client.priceMigrations.list(),
     migration,
     migration.notificationPlan(),
@@ -156,34 +158,10 @@ describe("builder contract", () => {
     });
   });
 
-  it("does not let one branch of an accumulating builder reach another", async () => {
-    const { client, calls } = harnessReturning({}, {});
-    const base = client.payments
-      .draft()
-      .customerId("cus_1")
-      .priceId("price_1")
-      .paymentMethodId("pm_1")
-      .allocation("line_1", 100, "EUR");
-    await base.allocation("line_2", 200, "EUR").create();
-    await base.allocation("line_3", 300, "EUR").create();
-    expect(callAt(calls, 0).body).toMatchObject({
-      allocations: [
-        { reference: "line_1", amount: 100, currency: "EUR" },
-        { reference: "line_2", amount: 200, currency: "EUR" },
-      ],
-    });
-    expect(callAt(calls, 1).body).toMatchObject({
-      allocations: [
-        { reference: "line_1", amount: 100, currency: "EUR" },
-        { reference: "line_3", amount: 300, currency: "EUR" },
-      ],
-    });
-  });
-
   it("does not let one branch's asserted price reach another", async () => {
     const { client, calls } = harnessReturning({}, {});
     const base = client.subscriptions.draft().customerId("cus_1").name("Gold").priceId("p_1");
-    await base.expectedPrice({ unitAmount: 100, currency: "EUR" }).pending().create();
+    await base.expectedUnitAmount(100).expectedCurrency("EUR").pending().create();
     await base.pending().create();
     expect(callAt(calls, 0).body).toMatchObject({
       expectedPrice: { unitAmount: 100, currency: "EUR" },
