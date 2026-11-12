@@ -98,7 +98,7 @@ destination, through `BU_PAYMENT_DESTINATION_KEY` or `destinationKey`, starts ev
 it, and `destination()` replaces it for that draft. A client built from the environment offers
 `create()` without `destination()` whether or not the variable is set; when neither is there,
 the awaited `create()` is rejected with `configuration_missing` before anything is sent. The
-default applies only here: no other checkout builder takes a destination. The
+default applies only here: no other builder takes a checkout destination. The
 buyer is named once, by `customerId()` or by `customerEmail()`; `customerName()` exists only
 after `customerEmail()`, and an email that matches an existing customer reuses it. The
 idempotency key is required: use the order id, so a retry answers the same checkout. Reusing

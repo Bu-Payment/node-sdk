@@ -59,7 +59,7 @@ separately. Passing an `environment` that disagrees with the key is rejected at 
 client is frozen.
 
 `client.webhookSecret` returns the configured webhook secret for
-[verifying deliveries](08-events-and-webhooks.md#verifying-deliveries). It is not an enumerable
+[receiving deliveries](08-events-and-webhooks.md#receiving-deliveries). It is not an enumerable
 key, so it stays out of `JSON.stringify(client)`, and reading it with none configured throws
 `configuration_missing` naming `BU_PAYMENT_WEBHOOK_SECRET`.
 
