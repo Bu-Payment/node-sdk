@@ -308,8 +308,8 @@ throws, a failing store, a malformed secret, or an event this SDK cannot read. E
 `500` for a rejected route handler; on Express 4, catch it and pass it to `next`. No framework is
 required: `body()` takes a string or bytes, and `headers()` takes Node's headers or a Fetch
 `Headers`.
-Log the `error` of a `400`: a wrong secret or a body parsed before the route rejects every
-delivery, and its code is the only trace.
+Log the `error` of a `400`: a wrong but well formed secret, or a body parsed before the route,
+rejects every delivery, and its code is the only trace.
 
 `deduplicateWith(store)` runs your function at most once per event `id`. The store lives in your
 database and has two methods:
