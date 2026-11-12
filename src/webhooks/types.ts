@@ -1,5 +1,6 @@
 import type { Price, Product } from "../catalogue/types";
 import type { CheckoutStatus } from "../checkout/types";
+import type { BuPaymentError } from "../errors";
 
 export type WebhookEndpointStatus = "enabled" | "disabled";
 
@@ -167,3 +168,12 @@ export type CheckoutEvent = CheckoutTerminalEvent | CheckoutCancelledEvent;
 export type CheckoutEventType = CheckoutEvent["type"];
 
 export type WebhookEvent = CatalogueEvent | CheckoutEvent | UnknownWebhookEvent;
+
+export type WebhookEventHandler = (
+  event: WebhookEvent,
+  delivery: VerifiedWebhookDelivery,
+) => Promise<void> | void;
+
+export type WebhookOutcome =
+  | { readonly status: 200 }
+  | { readonly status: 400; readonly error: BuPaymentError };

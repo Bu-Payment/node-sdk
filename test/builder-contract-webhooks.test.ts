@@ -55,4 +55,42 @@ describe("webhook delivery builder contract", () => {
       .headers({});
     expect(() => configured.verify()).toThrow();
   });
+
+  it("offers handle only once the secret, body and headers are set", () => {
+    const incomplete: object[] = [
+      webhookDelivery(),
+      webhookDelivery().secret(fixture.secret).body(fixture.body),
+      webhookDelivery().secret(fixture.secret).headers(HEADERS),
+      webhookDelivery().body(fixture.body).headers(HEADERS),
+    ];
+    for (const builder of incomplete) {
+      expect("handle" in builder).toBe(false);
+    }
+    const complete = webhookDelivery().secret(fixture.secret).body(fixture.body).headers(HEADERS);
+    expect("handle" in complete).toBe(true);
+  });
+
+  it("calls the handler only once handle is called", async () => {
+    let calls = 0;
+    const handler = () => {
+      calls += 1;
+    };
+    const ready = webhookDelivery()
+      .secret(fixture.secret)
+      .body(fixture.body)
+      .headers(HEADERS)
+      .clock(() => Number(fixture.timestamp));
+    expect(calls).toBe(0);
+    expect(await ready.handle(handler)).toEqual({ status: 200 });
+    expect(calls).toBe(1);
+  });
+
+  it("rejects a malformed configuration from the awaited handle, never synchronously", async () => {
+    const configured = webhookDelivery().secret("not-a-secret").body(fixture.body).headers(HEADERS);
+    let handled: Promise<unknown> | undefined;
+    expect(() => {
+      handled = configured.handle(() => {});
+    }).not.toThrow();
+    await expect(handled).rejects.toThrow();
+  });
 });

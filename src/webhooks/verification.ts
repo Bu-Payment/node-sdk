@@ -2,7 +2,14 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
 import { parseWebhookEvent } from "./events";
-import type { VerifiedWebhookDelivery, WebhookHeaderReader, WebhookHeaders } from "./types";
+import { handleDelivery } from "./handling";
+import type {
+  VerifiedWebhookDelivery,
+  WebhookEventHandler,
+  WebhookHeaderReader,
+  WebhookHeaders,
+  WebhookOutcome,
+} from "./types";
 
 const DEFAULT_TOLERANCE_SECONDS = 300;
 const ENDPOINT_SECRET = /^whsec_[A-Za-z0-9_-]{32,}$/u;
@@ -35,8 +42,16 @@ export interface VerifiableWebhookDelivery {
   verify(): VerifiedWebhookDelivery;
 }
 
+export interface HandleableWebhookDelivery {
+  handle(handler: WebhookEventHandler): Promise<WebhookOutcome>;
+}
+
+type DeliveryTerminals<TState extends DeliveryState> = TState extends CompleteDelivery
+  ? HandleableWebhookDelivery & VerifiableWebhookDelivery
+  : object;
+
 export type WebhookDeliveryBuilder<TState extends DeliveryState = DeliveryState> =
-  DeliveryMethods<TState> & (TState extends CompleteDelivery ? VerifiableWebhookDelivery : object);
+  DeliveryMethods<TState> & DeliveryTerminals<TState>;
 
 export function webhookDelivery(): WebhookDeliveryBuilder<Record<never, never>> {
   return deliveryBuilder({});
@@ -54,7 +69,10 @@ function deliveryBuilder<TState extends DeliveryState>(
     clock: (clock: () => number) => next({ clock }),
   };
   if (state.secret !== undefined && state.body !== undefined && state.headers !== undefined) {
-    builder.verify = () => verify(state as TState & CompleteDelivery);
+    const complete = state as TState & CompleteDelivery;
+    builder.handle = (handler: WebhookEventHandler) =>
+      handleDelivery(() => verify(complete), handler);
+    builder.verify = () => verify(complete);
   }
   return Object.freeze(builder) as WebhookDeliveryBuilder<TState>;
 }

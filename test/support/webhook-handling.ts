@@ -29,3 +29,26 @@ export function incoming(signing: Signing = {}) {
 export function bodyOf(envelope: unknown): string {
   return JSON.stringify(envelope);
 }
+
+export interface Gate {
+  readonly opened: Promise<void>;
+  open(): void;
+}
+
+export function gate(): Gate {
+  let open = () => {};
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { opened, open };
+}
+
+export async function isSettled(promise: Promise<unknown>): Promise<boolean> {
+  let settled = false;
+  const mark = () => {
+    settled = true;
+  };
+  promise.then(mark, mark);
+  await new Promise((resolve) => setImmediate(resolve));
+  return settled;
+}

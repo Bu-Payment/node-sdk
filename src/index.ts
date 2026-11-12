@@ -97,6 +97,7 @@ export { createWebhooksClient } from "./webhooks/client";
 export { isRejectedDelivery } from "./webhooks/handling";
 export type * from "./webhooks/types";
 export type {
+  HandleableWebhookDelivery,
   VerifiableWebhookDelivery,
   WebhookDeliveryBuilder,
 } from "./webhooks/verification";
