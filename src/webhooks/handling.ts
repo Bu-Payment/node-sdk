@@ -49,15 +49,12 @@ export async function handleDelivery(
 
 async function claim(store: WebhookEventStore, eventId: string): Promise<boolean> {
   const claimed: unknown = await store.claim(eventId);
-  if (typeof claimed === "boolean") {
-    return claimed;
+  if (typeof claimed !== "boolean") {
+    throw new BuPaymentError("Webhook event store claim must resolve to true or false", {
+      code: ErrorCode.CONFIGURATION_INVALID,
+    });
   }
-  if (claimed) {
-    await store.release(eventId);
-  }
-  throw new BuPaymentError("Webhook event store claim must resolve to true or false", {
-    code: ErrorCode.CONFIGURATION_INVALID,
-  });
+  return claimed;
 }
 
 async function release(

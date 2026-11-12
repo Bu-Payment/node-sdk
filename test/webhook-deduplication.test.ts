@@ -141,12 +141,13 @@ describe("webhook delivery deduplication", () => {
   });
 
   it.each([
-    ["undefined", undefined, false],
-    ["null", null, false],
-    ["0", 0, false],
-    ["1", 1, true],
-    ['"OK"', "OK", true],
-  ])("refuses a claim resolving to %s, releasing it when it looks recorded", async (_name, answer, released) => {
+    ["undefined", undefined],
+    ["null", null],
+    ["0", 0],
+    ["1", 1],
+    ['"OK"', "OK"],
+    ["a query result", { rowCount: 0 }],
+  ])("refuses a claim resolving to %s and releases nothing it cannot confirm", async (_name, answer) => {
     const store = memoryStore();
     let calls = 0;
     const careless: WebhookEventStore = {
@@ -163,6 +164,6 @@ describe("webhook delivery deduplication", () => {
       });
     await expect(handled).rejects.toMatchObject({ code: ErrorCode.CONFIGURATION_INVALID });
     expect(calls).toBe(0);
-    expect(store.calls.includes(`release ${EVENT_ID}`)).toBe(released);
+    expect(store.calls).toEqual([`claim ${EVENT_ID}`]);
   });
 });

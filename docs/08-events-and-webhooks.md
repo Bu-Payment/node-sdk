@@ -151,8 +151,9 @@ of one event arriving together cannot both claim it. A read followed by a write 
 function when the claim fails. When your function throws, `handle()` releases the claim before
 rejecting, so the retry of that delivery runs it again. `release` must therefore delete the
 claim, not mark it. A `claim` that resolves to anything but a boolean, such as a row count or
-Redis' `"OK"`, rejects with `configuration_invalid`; the claim is released first when the
-answer looks recorded, so fixing the store loses no event.
+Redis' `"OK"`, rejects with `configuration_invalid`. The SDK cannot tell from such an answer
+whether the id was recorded, so it releases nothing: once the store is fixed, delete the rows
+it claimed while it was wrong, which `claimed_at` finds.
 
 - A delivery that arrives while another of the same event is still running is answered `200`
   at once. If the running one then fails, its own retry carries the event.
