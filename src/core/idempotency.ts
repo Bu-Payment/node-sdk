@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
 
-const MAX_LENGTH = 255;
+export const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
 
 export function generateIdempotencyKey(): string {
   return randomUUID();
@@ -20,8 +20,8 @@ export function parseIdempotencyKey(value: string): string {
     throw invalidKey("Idempotency key must not have leading or trailing whitespace");
   }
   const length = [...value].length;
-  if (length === 0 || length > MAX_LENGTH) {
-    throw invalidKey(`Idempotency key must be 1 to ${MAX_LENGTH} characters`);
+  if (length === 0 || length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    throw invalidKey(`Idempotency key must be 1 to ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`);
   }
   return value;
 }

@@ -95,3 +95,13 @@ export type PriceChange =
       product: Product;
       error: unknown;
     };
+
+export type ProductMirrorOutcome = "found" | "recovered" | "created";
+
+export type ProductMirrorChange = "priced" | "renamed" | "archived" | "reactivated";
+
+export interface ProductMirrorResult {
+  product: Product;
+  outcome: ProductMirrorOutcome;
+  changes: ProductMirrorChange[];
+}

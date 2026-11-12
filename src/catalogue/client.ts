@@ -16,6 +16,7 @@ import { isNotFound } from "../errors";
 import { type DefaultPriceChange, defaultPriceChange } from "./default-price";
 import { pricePath, productPath } from "./paths";
 import { type PriceDraft, priceDraft } from "./price-writes";
+import { type ProductMirror, productMirror } from "./product-mirror";
 import {
   type ProductDraft,
   type ProductUpdate,
@@ -74,6 +75,7 @@ export interface CatalogueClient {
   updateProduct(productId: string): ProductUpdate<Record<never, never>>;
   archiveProduct(productId: string): StateChangeBuilder<Product, "archive">;
   reactivateProduct(productId: string): StateChangeBuilder<Product, "reactivate">;
+  productMirror(lookupKey: string): ProductMirror<Record<never, never>>;
   setDefaultPrice(productId: string): DefaultPriceChange<Record<never, never>>;
   priceDraft(productId: string): PriceDraft<Record<never, never>>;
   archivePrice(priceId: string): StateChangeBuilder<Price, "archive">;
@@ -82,7 +84,7 @@ export interface CatalogueClient {
 
 export function createCatalogueClient(dispatch: Sender): CatalogueClient {
   const send = deferSender(dispatch);
-  return Object.freeze({
+  const catalogue: CatalogueClient = Object.freeze({
     products: () => productList(send, {}),
     product: (productId: string) => singleProduct(send, productId, {}),
     prices: () => priceList(send, {}),
@@ -95,6 +97,7 @@ export function createCatalogueClient(dispatch: Sender): CatalogueClient {
       stateChange<Product, "archive">(send, () => productPath(productId), "archive", {}),
     reactivateProduct: (productId: string) =>
       stateChange<Product, "reactivate">(send, () => productPath(productId), "reactivate", {}),
+    productMirror: (lookupKey: string) => productMirror(catalogue, lookupKey, {}),
     setDefaultPrice: (productId: string) => defaultPriceChange(send, productId, {}),
     priceDraft: (productId: string) => priceDraft(send, productId, {}),
     archivePrice: (priceId: string) =>
@@ -102,6 +105,7 @@ export function createCatalogueClient(dispatch: Sender): CatalogueClient {
     reactivatePrice: (priceId: string) =>
       stateChange<Price, "reactivate">(send, () => pricePath(priceId), "reactivate", {}),
   });
+  return catalogue;
 }
 
 function productList(send: DeferredSender, state: ProductListState): ProductListBuilder {
