@@ -1,3 +1,4 @@
+import type { WebhookEventStore as EntryStore, HandleableWebhookDelivery } from "../src/index";
 import type { WebhookEventStore, WebhookOutcome } from "../src/webhooks/types";
 import { webhookDelivery } from "../src/webhooks/verification";
 
@@ -56,3 +57,11 @@ void outcome.then((answer) => {
   }
   return status;
 });
+
+const entryStore: EntryStore = store;
+const receiver: HandleableWebhookDelivery = webhookDelivery()
+  .secret("whsec_x")
+  .deduplicateWith(entryStore)
+  .body("{}")
+  .headers(headers);
+void receiver.handle(handler);

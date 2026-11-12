@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ErrorCode } from "../src/constants";
 import type { WebhookEventStore } from "../src/webhooks/types";
-import { gate, incoming, memoryStore } from "./support/webhook-handling";
+import { BODY, gate, incoming, isSettled, memoryStore } from "./support/webhook-handling";
 
 const EVENT_ID = "evt_02";
 
@@ -19,6 +19,26 @@ describe("webhook delivery deduplication", () => {
     expect(store.calls).toEqual([`claim ${EVENT_ID}`]);
   });
 
+  it("hands the claimed handler the verified event and delivery", async () => {
+    const outcome = await incoming()
+      .deduplicateWith(memoryStore())
+      .handle((event, delivery) => {
+        expect(event).toEqual(JSON.parse(BODY));
+        expect(delivery.deliveryId).toBe("whd_1");
+      });
+    expect(outcome).toEqual({ status: 200 });
+  });
+
+  it("answers 200 only after the claimed handler resolves", async () => {
+    const work = gate();
+    const outcome = incoming()
+      .deduplicateWith(memoryStore())
+      .handle(() => work.opened);
+    expect(await isSettled(outcome)).toBe(false);
+    work.open();
+    expect(await outcome).toEqual({ status: 200 });
+  });
+
   it("answers 200 for an event already claimed without calling the handler", async () => {
     const store = memoryStore();
     store.claimed.add(EVENT_ID);
@@ -30,6 +50,7 @@ describe("webhook delivery deduplication", () => {
       });
     expect(outcome).toEqual({ status: 200 });
     expect(calls).toBe(0);
+    expect(store.calls).toEqual([`claim ${EVENT_ID}`]);
   });
 
   it("runs the handler once for two simultaneous deliveries of one event", async () => {
@@ -65,6 +86,21 @@ describe("webhook delivery deduplication", () => {
     expect(redelivered).toEqual({ status: 200 });
     expect(calls).toBe(1);
     expect(store.calls).toEqual([`claim ${EVENT_ID}`, `release ${EVENT_ID}`, `claim ${EVENT_ID}`]);
+  });
+
+  it("releases the claim when an asynchronous handler rejects", async () => {
+    const store = memoryStore();
+    const failure = new Error("payment provider unavailable");
+    await expect(
+      incoming()
+        .deduplicateWith(store)
+        .handle(async () => {
+          await Promise.resolve();
+          throw failure;
+        }),
+    ).rejects.toBe(failure);
+    expect(store.claimed.has(EVENT_ID)).toBe(false);
+    expect(store.calls).toEqual([`claim ${EVENT_ID}`, `release ${EVENT_ID}`]);
   });
 
   it("reports both failures when the claim cannot be released", async () => {
