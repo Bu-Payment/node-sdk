@@ -72,6 +72,8 @@ It is `null` when the API sent no code, or one the SDK already reports as `error
 | `checkout_provider_unknown` | `operation_failed` | The environment has no account for the provider given (422). |
 | `checkout_provider_failed` | `operation_failed` | The provider failed the checkout (502). |
 | `checkout_unavailable` | `operation_failed` | The checkout or its provider account is temporarily unavailable (503). |
+| `checkout_custom_amount_not_allowed` | `operation_failed` | A checkout priced by `amount()` was requested by a credential without the `checkout:custom_amount` capability (403). |
+| `checkout_custom_amount_unsupported_provider` | `resource_conflict` | A checkout priced by `amount()` named a provider that cannot charge an amount; only `sisp` and `trust-my-travel` can. |
 | `idempotency_in_progress` | `resource_conflict` | An earlier request under the same `Idempotency-Key` is still running. |
 | `idempotency_outcome_unknown` | `resource_conflict` | The API lost the outcome of an earlier request under the same key, for good. |
 | `financial_preparation_failed` | `operation_failed` | The API failed to prepare a payment and never sent it to the provider (500). |
@@ -96,13 +98,14 @@ a not-found from `get()`.
 
 ## Classifying a failure
 
-Four guards answer the questions a caller asks of a caught value. Each accepts anything and
+Five guards answer the questions a caller asks of a caught value. Each accepts anything and
 answers `false` for a value that is not a `BuPaymentError`.
 
 | Guard | `true` when | Narrows to |
 | --- | --- | --- |
 | `isNotFound(error)` | `code` is `resource_not_found` | `NotFoundError` |
 | `requiresHostedCheckout(error)` | `apiError` is `provider_capability_not_supported` | `HostedCheckoutRequiredError` |
+| `isCustomAmountRefused(error)` | `apiError` is `checkout_custom_amount_not_allowed` or `checkout_custom_amount_unsupported_provider` | `CustomAmountRefusedError` |
 | `isOutcomeUncertain(error)` | a failed write may still have been applied | nothing, it answers `boolean` |
 | `needsReconciliation(error)` | a failed write may have been applied and no retry will tell | nothing, it answers `boolean` |
 
@@ -242,6 +245,7 @@ try {
 | --- | --- | --- | --- |
 | `configuration_invalid`, any `application_auth_*`, `application_capability_denied` | `502` | `operation_failed` | fixed |
 | `operation_failed` with `401` or `403` and no `error.apiError` from `ApiErrorCode` | `502` | `operation_failed` | fixed |
+| `error.apiError` `checkout_custom_amount_not_allowed` or `checkout_custom_amount_unsupported_provider` | `502` | `operation_failed` | fixed |
 | any other `BuPaymentError` with a 4xx or 5xx status | that status | the error's `code` | fixed |
 | any other `BuPaymentError` | `502` | the error's `code` | fixed |
 | anything else | `500` | `operation_failed` | fixed |
@@ -254,6 +258,9 @@ its own session was refused.
 That holds for a `401` or `403` with no code the SDK knows, such as a proxy page. A `403` with a
 code from `ApiErrorCode`, such as `payment_method_unusable`, is a refusal of the request and keeps
 its status.
+The two custom amount refusals are the exception: a missing `checkout:custom_amount` capability
+and a provider that cannot charge an amount are your configuration, not anything the buyer can
+change, so they answer `502` like the other merchant-side failures.
 
 ---
 

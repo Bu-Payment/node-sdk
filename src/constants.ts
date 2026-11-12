@@ -69,6 +69,8 @@ export const ApiErrorCode = {
   CHECKOUT_PROVIDER_UNKNOWN: "checkout_provider_unknown",
   CHECKOUT_PROVIDER_FAILED: "checkout_provider_failed",
   CHECKOUT_UNAVAILABLE: "checkout_unavailable",
+  CHECKOUT_CUSTOM_AMOUNT_NOT_ALLOWED: "checkout_custom_amount_not_allowed",
+  CHECKOUT_CUSTOM_AMOUNT_UNSUPPORTED_PROVIDER: "checkout_custom_amount_unsupported_provider",
   IDEMPOTENCY_IN_PROGRESS: "idempotency_in_progress",
   IDEMPOTENCY_OUTCOME_UNKNOWN: "idempotency_outcome_unknown",
   FINANCIAL_PREPARATION_FAILED: "financial_preparation_failed",
