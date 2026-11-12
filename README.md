@@ -164,6 +164,34 @@ It is `null` when the product has no default price or its default price is not a
 App. When the price a link points to is archived, a sweep of `products().all()` finds the default
 price to repoint it to, without waiting for an event.
 
+An application that mirrors its own products into the catalogue describes the product once and
+lets `ensure()` find, create, rename, archive or reactivate it:
+
+```ts
+const result = await client.catalogue
+  .productMirror(lookupKey)
+  .knownId(storedProductId)
+  .name(title)
+  .active(isActive)
+  .defaultUnitAmount(100)
+  .defaultCurrency("EUR")
+  .idempotencyKey(`mirror-${lookupKey}`)
+  .ensure();
+
+await localProducts.saveRemoteId(lookupKey, result.product.id);
+```
+
+`ensure()` exists once `name()` and `idempotencyKey()` are set, and `defaultCurrency()` appears
+only after `defaultUnitAmount()`. It reads the product by `knownId()`, falls back to the lookup key
+among active and archived products, and creates the product, with its default price, when none
+holds the key. `outcome` is `found`, `recovered` when the known id was not found and the lookup
+key led to the product, or `created`; `changes` lists the writes made: `priced`, `renamed`,
+`archived`, `reactivated`. Each write derives its own key from the base, and a rename, archive or
+reactivation also from the product version it asserts, so calling `ensure()` again after a timeout
+repeats each step instead of duplicating it, and a later sync under the same base never replays a
+spent key. The SDK stores nothing: save `result.product.id`. See
+[Product mirror](docs/12-product-mirror.md).
+
 See [Catalogue](docs/02-catalogue.md) for every route.
 
 ## Selling a one-time product

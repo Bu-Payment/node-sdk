@@ -174,6 +174,9 @@ await client.catalogue
 await client.catalogue.archiveProduct(product.id).expectedUpdatedAt(seen).archive();
 ```
 
+To mirror a local product, `productMirror(lookupKey)` combines these builders; see
+[Product mirror](12-product-mirror.md).
+
 `description(null)` and `lookupKey(null)` clear the field on an update. A price takes
 `interval()` for a recurring price, then `intervalCount()`; `transferLookupKey()` appears
 once `lookupKey()` is set and moves the key from another of the App's prices.
