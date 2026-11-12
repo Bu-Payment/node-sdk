@@ -94,6 +94,7 @@ export { createSubscriptionsClient } from "./subscriptions/client";
 export type * from "./subscriptions/types";
 export type { WebhooksClient } from "./webhooks/client";
 export { createWebhooksClient } from "./webhooks/client";
+export { isRejectedDelivery } from "./webhooks/handling";
 export type * from "./webhooks/types";
 export type {
   VerifiableWebhookDelivery,
