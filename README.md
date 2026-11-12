@@ -269,6 +269,7 @@ discriminated on `type`, so `data` narrows with it. Pass the raw body, not a par
 ```ts
 import express from "express";
 import { webhookDelivery } from "@bu-payment/node-sdk";
+import { processedEvents } from "./processed-events";
 
 const receiver = webhookDelivery()
   .secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "")
@@ -277,7 +278,7 @@ const receiver = webhookDelivery()
 const app = express();
 
 app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
-  const { status } = await receiver
+  const outcome = await receiver
     .body(req.body)
     .headers(req.headers)
     .handle(async (event) => {
@@ -293,7 +294,10 @@ app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (r
           break;
       }
     });
-  res.sendStatus(status);
+  if (outcome.status === 400) {
+    logger.warn({ code: outcome.error.code }, "rejected BuPayment delivery");
+  }
+  res.sendStatus(outcome.status);
 });
 ```
 
@@ -304,6 +308,8 @@ throws, a failing store, a malformed secret, or an event this SDK cannot read. E
 `500` for a rejected route handler; on Express 4, catch it and pass it to `next`. No framework is
 required: `body()` takes a string or bytes, and `headers()` takes Node's headers or a Fetch
 `Headers`.
+Log the `error` of a `400`: a wrong secret or a body parsed before the route rejects every
+delivery, and its code is the only trace.
 
 `deduplicateWith(store)` runs your function at most once per event `id`. The store lives in your
 database and has two methods:
@@ -311,7 +317,7 @@ database and has two methods:
 ```ts
 import type { WebhookEventStore } from "@bu-payment/node-sdk";
 
-const processedEvents: WebhookEventStore = {
+export const processedEvents: WebhookEventStore = {
   async claim(eventId) {
     const inserted = await db.query(
       "insert into bupayment_events (event_id, claimed_at) values ($1, now()) on conflict do nothing",

@@ -54,6 +54,7 @@ verifies the delivery, runs your function on the event and resolves to the statu
 ```ts
 import express from "express";
 import { webhookDelivery } from "@bu-payment/node-sdk";
+import { processedEvents } from "./processed-events";
 
 const receiver = webhookDelivery()
   .secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "")
@@ -62,7 +63,7 @@ const receiver = webhookDelivery()
 const app = express();
 
 app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
-  const { status } = await receiver
+  const outcome = await receiver
     .body(req.body)
     .headers(req.headers)
     .handle(async (event) => {
@@ -70,7 +71,10 @@ app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (r
         await orders.markPaid(event.data.checkoutId, event.data.paymentId);
       }
     });
-  res.sendStatus(status);
+  if (outcome.status === 400) {
+    logger.warn({ code: outcome.error.code }, "rejected BuPayment delivery");
+  }
+  res.sendStatus(outcome.status);
 });
 ```
 
@@ -78,7 +82,8 @@ app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (r
 `{ status: 400, error }` when the delivery failed verification, without calling your function.
 Everything else rejects, and the rejection should answer `500`: an error thrown by your
 function, a failing store, a deployment fault such as a malformed secret
-(`configuration_invalid`), and an authentic delivery this SDK cannot read (see
+(`configuration_invalid`), and an authentic event this SDK cannot read,
+`webhook_event_version_unsupported` or `webhook_event_invalid` (see
 [Typed events](#typed-events)). Express 5 answers `500` for a rejected route handler; on
 Express 4, catch the rejection and pass it to `next`. Nothing here depends on Express: any
 framework that exposes the raw body and the headers works the same way.
@@ -88,6 +93,9 @@ resolves only after your function has, and why a network or rate-limit error ins
 answered `400`: the platform retries every delivery not answered `2xx`. Your function also
 receives the verified delivery as its second argument, with `deliveryId`, `signature` and
 `timestamp`.
+
+Log the `error` of a `400`. A wrong but well formed secret, or an `express.json()` mounted
+before the route, rejects every authentic delivery, and the code it carries is the only trace.
 
 The receiver holding the secret is built once and reused: each delivery branches from it
 without changing it, and `handle()` only becomes available once `body()` and `headers()`
@@ -122,7 +130,7 @@ most once per event `id`, on a store you keep in your own database:
 ```ts
 import type { WebhookEventStore } from "@bu-payment/node-sdk";
 
-const processedEvents: WebhookEventStore = {
+export const processedEvents: WebhookEventStore = {
   async claim(eventId) {
     const inserted = await db.query(
       "insert into bupayment_events (event_id, claimed_at) values ($1, now()) on conflict do nothing",
@@ -142,7 +150,9 @@ of one event arriving together cannot both claim it. A read followed by a write 
 `handle()` claims only after the delivery is verified, and answers `200` without calling your
 function when the claim fails. When your function throws, `handle()` releases the claim before
 rejecting, so the retry of that delivery runs it again. `release` must therefore delete the
-claim, not mark it.
+claim, not mark it. A `claim` that resolves to anything but a boolean, such as a row count or
+Redis' `"OK"`, rejects with `configuration_invalid`; the claim is released first when the
+answer looks recorded, so fixing the store loses no event.
 
 - A delivery that arrives while another of the same event is still running is answered `200`
   at once. If the running one then fails, its own retry carries the event.
@@ -150,6 +160,8 @@ claim, not mark it.
   the id stays claimed with nothing applied. The same happens if the process dies between the
   claim and the end of your function. Keep the claim time, as above, so such rows can be found
   and deleted, and keep reconciling with the list reads.
+- The event `id` is the same at every endpoint. Endpoints that each need to apply the same
+  event need a store each, or a key that includes the endpoint.
 - Once a store is set, `verify()` is no longer offered, so no delivery can bypass it.
 
 ### Verifying without handle
@@ -188,7 +200,9 @@ trust boundary:
 
 - someone holding a captured delivery can resend it inside the window under a new
   `x-webhook-id`, so a deduplication keyed on `deliveryId` alone lets the replay through.
-  Key replay protection on `signature`, which is signed material and unique per attempt;
+  `deduplicateWith()` keys on the signed event `id`, so a replay of an event already handled
+  answers `200` without running your function. Without it, key replay protection on
+  `signature`, which is signed material and unique per attempt;
 - the platform re-signs every retry, so a retry has a new `signature`. Make the effect of a
   delivery idempotent on what the signed body says: the event `id`, which every retry and
   every endpoint receives unchanged, and for catalogue events the resource and its
@@ -284,10 +298,10 @@ can still be paid: `checkout.completed` then arrives later with `previousStatus`
 ### What stays with the application
 
 Deliveries are at least once and unordered. The SDK keeps no state between calls:
-`deduplicateWith()` runs on the store you give it, and the replay store, the last `updatedAt`
-and `occurredAt` applied per resource and applying the event are the application's, as is
-reconciling periodically with the list reads: a delivery that exhausted its attempts is not
-sent again unless retried. `isStale(candidate, stored)` compares `updatedAt` alone, so it cannot order
+`deduplicateWith()` runs on the store you give it, and the last `updatedAt` and `occurredAt`
+applied per resource and applying the event are the application's, as is reconciling
+periodically with the list reads: a delivery that exhausted its attempts is not sent again
+unless retried. `isStale(candidate, stored)` compares `updatedAt` alone, so it cannot order
 events that share one; compare the pair above for those. See
 [Catalogue](02-catalogue.md#applying-the-newer-version).
 
