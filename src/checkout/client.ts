@@ -16,7 +16,10 @@ import {
   taxRateList,
 } from "./tax-rates";
 
+declare const sessionSeed: unique symbol;
+
 export interface CheckoutClient<TSession extends CheckoutSessionState = Record<never, never>> {
+  readonly [sessionSeed]?: TSession;
   coupon(code: string): CouponBuilder<{ code: string }>;
   taxRates(): TaxRateListBuilder<Record<never, never>>;
   taxRate(taxRateId: string): TaxRateBuilder<Record<never, never>>;

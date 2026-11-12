@@ -8,9 +8,15 @@ import {
 import { isConfigured } from "../src/core/env";
 import { webhookDelivery } from "../src/webhooks/verification";
 
+const base = { applicationId: "a", keyId: "k", secret: "s", apiBaseUrl: "u" };
+
 const fromEnv: BuPaymentClient<DefaultDestination> = createBuPaymentClientFromEnv(process.env);
 const asPlain: BuPaymentClient = fromEnv;
 void asPlain;
+
+// @ts-expect-error a client without a destination cannot pass for one that has it
+const pretending: BuPaymentClient<DefaultDestination> = createBuPaymentClient(base);
+void pretending;
 
 const defaulted: Promise<Checkout> = fromEnv.checkout
   .sessionDraft()
@@ -31,8 +37,6 @@ void explicit;
 
 // @ts-expect-error a default destination does not stand in for the idempotency key
 fromEnv.checkout.sessionDraft().priceId("p").customerId("c").create();
-
-const base = { applicationId: "a", keyId: "k", secret: "s", apiBaseUrl: "u" };
 
 const withDestination = createBuPaymentClient({ ...base, destinationKey: "store" });
 withDestination.checkout.sessionDraft().priceId("p").customerId("c").idempotencyKey("o").create();
