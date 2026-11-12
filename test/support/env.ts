@@ -1,8 +1,7 @@
 import { createBuPaymentClientFromEnv } from "../../src/client";
 import type { BuPaymentEnv } from "../../src/core/env";
-import type { FetchLike } from "../../src/core/http";
 import { readVectors } from "../conformance/vectors";
-import { type Call, json } from "./harness";
+import { json, recordingFetch } from "./harness";
 
 const vector = readVectors().success[0] as NonNullable<
   ReturnType<typeof readVectors>["success"][0]
@@ -18,17 +17,6 @@ export const REQUIRED_ENV = Object.freeze({
 });
 
 export function envClient(env: BuPaymentEnv) {
-  const calls: Call[] = [];
-  const fetch: FetchLike = async (url, init) => {
-    calls.push({
-      method: init.method ?? "GET",
-      url,
-      headers: init.headers as Record<string, string>,
-      body: init.body
-        ? JSON.parse(Buffer.from(init.body as Uint8Array).toString("utf8"))
-        : undefined,
-    });
-    return json({ id: "chk_1" });
-  };
+  const { fetch, calls } = recordingFetch(() => json({ id: "chk_1" }));
   return { client: createBuPaymentClientFromEnv(env, { fetch }), calls };
 }

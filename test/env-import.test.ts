@@ -9,12 +9,27 @@ afterEach(() => {
 describe("environment reads", () => {
   it("reads no variable while the package is imported", async () => {
     const read: string[] = [];
+    const record = (name: string | symbol) => {
+      if (typeof name === "string" && name.startsWith("BU_PAYMENT_")) {
+        read.push(name);
+      }
+    };
     process.env = new Proxy(original, {
       get(target, name, receiver) {
-        if (typeof name === "string" && name.startsWith("BU_PAYMENT_")) {
-          read.push(name);
-        }
+        record(name);
         return Reflect.get(target, name, receiver);
+      },
+      has(target, name) {
+        record(name);
+        return Reflect.has(target, name);
+      },
+      getOwnPropertyDescriptor(target, name) {
+        record(name);
+        return Reflect.getOwnPropertyDescriptor(target, name);
+      },
+      ownKeys(target) {
+        read.push("*");
+        return Reflect.ownKeys(target);
       },
     });
     vi.resetModules();

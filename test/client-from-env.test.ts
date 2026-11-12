@@ -122,6 +122,17 @@ describe("webhook secret from the environment", () => {
     expect(JSON.stringify(client)).not.toContain(WEBHOOK_SECRET);
   });
 
+  it("hands over a webhook secret given directly, trimmed", () => {
+    const client = createBuPaymentClient({
+      applicationId: REQUIRED_ENV.BU_PAYMENT_APP_ID,
+      keyId: REQUIRED_ENV.BU_PAYMENT_KEY_ID,
+      secret: REQUIRED_ENV.BU_PAYMENT_SECRET,
+      apiBaseUrl: REQUIRED_ENV.BU_PAYMENT_API_URL,
+      webhookSecret: ` ${WEBHOOK_SECRET} `,
+    });
+    expect(client.webhookSecret).toBe(WEBHOOK_SECRET);
+  });
+
   it("refuses an empty webhook secret given directly", () => {
     const error = failure(() =>
       createBuPaymentClient({

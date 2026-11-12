@@ -28,10 +28,4 @@ describe("client from the environment, builder contract", () => {
     expect("create" in draft).toBe(false);
     expect("create" in draft.idempotencyKey("o")).toBe(true);
   });
-
-  it("issues no request until create is awaited", () => {
-    const { client, calls } = envClient(ENV_WITH_DESTINATION);
-    client.checkout.sessionDraft().priceId("p").customerId("c").idempotencyKey("o");
-    expect(calls).toHaveLength(0);
-  });
 });

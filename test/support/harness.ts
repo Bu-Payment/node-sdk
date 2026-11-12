@@ -18,9 +18,12 @@ export interface Harness {
   calls: Call[];
 }
 
-export function harnessOf(respond: (call: Call, index: number) => Response): Harness {
+export function recordingFetch(respond: (call: Call, index: number) => Response): {
+  fetch: FetchLike;
+  calls: Call[];
+} {
   const calls: Call[] = [];
-  const stub: FetchLike = async (url, init) => {
+  const fetch: FetchLike = async (url, init) => {
     const call: Call = {
       method: init.method ?? "GET",
       url,
@@ -30,7 +33,12 @@ export function harnessOf(respond: (call: Call, index: number) => Response): Har
     calls.push(call);
     return respond(call, calls.length - 1);
   };
-  return { client: clientWith(stub), calls };
+  return { fetch, calls };
+}
+
+export function harnessOf(respond: (call: Call, index: number) => Response): Harness {
+  const { fetch, calls } = recordingFetch(respond);
+  return { client: clientWith(fetch), calls };
 }
 
 function clientWith(fetch: FetchLike): BuPaymentClient {

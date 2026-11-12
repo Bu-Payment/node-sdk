@@ -3,6 +3,14 @@ import { createBuPaymentClient } from "../src/client";
 import { ErrorCode } from "../src/constants";
 import { BuPaymentError } from "../src/errors";
 import { envClient, REQUIRED_ENV } from "./support/env";
+import { json, recordingFetch } from "./support/harness";
+
+const EXPLICIT = {
+  applicationId: REQUIRED_ENV.BU_PAYMENT_APP_ID,
+  keyId: REQUIRED_ENV.BU_PAYMENT_KEY_ID,
+  secret: REQUIRED_ENV.BU_PAYMENT_SECRET,
+  apiBaseUrl: REQUIRED_ENV.BU_PAYMENT_API_URL,
+};
 
 const ENV_WITH_DESTINATION = { ...REQUIRED_ENV, BU_PAYMENT_DESTINATION_KEY: " store " };
 
@@ -49,27 +57,33 @@ describe("default checkout destination", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("takes the destination from an explicit configuration too", () => {
-    const client = createBuPaymentClient({
-      applicationId: REQUIRED_ENV.BU_PAYMENT_APP_ID,
-      keyId: REQUIRED_ENV.BU_PAYMENT_KEY_ID,
-      secret: REQUIRED_ENV.BU_PAYMENT_SECRET,
-      apiBaseUrl: REQUIRED_ENV.BU_PAYMENT_API_URL,
-      destinationKey: "store",
-    });
-    const draft = client.checkout.sessionDraft().priceId("p").customerId("c").idempotencyKey("o");
-    expect("create" in draft).toBe(true);
+  it("lets an explicit destination stand in for a missing variable", async () => {
+    const { client, calls } = envClient(REQUIRED_ENV);
+    await client.checkout
+      .sessionDraft()
+      .priceId("price_1")
+      .customerId("customer_1")
+      .destination("partner")
+      .idempotencyKey("order-1")
+      .create();
+    expect(calls[0]?.body).toMatchObject({ destinationKey: "partner" });
+  });
+
+  it("sends the destination given directly, trimmed", async () => {
+    const { fetch, calls } = recordingFetch(() => json({ id: "chk_1" }));
+    const client = createBuPaymentClient({ ...EXPLICIT, destinationKey: " store " }, { fetch });
+    await client.checkout
+      .sessionDraft()
+      .priceId("price_1")
+      .customerId("customer_1")
+      .idempotencyKey("order-1")
+      .create();
+    expect(calls[0]?.body).toMatchObject({ destinationKey: "store" });
   });
 
   it("refuses an empty destination given directly", () => {
-    expect(() =>
-      createBuPaymentClient({
-        applicationId: REQUIRED_ENV.BU_PAYMENT_APP_ID,
-        keyId: REQUIRED_ENV.BU_PAYMENT_KEY_ID,
-        secret: REQUIRED_ENV.BU_PAYMENT_SECRET,
-        apiBaseUrl: REQUIRED_ENV.BU_PAYMENT_API_URL,
-        destinationKey: " ",
-      }),
-    ).toThrowError(expect.objectContaining({ code: ErrorCode.CONFIGURATION_INVALID }));
+    expect(() => createBuPaymentClient({ ...EXPLICIT, destinationKey: " " })).toThrowError(
+      expect.objectContaining({ code: ErrorCode.CONFIGURATION_INVALID }),
+    );
   });
 });
