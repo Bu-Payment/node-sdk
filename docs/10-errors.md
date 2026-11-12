@@ -52,6 +52,10 @@ try {
 | `webhook_event_version_unsupported` | A verified delivery is not a version `1` envelope; `metadata.version` holds a numeric version. |
 | `webhook_event_invalid` | A verified delivery of a known type does not match its documented shape; `metadata.field` names the field. |
 
+`isRejectedDelivery(error)` is `true` for the first four `webhook_` codes, which mean a bad
+delivery and are answered `400`. `webhook_event_version_unsupported` and `webhook_event_invalid`
+come from the platform itself and are answered `500`.
+
 ### API codes behind a generic code
 
 Some refusals have no code of their own in the SDK: `error.code` is the generic code for the
