@@ -1,7 +1,16 @@
 export function typesCheck() {
-  return `import { createBuPaymentClient, ErrorCode, paginate, webhookDelivery } from "@bu-payment/node-sdk";
+  return `import {
+  createBuPaymentClient,
+  createBuPaymentClientFromEnv,
+  EnvVariable,
+  ErrorCode,
+  isConfigured,
+  paginate,
+  webhookDelivery,
+} from "@bu-payment/node-sdk";
 import type {
   BillingCapabilities,
+  BuPaymentEnv,
   Checkout,
   ClientConfigInput,
   OwnedRefund,
@@ -95,6 +104,13 @@ export async function probe(): Promise<unknown> {
 
   // @ts-expect-error a checkout cannot be created before its destination is set
   await client.checkout.sessionDraft().priceId("price_1").customerId("cus_1").idempotencyKey("o").create();
+
+  const env: BuPaymentEnv = { [EnvVariable.DESTINATION_KEY]: "default" };
+  if (isConfigured(env)) {
+    const configured = createBuPaymentClientFromEnv(env);
+    webhookDelivery().secret(configured.webhookSecret);
+    await configured.checkout.sessionDraft().priceId("price_1").customerId("cus_1").idempotencyKey("o").create();
+  }
 
   await paymentMethodSetup(client);
   await manualPaging(client);

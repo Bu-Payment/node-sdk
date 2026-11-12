@@ -7,8 +7,10 @@ import {
   expectedPriceMethods,
   isExpectedPriceSettled,
 } from "../catalogue/expected-price";
+import { EnvVariable } from "../constants";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { readRequest, scopeMethods, writeRequest } from "../core/builder";
+import { configurationMissing } from "../core/env";
 import { encodePathSegment } from "../core/request-target";
 import type { Checkout } from "./types";
 
@@ -19,6 +21,7 @@ export interface CheckoutSessionState extends RequestScope, ExpectedPriceState {
   customerName?: string;
   quantity?: number;
   destination?: string;
+  unconfiguredDestination?: true;
   provider?: string;
   reference?: string;
   idempotencyKey?: string;
@@ -118,7 +121,7 @@ export function checkoutSessionReader(
 function isCreatable(state: CheckoutSessionState): boolean {
   return (
     state.priceId !== undefined &&
-    state.destination !== undefined &&
+    (state.destination !== undefined || state.unconfiguredDestination === true) &&
     state.idempotencyKey !== undefined &&
     (state.customerId !== undefined || state.customerEmail !== undefined) &&
     isExpectedPriceSettled(state)
@@ -131,10 +134,17 @@ function checkoutBody(state: CheckoutSessionState): Record<string, unknown> {
     ...expectedPriceField(state),
     ...buyerField(state),
     ...(state.quantity === undefined ? {} : { quantity: state.quantity }),
-    destinationKey: state.destination,
+    destinationKey: state.destination ?? missingDestination(),
     ...(state.provider === undefined ? {} : { provider: state.provider }),
     ...(state.reference === undefined ? {} : { reference: state.reference }),
   };
+}
+
+function missingDestination(): never {
+  throw configurationMissing(
+    "Checkout destination is not configured: call destination() or set BU_PAYMENT_DESTINATION_KEY",
+    [EnvVariable.DESTINATION_KEY],
+  );
 }
 
 function buyerField(state: CheckoutSessionState): Record<string, unknown> {

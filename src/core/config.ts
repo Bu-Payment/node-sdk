@@ -11,6 +11,13 @@ export interface ClientConfigInput {
   secret: string;
   apiBaseUrl: string;
   environment?: Environment;
+  destinationKey?: string;
+  webhookSecret?: string;
+}
+
+export interface ClientDefaults {
+  destinationKey?: string;
+  webhookSecret?: string;
 }
 
 export interface ClientConfig {
@@ -41,6 +48,26 @@ export function parseClientConfig(input: ClientConfigInput): ClientConfig {
     apiBaseUrl: parseApiBaseUrl(input.apiBaseUrl),
     environment,
   };
+}
+
+export function parseClientDefaults(input: ClientConfigInput): ClientDefaults {
+  const destinationKey = optionalSetting(input.destinationKey, "Destination key");
+  const webhookSecret = optionalSetting(input.webhookSecret, "Webhook secret");
+  return {
+    ...(destinationKey === undefined ? {} : { destinationKey }),
+    ...(webhookSecret === undefined ? {} : { webhookSecret }),
+  };
+}
+
+function optionalSetting(value: string | undefined, label: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw invalidConfig(`${label} must not be empty when given`);
+  }
+  return trimmed;
 }
 
 function keyEnvironment(keyId: string): Environment {

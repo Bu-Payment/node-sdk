@@ -53,11 +53,12 @@ verifies the delivery, runs your function on the event and resolves to the statu
 
 ```ts
 import express from "express";
-import { webhookDelivery } from "@bu-payment/node-sdk";
+import { createBuPaymentClientFromEnv, webhookDelivery } from "@bu-payment/node-sdk";
 import { processedEvents } from "./processed-events";
 
+const client = createBuPaymentClientFromEnv(process.env);
 const receiver = webhookDelivery()
-  .secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "")
+  .secret(client.webhookSecret)
   .deduplicateWith(processedEvents);
 
 const app = express();
@@ -77,6 +78,10 @@ app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (r
   res.sendStatus(outcome.status);
 });
 ```
+
+The client reads the whole credential from the environment. A service that only receives
+webhooks and holds no confidential credential can skip the client and pass
+`process.env.BU_PAYMENT_WEBHOOK_SECRET ?? ""` to `secret()` directly.
 
 `handle()` resolves to `{ status: 200 }` once your function has finished, and to
 `{ status: 400, error }` when the delivery failed verification, without calling your function.
@@ -175,7 +180,7 @@ is `true` for exactly the four codes that mean a bad delivery, answered `400`:
 ```ts
 import { isRejectedDelivery, webhookDelivery } from "@bu-payment/node-sdk";
 
-const verifier = webhookDelivery().secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "");
+const verifier = webhookDelivery().secret(process.env.BU_PAYMENT_WEBHOOK_SECRET ?? "");
 
 app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
   let delivery;

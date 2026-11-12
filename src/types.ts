@@ -2,7 +2,7 @@ export type * from "./billing/types";
 export type { PricedTerms, PriceTerms } from "./catalogue/price-terms";
 export type * from "./catalogue/types";
 export type * from "./checkout/types";
-export type { BuPaymentClient, ClientOptions } from "./client";
+export type { BuPaymentClient, ClientOptions, DefaultDestination } from "./client";
 export type {
   CursorScope,
   PageMethods,
@@ -12,6 +12,7 @@ export type {
 } from "./core/builder";
 export type { CanonicalRequestInput } from "./core/canonical-request";
 export type { ClientConfig, ClientConfigInput, Environment } from "./core/config";
+export type { BuPaymentEnv } from "./core/env";
 export type { Stamp } from "./core/freshness";
 export type { FetchLike, TransportOptions, TransportRequest } from "./core/http";
 export type { Collection, CursorQuery, Page, PageReader, PageWithMore } from "./core/pagination";

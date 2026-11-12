@@ -3,6 +3,7 @@ import { type CouponBuilder, couponBuilder } from "./coupons";
 import {
   type CheckoutSessionDraft,
   type CheckoutSessionReader,
+  type CheckoutSessionState,
   checkoutSessionDraft,
   checkoutSessionReader,
 } from "./one-time";
@@ -15,17 +16,27 @@ import {
   taxRateList,
 } from "./tax-rates";
 
-export interface CheckoutClient {
+declare const sessionSeed: unique symbol;
+
+export interface CheckoutClient<TSession extends CheckoutSessionState = Record<never, never>> {
+  readonly [sessionSeed]?: TSession;
   coupon(code: string): CouponBuilder<{ code: string }>;
   taxRates(): TaxRateListBuilder<Record<never, never>>;
   taxRate(taxRateId: string): TaxRateBuilder<Record<never, never>>;
   shippingRates(): ShippingRatesBuilder<Record<never, never>>;
   subscriptionSession(): SubscriptionSessionBuilder<Record<never, never>>;
-  sessionDraft(): CheckoutSessionDraft<Record<never, never>>;
+  sessionDraft(): CheckoutSessionDraft<TSession>;
   session(checkoutId: string): CheckoutSessionReader;
 }
 
 export function createCheckoutClient(dispatch: Sender): CheckoutClient {
+  return seededCheckoutClient(dispatch, {});
+}
+
+export function seededCheckoutClient<TSession extends CheckoutSessionState>(
+  dispatch: Sender,
+  session: CheckoutSessionState,
+): CheckoutClient<TSession> {
   const send = deferSender(dispatch);
   return Object.freeze({
     coupon: (code: string) => couponBuilder(send, { code }),
@@ -33,7 +44,7 @@ export function createCheckoutClient(dispatch: Sender): CheckoutClient {
     taxRate: (taxRateId: string) => taxRateBuilder(send, taxRateId, {}),
     shippingRates: () => shippingRatesBuilder(send, {}),
     subscriptionSession: () => subscriptionSession(send, {}),
-    sessionDraft: () => checkoutSessionDraft(send, {}),
+    sessionDraft: () => checkoutSessionDraft(send, session as TSession),
     session: (checkoutId: string) => checkoutSessionReader(send, checkoutId, {}),
   });
 }
