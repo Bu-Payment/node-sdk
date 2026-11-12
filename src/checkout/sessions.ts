@@ -1,13 +1,19 @@
-import { expectedPriceField, pinExpectedPrice } from "../catalogue/expected-price";
-import type { ExpectedPrice } from "../catalogue/types";
+import {
+  type ExpectedCurrencyMethod,
+  type ExpectedPriceSettled,
+  type ExpectedPriceState,
+  type ExpectedUnitAmountMethod,
+  expectedPriceField,
+  expectedPriceMethods,
+  isExpectedPriceSettled,
+} from "../catalogue/expected-price";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { CheckoutSession } from "./types";
 
-export interface SessionState extends RequestScope {
+export interface SessionState extends RequestScope, ExpectedPriceState {
   name?: string;
   priceId?: string;
-  expectedPrice?: ExpectedPrice;
   customerId?: string;
   customerEmail?: string;
   customerName?: string;
@@ -21,7 +27,6 @@ interface SessionMethods<TState extends SessionState>
   extends ScopeMethods<SubscriptionSessionBuilder<TState>> {
   name(name: string): SubscriptionSessionBuilder<TState & { name: string }>;
   priceId(priceId: string): SubscriptionSessionBuilder<TState & { priceId: string }>;
-  expectedPrice(expected: ExpectedPrice): SubscriptionSessionBuilder<TState>;
   customerId(customerId: string): SubscriptionSessionBuilder<TState & { customerId: string }>;
   customerEmail(
     customerEmail: string,
@@ -47,7 +52,16 @@ type SessionReady = {
 };
 
 export type SubscriptionSessionBuilder<TState extends SessionState = SessionState> =
-  SessionMethods<TState> & (TState extends SessionReady ? CreatableSession : object);
+  SessionMethods<TState> &
+    ExpectedUnitAmountMethod<SubscriptionSessionBuilder<TState & { expectedUnitAmount: number }>> &
+    (TState extends { expectedUnitAmount: number }
+      ? ExpectedCurrencyMethod<SubscriptionSessionBuilder<TState & { expectedCurrency: string }>>
+      : object) &
+    (TState extends SessionReady
+      ? ExpectedPriceSettled<TState> extends true
+        ? CreatableSession
+        : object
+      : object);
 
 export function subscriptionSession<TState extends SessionState>(
   send: DeferredSender,
@@ -59,7 +73,7 @@ export function subscriptionSession<TState extends SessionState>(
     ...scopeMethods(next),
     name: (name: string) => next({ name }),
     priceId: (priceId: string) => next({ priceId }),
-    expectedPrice: (expected: ExpectedPrice) => next({ expectedPrice: pinExpectedPrice(expected) }),
+    ...expectedPriceMethods(state, next),
     customerId: (customerId: string) => next({ customerId }),
     customerEmail: (customerEmail: string) => next({ customerEmail }),
     customerName: (customerName: string) => next({ customerName }),
@@ -74,7 +88,7 @@ export function subscriptionSession<TState extends SessionState>(
         writeRequest("POST", "/v1/subscription-checkouts", state, {
           name: state.name,
           priceId: state.priceId,
-          ...expectedPriceField(state.expectedPrice),
+          ...expectedPriceField(state),
           customer: {
             id: state.customerId,
             email: state.customerEmail,
@@ -96,6 +110,7 @@ function isReady(state: SessionState): boolean {
     state.customerId !== undefined &&
     state.customerEmail !== undefined &&
     state.successUrl !== undefined &&
-    state.cancelUrl !== undefined
+    state.cancelUrl !== undefined &&
+    isExpectedPriceSettled(state)
   );
 }

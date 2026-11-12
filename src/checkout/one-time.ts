@@ -1,13 +1,19 @@
-import { expectedPriceField, pinExpectedPrice } from "../catalogue/expected-price";
-import type { ExpectedPrice } from "../catalogue/types";
+import {
+  type ExpectedCurrencyMethod,
+  type ExpectedPriceSettled,
+  type ExpectedPriceState,
+  type ExpectedUnitAmountMethod,
+  expectedPriceField,
+  expectedPriceMethods,
+  isExpectedPriceSettled,
+} from "../catalogue/expected-price";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { readRequest, scopeMethods, writeRequest } from "../core/builder";
 import { encodePathSegment } from "../core/request-target";
 import type { Checkout } from "./types";
 
-export interface CheckoutSessionState extends RequestScope {
+export interface CheckoutSessionState extends RequestScope, ExpectedPriceState {
   priceId?: string;
-  expectedPrice?: ExpectedPrice;
   customerId?: string;
   customerEmail?: string;
   customerName?: string;
@@ -21,7 +27,6 @@ export interface CheckoutSessionState extends RequestScope {
 interface DraftCore<TState extends CheckoutSessionState>
   extends ScopeMethods<CheckoutSessionDraft<TState>> {
   priceId(priceId: string): CheckoutSessionDraft<TState & { priceId: string }>;
-  expectedPrice(expected: ExpectedPrice): CheckoutSessionDraft<TState>;
   quantity(quantity: number): CheckoutSessionDraft<TState>;
   destination(destination: string): CheckoutSessionDraft<TState & { destination: string }>;
   provider(provider: string): CheckoutSessionDraft<TState>;
@@ -50,10 +55,14 @@ type Named<TState> = TState extends { customerId: string }
 
 export type CheckoutSessionDraft<TState extends CheckoutSessionState = CheckoutSessionState> =
   DraftCore<TState> &
+    ExpectedUnitAmountMethod<CheckoutSessionDraft<TState & { expectedUnitAmount: number }>> &
+    (TState extends { expectedUnitAmount: number }
+      ? ExpectedCurrencyMethod<CheckoutSessionDraft<TState & { expectedCurrency: string }>>
+      : object) &
     (Named<TState> extends true ? object : BuyerNaming<TState>) &
     (TState extends { customerEmail: string } ? BuyerName<TState> : object) &
     (TState extends { priceId: string; destination: string; idempotencyKey: string }
-      ? Named<TState> extends true
+      ? [Named<TState>, ExpectedPriceSettled<TState>] extends [true, true]
         ? CreatableCheckoutSession
         : object
       : object);
@@ -71,7 +80,7 @@ export function checkoutSessionDraft<TState extends CheckoutSessionState>(
   const builder: Record<string, unknown> = {
     ...scopeMethods(next),
     priceId: (priceId: string) => next({ priceId }),
-    expectedPrice: (expected: ExpectedPrice) => next({ expectedPrice: pinExpectedPrice(expected) }),
+    ...expectedPriceMethods(state, next),
     quantity: (quantity: number) => next({ quantity }),
     destination: (destination: string) => next({ destination }),
     provider: (provider: string) => next({ provider }),
@@ -111,14 +120,15 @@ function isCreatable(state: CheckoutSessionState): boolean {
     state.priceId !== undefined &&
     state.destination !== undefined &&
     state.idempotencyKey !== undefined &&
-    (state.customerId !== undefined || state.customerEmail !== undefined)
+    (state.customerId !== undefined || state.customerEmail !== undefined) &&
+    isExpectedPriceSettled(state)
   );
 }
 
 function checkoutBody(state: CheckoutSessionState): Record<string, unknown> {
   return {
     priceId: state.priceId,
-    ...expectedPriceField(state.expectedPrice),
+    ...expectedPriceField(state),
     ...buyerField(state),
     ...(state.quantity === undefined ? {} : { quantity: state.quantity }),
     destinationKey: state.destination,

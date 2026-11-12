@@ -1,17 +1,26 @@
-import { expectedPriceField, pinExpectedPrice } from "../catalogue/expected-price";
-import type { ExpectedPrice } from "../catalogue/types";
+import {
+  type ExpectedCurrencyMethod,
+  type ExpectedPriceSettled,
+  type ExpectedPriceState,
+  type ExpectedUnitAmountMethod,
+  expectedPriceField,
+  expectedPriceMethods,
+  isExpectedPriceSettled,
+} from "../catalogue/expected-price";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { Payment, PaymentAllocation } from "./types";
 
-export interface PaymentState extends RequestScope {
+type OpenAllocation = Pick<PaymentAllocation, "reference"> | Omit<PaymentAllocation, "currency">;
+
+export interface PaymentState extends RequestScope, ExpectedPriceState {
   customerId?: string;
   priceId?: string;
-  expectedPrice?: ExpectedPrice;
   amount?: number;
   currency?: string;
   paymentMethodId?: string;
   allocations?: PaymentAllocation[];
+  openAllocation?: OpenAllocation;
   reference?: string;
   description?: string;
   idempotencyKey?: string;
@@ -29,39 +38,63 @@ interface CanonicalPricing<TState extends PaymentState> {
   priceId(priceId: string): PaymentDraft<TState & { priceId: string }>;
 }
 
-interface PriceAsserting<TState extends PaymentState> {
-  expectedPrice(expected: ExpectedPrice): PaymentDraft<TState>;
-}
-
 interface AdHocPricing<TState extends PaymentState> {
   amount(amount: number): PaymentDraft<TState & { amount: number }>;
   currency(currency: string): PaymentDraft<TState & { currency: string }>;
 }
 
-interface Allocating<TState extends PaymentState> {
-  allocation(
+interface AllocationOpening<TState extends PaymentState> {
+  allocationReference(
     reference: string,
-    amount: number,
-    currency: string,
-  ): PaymentDraft<TState & { allocations: PaymentAllocation[] }>;
+  ): PaymentDraft<TState & { openAllocation: Pick<PaymentAllocation, "reference"> }>;
 }
+
+interface AllocationAmount<TState extends PaymentState> {
+  allocationAmount(
+    amount: number,
+  ): PaymentDraft<TState & { openAllocation: Omit<PaymentAllocation, "currency"> }>;
+}
+
+interface AllocationClosing<TState extends PaymentState> {
+  allocationCurrency(
+    currency: string,
+  ): PaymentDraft<
+    Omit<TState, "openAllocation"> & PaymentState & { allocations: PaymentAllocation[] }
+  >;
+}
+
+type Allocating<TState extends PaymentState> = TState extends {
+  openAllocation: { amount: number };
+}
+  ? AllocationClosing<TState>
+  : TState extends { openAllocation: OpenAllocation }
+    ? AllocationAmount<TState>
+    : AllocationOpening<TState>;
 
 export interface CreatablePayment {
   create(): Promise<Payment>;
 }
 
 type Priced<TState extends PaymentState> = TState extends { priceId: string }
-  ? true
+  ? ExpectedPriceSettled<TState>
   : TState extends { amount: number; currency: string }
     ? true
     : false;
 
 export type PaymentDraft<TState extends PaymentState = PaymentState> = PaymentCore<TState> &
   (TState extends { amount: number } | { currency: string } ? object : CanonicalPricing<TState>) &
-  (TState extends { priceId: string } ? PriceAsserting<TState> : AdHocPricing<TState>) &
+  (TState extends { priceId: string }
+    ? ExpectedUnitAmountMethod<PaymentDraft<TState & { expectedUnitAmount: number }>> &
+        (TState extends { expectedUnitAmount: number }
+          ? ExpectedCurrencyMethod<PaymentDraft<TState & { expectedCurrency: string }>>
+          : object)
+    : AdHocPricing<TState>) &
   (TState extends { paymentMethodId: string } ? Allocating<TState> : object) &
   (TState extends { customerId: string }
-    ? Priced<TState> extends true
+    ? [Priced<TState>, TState extends { openAllocation: OpenAllocation } ? false : true] extends [
+        true,
+        true,
+      ]
       ? CreatablePayment
       : object
     : object);
@@ -83,16 +116,17 @@ export function paymentDraft<TState extends PaymentState>(
     builder.priceId = (priceId: string) => next({ priceId });
   }
   if (state.priceId !== undefined) {
-    builder.expectedPrice = (expected: ExpectedPrice) =>
-      next({ expectedPrice: pinExpectedPrice(expected) });
+    Object.assign(builder, expectedPriceMethods(state, next));
   }
   if (state.priceId === undefined) {
     builder.amount = (amount: number) => next({ amount });
     builder.currency = (currency: string) => next({ currency });
   }
   if (state.paymentMethodId !== undefined) {
-    builder.allocation = (reference: string, amount: number, currency: string) =>
-      next({ allocations: [...(state.allocations ?? []), { reference, amount, currency }] });
+    const { openAllocation, ...settled }: PaymentState = state;
+    const close = (allocation: PaymentAllocation) =>
+      paymentDraft(send, { ...settled, allocations: [...(state.allocations ?? []), allocation] });
+    Object.assign(builder, allocationMethods(state, next, close));
   }
   if (isCreatable(state)) {
     builder.create = () =>
@@ -101,20 +135,48 @@ export function paymentDraft<TState extends PaymentState>(
   return Object.freeze(builder) as PaymentDraft<TState>;
 }
 
+function allocationMethods(
+  state: PaymentState,
+  next: (update: Partial<PaymentState>) => unknown,
+  close: (allocation: PaymentAllocation) => unknown,
+): Record<string, unknown> {
+  const open = state.openAllocation;
+  if (open === undefined) {
+    return {
+      allocationReference: (reference: string) => next({ openAllocation: { reference } }),
+    };
+  }
+  if (!("amount" in open)) {
+    return {
+      allocationAmount: (amount: number) =>
+        next({ openAllocation: { reference: open.reference, amount } }),
+    };
+  }
+  return {
+    allocationCurrency: (currency: string) => {
+      if (open.reference === undefined || open.amount === undefined || currency === undefined) {
+        return next({});
+      }
+      return close({ reference: open.reference, amount: open.amount, currency });
+    },
+  };
+}
+
 function isCreatable(state: PaymentState): boolean {
-  if (state.customerId === undefined) {
+  if (state.customerId === undefined || "openAllocation" in state) {
     return false;
   }
-  return (
-    state.priceId !== undefined || (state.amount !== undefined && state.currency !== undefined)
-  );
+  if (state.priceId !== undefined) {
+    return isExpectedPriceSettled(state);
+  }
+  return state.amount !== undefined && state.currency !== undefined;
 }
 
 function bodyOf(state: PaymentState): Record<string, unknown> {
   return {
     customerId: state.customerId,
     ...(state.priceId === undefined ? {} : { priceId: state.priceId }),
-    ...expectedPriceField(state.expectedPrice),
+    ...expectedPriceField(state),
     ...(state.amount === undefined ? {} : { amount: state.amount }),
     ...(state.currency === undefined ? {} : { currency: state.currency }),
     ...(state.paymentMethodId === undefined ? {} : { paymentMethodId: state.paymentMethodId }),

@@ -6,7 +6,8 @@ import type { SaleReservation, SaleResult } from "./types";
 
 export interface SaleState extends RequestScope {
   priceId?: string;
-  displayedPrice?: ExpectedPrice;
+  displayedUnitAmount?: number;
+  displayedCurrency?: string;
   customerId?: string;
   customerEmail?: string;
   reference?: string;
@@ -26,11 +27,15 @@ export type CompleteSale = SaleState & {
 
 interface SaleCore<TState extends SaleState> extends ScopeMethods<SaleDraft<TState>> {
   priceId(priceId: string): SaleDraft<TState & { priceId: string }>;
-  displayedPrice(displayed: ExpectedPrice): SaleDraft<TState & { displayedPrice: ExpectedPrice }>;
+  displayedUnitAmount(unitAmount: number): SaleDraft<TState & { displayedUnitAmount: number }>;
   reference(reference: string): SaleDraft<TState>;
   description(description: string): SaleDraft<TState>;
   reservation(reservation: SaleReservation): SaleDraft<TState>;
   idempotencyKey(idempotencyKey: string): SaleDraft<TState & { idempotencyKey: string }>;
+}
+
+interface DisplayedCurrency<TState extends SaleState> {
+  displayedCurrency(currency: string): SaleDraft<TState & { displayedCurrency: string }>;
 }
 
 interface CustomerNaming<TState extends SaleState> {
@@ -48,13 +53,17 @@ type Named<TState extends SaleState> = TState extends { customerId: string }
     ? true
     : false;
 
+type ReadyToCharge = {
+  priceId: string;
+  displayedUnitAmount: number;
+  displayedCurrency: string;
+  idempotencyKey: string;
+};
+
 export type SaleDraft<TState extends SaleState = SaleState> = SaleCore<TState> &
+  (TState extends { displayedUnitAmount: number } ? DisplayedCurrency<TState> : object) &
   (Named<TState> extends true ? object : CustomerNaming<TState>) &
-  (TState extends { priceId: string; displayedPrice: ExpectedPrice; idempotencyKey: string }
-    ? Named<TState> extends true
-      ? ChargeableSale
-      : object
-    : object);
+  (TState extends ReadyToCharge ? (Named<TState> extends true ? ChargeableSale : object) : object);
 
 export type SaleCharger = (sale: CompleteSale) => Promise<SaleResult>;
 
@@ -66,8 +75,7 @@ export function saleDraft<TState extends SaleState>(
   const builder: Record<string, unknown> = {
     ...scopeMethods(next),
     priceId: (priceId: string) => next({ priceId }),
-    displayedPrice: (displayed: ExpectedPrice) =>
-      next({ displayedPrice: pinExpectedPrice(displayed) }),
+    displayedUnitAmount: (displayedUnitAmount: number) => next({ displayedUnitAmount }),
     reference: (reference: string) => next({ reference }),
     description: (description: string) => next({ description }),
     reservation: (reservation: SaleReservation) =>
@@ -79,6 +87,9 @@ export function saleDraft<TState extends SaleState>(
       }),
     idempotencyKey: (idempotencyKey: string) => next({ idempotencyKey }),
   };
+  if ("displayedUnitAmount" in state) {
+    builder.displayedCurrency = (displayedCurrency: string) => next({ displayedCurrency });
+  }
   if (state.customerId === undefined && state.customerEmail === undefined) {
     builder.customerEmail = (customerEmail: string) => next({ customerEmail });
     builder.customerId = (customerId: string) => next({ customerId });
@@ -92,15 +103,20 @@ export function saleDraft<TState extends SaleState>(
 
 function completeSale(state: SaleState): CompleteSale | undefined {
   const customer = customerOf(state);
-  const { priceId, displayedPrice, idempotencyKey } = state;
+  const { priceId, displayedUnitAmount, displayedCurrency, idempotencyKey } = state;
   if (
     priceId === undefined ||
-    displayedPrice === undefined ||
+    displayedUnitAmount === undefined ||
+    displayedCurrency === undefined ||
     idempotencyKey === undefined ||
     customer === undefined
   ) {
     return undefined;
   }
+  const displayedPrice = pinExpectedPrice({
+    unitAmount: displayedUnitAmount,
+    currency: displayedCurrency,
+  });
   return { ...state, priceId, displayedPrice, idempotencyKey, customer };
 }
 

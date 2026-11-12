@@ -36,8 +36,12 @@ describe("payments, invoices and refunds", () => {
       .customerId("cus_1")
       .priceId("price_1")
       .paymentMethodId("pm_1")
-      .allocation("line_1", 2_500, "EUR")
-      .allocation("line_2", 2_500, "EUR")
+      .allocationReference("line_1")
+      .allocationAmount(2_500)
+      .allocationCurrency("EUR")
+      .allocationReference("line_2")
+      .allocationAmount(2_500)
+      .allocationCurrency("EUR")
       .create();
     expect(callAt(calls, 0).body).toEqual({
       customerId: "cus_1",

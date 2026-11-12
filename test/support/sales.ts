@@ -103,7 +103,8 @@ export const saleOf = (client: SalesClientOf) =>
   client.sales
     .draft()
     .priceId("price_1")
-    .displayedPrice(displayed)
+    .displayedUnitAmount(displayed.unitAmount)
+    .displayedCurrency(displayed.currency)
     .customerEmail(email)
     .idempotencyKey("order-1");
 

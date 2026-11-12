@@ -1,5 +1,12 @@
-import { expectedPriceField, pinExpectedPrice } from "../catalogue/expected-price";
-import type { ExpectedPrice } from "../catalogue/types";
+import {
+  type ExpectedCurrencyMethod,
+  type ExpectedPriceSettled,
+  type ExpectedPriceState,
+  type ExpectedUnitAmountMethod,
+  expectedPriceField,
+  expectedPriceMethods,
+  isExpectedPriceSettled,
+} from "../catalogue/expected-price";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { scopeMethods, writeRequest } from "../core/builder";
 import type { SubscriptionDetail } from "./types";
@@ -9,12 +16,11 @@ type Activation =
   | { state: "active"; startsAt: string }
   | { state: "trialing"; startsAt: string; trialEndsAt: string };
 
-export interface DraftState extends RequestScope {
+export interface DraftState extends RequestScope, ExpectedPriceState {
   trialStartsAt?: string;
   customerId?: string;
   name?: string;
   priceId?: string;
-  expectedPrice?: ExpectedPrice;
   quantity?: number;
   activation?: Activation;
   idempotencyKey?: string;
@@ -24,7 +30,6 @@ interface DraftMethods<TState extends DraftState> extends ScopeMethods<Subscript
   customerId(customerId: string): SubscriptionDraft<TState & { customerId: string }>;
   name(name: string): SubscriptionDraft<TState & { name: string }>;
   priceId(priceId: string): SubscriptionDraft<TState & { priceId: string }>;
-  expectedPrice(expected: ExpectedPrice): SubscriptionDraft<TState>;
   quantity(quantity: number): SubscriptionDraft<TState>;
   pending(): SubscriptionDraft<TState & { activation: Activation }>;
   activeFrom(startsAt: string): SubscriptionDraft<TState & { activation: Activation }>;
@@ -48,8 +53,16 @@ type DraftReady = {
 };
 
 export type SubscriptionDraft<TState extends DraftState = DraftState> = DraftMethods<TState> &
+  ExpectedUnitAmountMethod<SubscriptionDraft<TState & { expectedUnitAmount: number }>> &
+  (TState extends { expectedUnitAmount: number }
+    ? ExpectedCurrencyMethod<SubscriptionDraft<TState & { expectedCurrency: string }>>
+    : object) &
   (TState extends { trialStartsAt: string } ? TrialEndable<TState> : object) &
-  (TState extends DraftReady ? CreatableSubscription : object);
+  (TState extends DraftReady
+    ? ExpectedPriceSettled<TState> extends true
+      ? CreatableSubscription
+      : object
+    : object);
 
 export function subscriptionDraft<TState extends DraftState>(
   send: DeferredSender,
@@ -61,7 +74,7 @@ export function subscriptionDraft<TState extends DraftState>(
     customerId: (customerId: string) => next({ customerId }),
     name: (name: string) => next({ name }),
     priceId: (priceId: string) => next({ priceId }),
-    expectedPrice: (expected: ExpectedPrice) => next({ expectedPrice: pinExpectedPrice(expected) }),
+    ...expectedPriceMethods(state, next),
     quantity: (quantity: number) => next({ quantity }),
     pending: () => next({ activation: { state: "pending" } }),
     activeFrom: (startsAt: string) => next({ activation: { state: "active", startsAt } }),
@@ -80,7 +93,7 @@ export function subscriptionDraft<TState extends DraftState>(
           customerId: state.customerId,
           name: state.name,
           priceId: state.priceId,
-          ...expectedPriceField(state.expectedPrice),
+          ...expectedPriceField(state),
           ...(state.quantity === undefined ? {} : { quantity: state.quantity }),
           activation: state.activation,
         }),
@@ -94,6 +107,7 @@ function isReady(state: DraftState): boolean {
     state.customerId !== undefined &&
     state.name !== undefined &&
     state.priceId !== undefined &&
-    state.activation !== undefined
+    state.activation !== undefined &&
+    isExpectedPriceSettled(state)
   );
 }

@@ -262,7 +262,9 @@ describe("payment allocations through the typed surface", () => {
       .customerId("cus_1")
       .priceId("price_1")
       .paymentMethodId(method.id)
-      .allocation("line_1", 5_000, "EUR")
+      .allocationReference("line_1")
+      .allocationAmount(5_000)
+      .allocationCurrency("EUR")
       .create();
     expect(calls).toHaveLength(2);
     expect(pathOf(callAt(calls, 1))).toBe("/v1/payments");

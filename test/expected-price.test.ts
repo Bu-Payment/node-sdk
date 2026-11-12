@@ -41,7 +41,8 @@ describe("expected price on the builders that resolve a canonical price", () => 
       .draft()
       .customerId("cus_1")
       .priceId("price_1")
-      .expectedPrice(displayed)
+      .expectedUnitAmount(1_500)
+      .expectedCurrency("EUR")
       .create();
     expect(callAt(calls, 0).body).toEqual({
       customerId: "cus_1",
@@ -57,7 +58,8 @@ describe("expected price on the builders that resolve a canonical price", () => 
       .customerId("cus_1")
       .name("Gold")
       .priceId("price_1")
-      .expectedPrice(displayed)
+      .expectedUnitAmount(1_500)
+      .expectedCurrency("EUR")
       .pending()
       .create();
     expect(callAt(calls, 0).body).toEqual({
@@ -75,7 +77,8 @@ describe("expected price on the builders that resolve a canonical price", () => 
       .subscriptionSession()
       .name("Gold")
       .priceId("price_1")
-      .expectedPrice(displayed)
+      .expectedUnitAmount(1_500)
+      .expectedCurrency("EUR")
       .customerId("cus_1")
       .customerEmail("buyer@example.test")
       .successUrl("https://shop.test/ok")
@@ -93,7 +96,8 @@ describe("expected price on the builders that resolve a canonical price", () => 
       .subscription("sub_1")
       .priceMigration()
       .targetPriceId("price_2")
-      .expectedPrice(displayed)
+      .expectedUnitAmount(1_500)
+      .expectedCurrency("EUR")
       .immediately()
       .prorationPolicy("none")
       .paymentFailurePolicy("preventChange")
@@ -139,14 +143,14 @@ describe("expected price on the builders that resolve a canonical price", () => 
   it("offers the assertion at runtime only once a canonical price is set", () => {
     const { client } = harnessReturning();
     const payment = client.payments.draft().customerId("cus_1");
-    expect("expectedPrice" in payment).toBe(false);
-    expect("expectedPrice" in payment.amount(1_500).currency("EUR")).toBe(false);
-    expect("expectedPrice" in payment.priceId("price_1")).toBe(true);
-    const asserted = payment.priceId("price_1").expectedPrice(displayed);
+    expect("expectedUnitAmount" in payment).toBe(false);
+    expect("expectedUnitAmount" in payment.amount(1_500).currency("EUR")).toBe(false);
+    expect("expectedUnitAmount" in payment.priceId("price_1")).toBe(true);
+    const asserted = payment.priceId("price_1").expectedUnitAmount(1_500).expectedCurrency("EUR");
     expect(["amount", "currency"].some((method) => method in asserted)).toBe(false);
   });
 
-  it("sends only the amount and currency of a catalogue price it is given", async () => {
+  it("sends the amount and currency of a catalogue price as one assertion", async () => {
     const { client, calls } = harnessReturning({ id: "pay_1" });
     const price: Price = {
       id: "price_1",
@@ -165,7 +169,8 @@ describe("expected price on the builders that resolve a canonical price", () => 
       .draft()
       .customerId("cus_1")
       .priceId(price.id)
-      .expectedPrice(price)
+      .expectedUnitAmount(price.unitAmount)
+      .expectedCurrency(price.currency)
       .create();
     expect(callAt(calls, 0).body).toMatchObject({
       expectedPrice: { unitAmount: 1_500, currency: "EUR" },
@@ -173,21 +178,6 @@ describe("expected price on the builders that resolve a canonical price", () => 
     expect(Object.keys((callAt(calls, 0).body as { expectedPrice: object }).expectedPrice)).toEqual(
       ["unitAmount", "currency"],
     );
-  });
-
-  it("keeps the price it was given when the caller's object changes afterwards", async () => {
-    const { client, calls } = harnessReturning({ id: "pay_1" });
-    const shown = { unitAmount: 1_500, currency: "EUR" };
-    const draft = client.payments
-      .draft()
-      .customerId("cus_1")
-      .priceId("price_1")
-      .expectedPrice(shown);
-    shown.unitAmount = 9_999;
-    await draft.create();
-    expect(callAt(calls, 0).body).toMatchObject({
-      expectedPrice: { unitAmount: 1_500, currency: "EUR" },
-    });
   });
 });
 
@@ -199,7 +189,8 @@ describe("price_changed", () => {
         .draft()
         .customerId("cus_1")
         .priceId("price_1")
-        .expectedPrice(displayed)
+        .expectedUnitAmount(1_500)
+        .expectedCurrency("EUR")
         .create(),
     );
     expect(isPriceChanged(conflict)).toBe(true);
@@ -218,7 +209,8 @@ describe("price_changed", () => {
         .customerId("cus_1")
         .name("Gold")
         .priceId("price_1")
-        .expectedPrice(displayed)
+        .expectedUnitAmount(1_500)
+        .expectedCurrency("EUR")
         .pending()
         .create(),
     );
@@ -280,12 +272,15 @@ describe("price_changed", () => {
       .customerId("cus_1")
       .priceId("price_1")
       .idempotencyKey("order-1");
-    const refused = await refusal(draft.expectedPrice(displayed).create());
+    const refused = await refusal(draft.expectedUnitAmount(1_500).expectedCurrency("EUR").create());
     const confirmed = refused.price;
     if (confirmed === undefined) {
       throw new Error("price_changed carried no current price");
     }
-    const payment = await draft.expectedPrice(confirmed).create();
+    const payment = await draft
+      .expectedUnitAmount(confirmed.unitAmount)
+      .expectedCurrency(confirmed.currency)
+      .create();
     expect(payment).toEqual({ id: "pay_1" });
     expect(calls).toHaveLength(2);
     expect(callAt(calls, 0).headers["Idempotency-Key"]).toBe("order-1");
