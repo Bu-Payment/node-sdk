@@ -105,13 +105,31 @@ describe("one-time checkout for an amount the App calculated", () => {
     });
   });
 
+  it("sends a lowercase currency in uppercase", async () => {
+    const { ready, calls } = amountDraft(12_100, "eur", "Room 12");
+    await ready.create();
+    expect(callAt(calls, 0).body).toMatchObject({ currency: "EUR" });
+  });
+
+  it("measures the description once trimmed, in UTF-16 units as the API does", async () => {
+    const padded = ` ${"a".repeat(255)} `;
+    const { ready, calls } = amountDraft(100, "EUR", padded);
+    await ready.create();
+    expect(callAt(calls, 0).body).toMatchObject({ description: "a".repeat(255) });
+    const astral = amountDraft(100, "EUR", `${"a".repeat(254)}\u{1F600}`);
+    await expect(astral.ready.create()).rejects.toMatchObject({
+      metadata: { field: "description" },
+    });
+    expect(astral.calls).toHaveLength(0);
+  });
+
   it.each<[string, number, string, string, string]>([
     ["a zero amount", 0, "EUR", "Room", "amount"],
     ["a negative amount", -100, "EUR", "Room", "amount"],
     ["a fractional amount", 12.5, "EUR", "Room", "amount"],
     ["an amount beyond the safe integers", Number.MAX_SAFE_INTEGER + 1, "EUR", "Room", "amount"],
     ["a non-finite amount", Number.POSITIVE_INFINITY, "EUR", "Room", "amount"],
-    ["a lowercase currency", 100, "eur", "Room", "currency"],
+    ["a four-letter currency", 100, "EURO", "Room", "currency"],
     ["a two-letter currency", 100, "EU", "Room", "currency"],
     ["a numeric currency", 100, "978", "Room", "currency"],
     ["an empty description", 100, "EUR", "", "description"],

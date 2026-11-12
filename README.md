@@ -149,13 +149,15 @@ value kept in the catalogue: list prices, anything also sold as a subscription, 
 maintain. Use `amount()` for a value your App calculates at the moment of sale, such as a booking:
 
 ```ts
+const total = await bookings.priceFor(booking.id);
+
 const checkout = await client.checkout
   .sessionDraft()
-  .amount(await bookings.priceFor(booking.id))
+  .amount(total)
   .currency("EUR")
   .description("Room 12, 3 nights")
   .customerId(customer.id)
-  .idempotencyKey(booking.id)
+  .idempotencyKey(`${booking.id}-${total}`)
   .create();
 ```
 

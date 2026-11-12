@@ -92,8 +92,10 @@ if (checkout.checkoutUrl !== undefined) {
 const current = await client.checkout.session(checkout.id).get();
 ```
 
-`create()` appears once a price or an amount, a buyer, a destination and an idempotency key
-are set, and stays absent while an expected amount is set without its currency. A client configured with a
+`create()` appears once a price, a buyer, a destination and an idempotency key are set, and
+stays absent while an expected amount is set without its currency. A checkout priced by an amount
+needs its currency and description instead of the price; see
+[A price or an amount](#a-price-or-an-amount). A client configured with a
 destination, through `BU_PAYMENT_DESTINATION_KEY` or `destinationKey`, starts every draft with
 it, and `destination()` replaces it for that draft. A client built from the environment offers
 `create()` without `destination()` whether or not the variable is set; when neither is there,
@@ -168,7 +170,7 @@ const checkout = await client.checkout
   .productId("prod_rooms")
   .customerId(customer.id)
   .reference(booking.id)
-  .idempotencyKey(booking.id)
+  .idempotencyKey(`${booking.id}-${total}`)
   .create();
 ```
 
@@ -180,14 +182,17 @@ Once `amount()` is called, `priceId()`, `quantity()`, `expectedUnitAmount()` and
 called, `amount()` is gone: a quantity multiplies a price and an assertion checks one, so either
 settles the draft on the catalogue. Everything else, the buyer, the destination (including the
 client's default), `provider()`, `reference()` and the idempotency key, works as on the price path.
+Key the checkout on the booking and its total, as above: a retry then answers the same checkout,
+and a booking whose total changed opens a new one instead of colliding with the old key.
 
 The awaited `create()` refuses with `request_invalid`, before anything is sent, an amount that is
-not a positive safe integer, a currency that is not three uppercase letters, and a description
-that is empty or longer than 255 characters once trimmed. The description is sent trimmed;
-`error.metadata.field` names the value refused.
+not a positive safe integer, a currency that is not three letters, and a description that is
+empty or longer than 255 UTF-16 code units once trimmed, so an emoji counts as two. The currency
+is sent in uppercase and the description trimmed; `error.metadata.field` names the value refused.
 
 - Calculate the amount on your server, from your own records. Never take it from the browser:
-  whatever the buyer can send, the buyer can change.
+  whatever the buyer can send, the buyer can change. Build the description on your server too:
+  it is shown to the buyer on the payment page.
 - When `checkout.completed` arrives, recalculate the total and compare it with the event's
   `amount` and `currency`, with `paidAsExpected(event)`, before you fulfil the order.
 - The credential needs the `checkout:custom_amount` capability as well as `checkout:create`.
