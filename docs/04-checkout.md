@@ -92,8 +92,8 @@ if (checkout.checkoutUrl !== undefined) {
 const current = await client.checkout.session(checkout.id).get();
 ```
 
-`create()` appears once a price, a buyer, a destination and an idempotency key are set, and
-stays absent while an expected amount is set without its currency. A client configured with a
+`create()` appears once a price or an amount, a buyer, a destination and an idempotency key
+are set, and stays absent while an expected amount is set without its currency. A client configured with a
 destination, through `BU_PAYMENT_DESTINATION_KEY` or `destinationKey`, starts every draft with
 it, and `destination()` replaces it for that draft. A client built from the environment offers
 `create()` without `destination()` whether or not the variable is set; when neither is there,
@@ -124,8 +124,9 @@ The checkout refusals below arrive with a generic `error.code` and the API's cod
   `checkout_live_not_enabled`.
 
 The checkout answers `status` (`pending`, `processing`, `completed`, `failed`, `expired` or
-`cancelled`), the canonical `amount` and `currency` (unit amount times quantity, in minor
-units), `chargedAmount` and `chargedCurrency` when the provider charged a converted amount,
+`cancelled`), `amountSource` (`price` or `app_amount`), `priceId`, `productId` and
+`description` (each `null` when the path did not set it), the canonical `amount` and `currency`
+(unit amount times quantity, or the amount the App sent, in minor units), `chargedAmount` and `chargedCurrency` when the provider charged a converted amount,
 `expiresAt`, and `paymentId` once it is paid.
 
 `checkoutUrl` is present only while the checkout is `pending` or `processing`. Send the buyer
@@ -142,6 +143,63 @@ The buyer returning to the success URL does not prove payment. Learn the outcome
 
 `session(id)` sends nothing; `get()` reads the checkout, and an empty id is refused when it is
 awaited.
+
+### A price or an amount
+
+A checkout is priced one of two ways, and the draft offers only one of them at a time.
+
+Use `priceId()` when the value is fixed and kept in the catalogue: a product with a list price,
+anything that also sells as a subscription, a catalogue you maintain. `quantity()` and the
+`expected*` assertions belong to this path, and the API computes the total.
+
+Use `amount()` when your App calculates the value at the moment of sale, such as a booking whose
+total depends on the dates, the room and the guests:
+
+```ts
+const total = await bookings.priceFor(booking.id);
+
+const checkout = await client.checkout
+  .sessionDraft()
+  .amount(total)
+  .currency("EUR")
+  .description(`Room ${booking.room}, ${booking.nights} nights`)
+  .productId("prod_rooms")
+  .customerId(customer.id)
+  .reference(booking.id)
+  .idempotencyKey(booking.id)
+  .create();
+```
+
+`amount(n)` is the total in minor units, `currency(code)` exists only after it and
+`description(text)` only after the currency; `create()` waits for all three. `productId(id)` is
+optional and files the sale under a catalogue product for reporting; it does not price anything.
+Once `amount()` is called, `priceId()`, `quantity()`, `expectedUnitAmount()` and
+`expectedCurrency()` are gone, and once `priceId()`, `quantity()` or `expectedUnitAmount()` is
+called, `amount()` is gone: a quantity multiplies a price and an assertion checks one, so either
+settles the draft on the catalogue. Everything else, the buyer, the destination (including the
+client's default), `provider()`, `reference()` and the idempotency key, works as on the price path.
+
+The awaited `create()` refuses with `request_invalid`, before anything is sent, an amount that is
+not a positive safe integer, a currency that is not three uppercase letters, and a description
+that is empty or longer than 255 characters once trimmed. The description is sent trimmed;
+`error.metadata.field` names the value refused.
+
+- Calculate the amount on your server, from your own records. Never take it from the browser:
+  whatever the buyer can send, the buyer can change.
+- When `checkout.completed` arrives, recalculate the total and compare it with the event's
+  `amount` and `currency`, with `paidAsExpected(event)`, before you fulfil the order.
+- The credential needs the `checkout:custom_amount` capability as well as `checkout:create`.
+  Without it the API refuses with `operation_failed` (403) and `error.apiError`
+  `checkout_custom_amount_not_allowed`.
+- Only the `sisp` and `trust-my-travel` providers charge an amount. Any other provider is refused
+  with `resource_conflict` (409) and `error.apiError` `checkout_custom_amount_unsupported_provider`.
+- `price_changed` cannot happen here: there is no catalogue price to change.
+
+The body carries `amount`, `currency`, `description`, `productId` when set, the buyer,
+`destinationKey`, and `provider` and `reference` when set. It never carries `priceId`,
+`quantity` or `expectedPrice`. The checkout answers `amountSource` `app_amount`, `priceId`
+`null`, and the `description` and `productId` sent; a checkout priced from the catalogue answers
+`amountSource` `price`, its `priceId`, and `description` `null`.
 
 ## Checkout outcomes
 

@@ -144,6 +144,29 @@ send the buyer to, for providers that cannot be charged directly; `checkout.sess
 reads it. The outcome arrives as a typed `checkout.*` webhook event. See
 [Checkout](docs/04-checkout.md#one-time-checkout).
 
+A checkout is priced by `priceId()` or by `amount()`, never both. Use `priceId()` for a fixed
+value kept in the catalogue: list prices, anything also sold as a subscription, a catalogue you
+maintain. Use `amount()` for a value your App calculates at the moment of sale, such as a booking:
+
+```ts
+const checkout = await client.checkout
+  .sessionDraft()
+  .amount(await bookings.priceFor(booking.id))
+  .currency("EUR")
+  .description("Room 12, 3 nights")
+  .customerId(customer.id)
+  .idempotencyKey(booking.id)
+  .create();
+```
+
+`currency()` follows `amount()` and `description()` follows `currency()`; `productId()` is optional.
+Once `amount()` is called, `priceId()`, `quantity()` and the `expected*` assertions are gone, and
+the other way round. Calculate the amount on your server and never take it from the browser, then
+compare the `amount` and `currency` of `checkout.completed` with the total you recalculate before
+fulfilling. The credential needs the `checkout:custom_amount` capability, and only the `sisp` and
+`trust-my-travel` providers charge an amount. See
+[A price or an amount](docs/04-checkout.md#a-price-or-an-amount).
+
 ## Catalogue writes
 
 A credential with `catalogue:write` creates and changes the catalogue of its own App. BuPayment is

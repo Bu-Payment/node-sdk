@@ -105,6 +105,7 @@ Each route requires a capability on the credential. Without it the API answers
 | `catalogue:read` | `catalogue` |
 | `customers:read`, `customers:write` | `customers` |
 | `checkout:create` | `checkout` |
+| `checkout:custom_amount` | `checkout.sessionDraft().amount()`, with `checkout:create` |
 | `payments:read`, `payments:write` | `payments`, `paymentMethods`, `billing`, `invoices`, refund reads |
 | `refunds:write` | `refunds.draft()` |
 | `subscriptions:read`, `subscriptions:write` | `subscriptions`, `priceMigrations` |
