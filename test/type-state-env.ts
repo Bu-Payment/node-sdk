@@ -35,6 +35,17 @@ const explicit: Promise<Checkout> = fromEnv.checkout
   .create();
 void explicit;
 
+const withAmount = fromEnv.checkout
+  .sessionDraft()
+  .priceId("p")
+  .customerId("c")
+  .idempotencyKey("o")
+  .expectedUnitAmount(1_500);
+// @ts-expect-error a default destination does not settle an amount without its currency
+withAmount.create();
+const pinned: Promise<Checkout> = withAmount.expectedCurrency("EUR").create();
+void pinned;
+
 // @ts-expect-error a default destination does not stand in for the idempotency key
 fromEnv.checkout.sessionDraft().priceId("p").customerId("c").create();
 

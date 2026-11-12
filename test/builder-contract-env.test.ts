@@ -22,6 +22,18 @@ describe("client from the environment, builder contract", () => {
     expect(calls[0]?.body).toMatchObject({ destinationKey: "store" });
   });
 
+  it("keeps create away while a default-destination draft holds an amount without currency", async () => {
+    const { client, calls } = envClient(ENV_WITH_DESTINATION);
+    const draft = client.checkout.sessionDraft().priceId("p").customerId("c").idempotencyKey("o");
+    const withAmount = draft.expectedUnitAmount(1_500);
+    expect("create" in withAmount).toBe(false);
+    await withAmount.expectedCurrency("EUR").create();
+    expect(calls[0]?.body).toMatchObject({
+      destinationKey: "store",
+      expectedPrice: { unitAmount: 1_500, currency: "EUR" },
+    });
+  });
+
   it("offers create without destination() only on a client from the environment", () => {
     const { client } = envClient(REQUIRED_ENV);
     const draft = client.checkout.sessionDraft().priceId("p").customerId("c");
