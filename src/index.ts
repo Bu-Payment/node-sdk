@@ -8,6 +8,18 @@ export { priceTerms, sameTerms } from "./catalogue/price-terms";
 export type * from "./catalogue/types";
 export type { CheckoutClient } from "./checkout/client";
 export { createCheckoutClient } from "./checkout/client";
+export type {
+  CheckoutOutcome,
+  CheckoutOutcomeStatus,
+  PayableCheckoutStatus,
+} from "./checkout/outcome";
+export { checkoutOutcome, isPayableCheckout, laterCheckoutStatus } from "./checkout/outcome";
+export type {
+  CheckoutCompletedEvent,
+  MatchablePayment,
+  PaidAsExpectedBuilder,
+} from "./checkout/paid-as-expected";
+export { paidAsExpected } from "./checkout/paid-as-expected";
 export type * from "./checkout/types";
 export type { BuPaymentClient, ClientOptions } from "./client";
 export { createBuPaymentClient } from "./client";
@@ -71,6 +83,8 @@ export type * from "./events/types";
 export type { InvoicesClient } from "./invoices/client";
 export { createInvoicesClient } from "./invoices/client";
 export type * from "./invoices/types";
+export type { MinorUnitsBuilder, MinorUnitsConversion } from "./money/minor-units";
+export { minorUnits } from "./money/minor-units";
 export type { PaymentMethodsClient } from "./payment-methods/client";
 export { createPaymentMethodsClient } from "./payment-methods/client";
 export type * from "./payment-methods/types";

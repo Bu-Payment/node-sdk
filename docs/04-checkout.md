@@ -138,6 +138,97 @@ The buyer returning to the success URL does not prove payment. Learn the outcome
 `session(id)` sends nothing; `get()` reads the checkout, and an empty id is refused when it is
 awaited.
 
+## Checkout outcomes
+
+Four helpers carry the logic every hosted checkout handler needs. None of them sends a request.
+
+```ts
+import {
+  checkoutOutcome,
+  laterCheckoutStatus,
+  minorUnits,
+  paidAsExpected,
+  webhookDelivery,
+} from "@bu-payment/node-sdk";
+
+const { event } = webhookDelivery().secret(secret).body(rawBody).headers(headers).verify();
+
+switch (event.type) {
+  case "checkout.completed":
+  case "checkout.failed":
+  case "checkout.expired":
+  case "checkout.cancelled": {
+    const outcome = checkoutOutcome(event);
+    const order = await orders.findByCheckout(outcome.checkoutId);
+    const status = laterCheckoutStatus(order.checkoutStatus, outcome.status);
+    if (status === order.checkoutStatus) {
+      break;
+    }
+    if (event.type === "checkout.completed") {
+      const total = minorUnits().currency(order.currency).fromDecimal(order.total);
+      if (!paidAsExpected(event).amount(total).currency(order.currency).matches()) {
+        await orders.holdForReview(order.id, outcome);
+        break;
+      }
+    }
+    await orders.record(order.id, status, outcome.paymentId);
+    break;
+  }
+}
+```
+
+`checkoutOutcome(event)` reads the four `checkout.*` events into one shape:
+`{ checkoutId, reference, status, paymentId, amount, currency, chargedAmount, chargedCurrency }`.
+`checkout.cancelled` carries no payment or amounts, so those fields are `null` there, never
+`undefined`. The result is frozen.
+
+`laterCheckoutStatus(current, incoming)` answers the status that prevails when events arrive
+late or out of order, with the precedence the API applies: `completed`, then `failed`,
+`cancelled`, `expired`, `processing` and `pending`. A checkout that is already `completed` stays
+`completed` when a `checkout.expired` arrives after it, and a `checkout.completed` that arrives
+after an expiry wins. When the answer equals the status you hold, the event changes nothing.
+
+`isPayableCheckout(status)` is true for `pending` and `processing`, the only statuses in which a
+checkout carries a `checkoutUrl`. It narrows the status, so a buyer coming back to an order can be
+sent to the open checkout:
+
+```ts
+const checkout = await client.checkout.session(order.checkoutId).get();
+if (isPayableCheckout(checkout.status) && checkout.checkoutUrl !== undefined) {
+  redirect(checkout.checkoutUrl);
+}
+```
+
+`paidAsExpected(event)` accepts only a `checkout.completed` event. `amount()` takes the amount in
+minor units, `currency()` exists only after it, and `matches()` only once both are set. It
+compares the checkout's canonical `amount` and `currency`, which is the catalogue unit amount
+times the quantity, not the converted `chargedAmount` the provider may have charged. An amount
+that is not a non-negative integer, or a currency that is not three letters, is refused with
+`request_invalid` when `matches()` runs.
+
+### Amounts in minor units
+
+The API counts every amount in the minor unit of its currency, the exponent ISO 4217 assigns:
+2 for `EUR` and `CVE`, 0 for `JPY`, 3 for `BHD`. `minorUnits().currency(code)` converts in both
+directions and can be kept and reused for one currency:
+
+```ts
+const euro = minorUnits().currency("EUR");
+euro.fromDecimal(19.99); // 1999
+euro.fromDecimal(0.1 + 0.2); // 30
+euro.toDecimal(1999); // 19.99
+minorUnits().currency("JPY").fromDecimal(1500); // 1500
+```
+
+`fromDecimal()` absorbs the drift of binary floating point, so `0.1 + 0.2` counts as 30 cents,
+and refuses with `request_invalid` an amount that is zero, negative, not finite, beyond the safe
+integer range once converted, or that has more decimal places than the currency allows, such as
+`19.999` in `EUR` or `1.5` in `JPY`. `toDecimal()` refuses anything but a positive safe integer.
+A currency outside the table is refused when the conversion runs, never when `currency()` is
+called. The table is ISO 4217 as the API applies it, not `Intl.NumberFormat`, whose display
+digits differ from ISO 4217 for currencies such as `HUF`, `IDR` and `COP`. `MGA` and `MRU`, whose
+minor units are not decimal, are refused.
+
 ## Subscription sessions
 
 ```ts

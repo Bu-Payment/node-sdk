@@ -396,6 +396,43 @@ store is set.
 too, with `data.checkoutId`, the `reference` sent at creation and, once paid, `paymentId`. See
 [Checkout events](docs/08-events-and-webhooks.md#checkout-events).
 
+Four helpers handle them without a request. `checkoutOutcome(event)` reads any of the four into
+one shape, `{ checkoutId, reference, status, paymentId, amount, currency, chargedAmount,
+chargedCurrency }`, with `null` where `checkout.cancelled` carries nothing.
+`laterCheckoutStatus(current, incoming)` answers the status that prevails when events arrive out
+of order (`completed` over `failed`, `cancelled`, `expired`, `processing` and `pending`).
+`paidAsExpected(event)` takes only a `checkout.completed` and compares its canonical amount and
+currency. `minorUnits().currency(code)` converts between decimals and minor units without
+floating point drift:
+
+```ts
+switch (event.type) {
+  case "checkout.completed":
+  case "checkout.failed":
+  case "checkout.expired":
+  case "checkout.cancelled": {
+    const outcome = checkoutOutcome(event);
+    const order = await orders.findByCheckout(outcome.checkoutId);
+    const status = laterCheckoutStatus(order.checkoutStatus, outcome.status);
+    if (status === order.checkoutStatus) {
+      break;
+    }
+    if (event.type === "checkout.completed") {
+      const total = minorUnits().currency(order.currency).fromDecimal(order.total);
+      if (!paidAsExpected(event).amount(total).currency(order.currency).matches()) {
+        await orders.holdForReview(order.id, outcome);
+        break;
+      }
+    }
+    await orders.record(order.id, status, outcome.paymentId);
+    break;
+  }
+}
+```
+
+`isPayableCheckout(status)` is true for `pending` and `processing`, the statuses in which a
+checkout carries a `checkoutUrl`. See [Checkout outcomes](docs/04-checkout.md#checkout-outcomes).
+
 A product in an event is the `Product` the catalogue reads return, `defaultPriceId` included. A
 price is the `Price` the catalogue reads return. `data` always carries `resourceType`,
 `resourceId`, `occurredAt`, `updatedAt` and `resource`, and `data.updatedAt` repeats
