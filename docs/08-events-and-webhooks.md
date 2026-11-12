@@ -46,48 +46,59 @@ await client.webhooks.endpoint(endpoint.id).remove();
 `endpoints()` is a builder like any other, ending in `get()`, although the API neither
 paginates nor filters that list. `update()` does not exist until a field is set.
 
-## Verifying deliveries
+## Receiving deliveries
 
-Every delivery is signed with the endpoint `secret` returned by `endpointDraft()`. Verify
-it before acting on the body, and answer only once the work is done:
+Every delivery is signed with the endpoint `secret` returned by `endpointDraft()`. `handle()`
+verifies the delivery, runs your function on the event and resolves to the status to answer:
 
 ```ts
 import express from "express";
-import { BuPaymentError, ErrorCode, webhookDelivery } from "@bu-payment/node-sdk";
+import { webhookDelivery } from "@bu-payment/node-sdk";
+import { processedEvents } from "./processed-events";
 
-const verifier = webhookDelivery().secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "");
+const receiver = webhookDelivery()
+  .secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "")
+  .deduplicateWith(processedEvents);
 
-const REJECTED = new Set<string>([
-  ErrorCode.WEBHOOK_SIGNATURE_MISSING,
-  ErrorCode.WEBHOOK_SIGNATURE_INVALID,
-  ErrorCode.WEBHOOK_TIMESTAMP_EXPIRED,
-  ErrorCode.WEBHOOK_PAYLOAD_INVALID,
-]);
+const app = express();
 
 app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
-  let delivery;
-  try {
-    delivery = verifier.body(req.body).headers(req.headers).verify();
-  } catch (error) {
-    if (error instanceof BuPaymentError && REJECTED.has(error.code)) {
-      res.sendStatus(400);
-      return;
-    }
-    throw error;
+  const outcome = await receiver
+    .body(req.body)
+    .headers(req.headers)
+    .handle(async (event) => {
+      if (event.type === "checkout.completed") {
+        await orders.markPaid(event.data.checkoutId, event.data.paymentId);
+      }
+    });
+  if (outcome.status === 400) {
+    logger.warn({ code: outcome.error.code }, "rejected BuPayment delivery");
   }
-  await handle(delivery.event);
-  res.sendStatus(200);
+  res.sendStatus(outcome.status);
 });
 ```
 
-A `2xx` marks the delivery as succeeded and it is never sent again. Answering before
-`handle` finishes loses the delivery whenever `handle` then fails; letting `handle` throw
-answers `500`, and the platform retries. Only a delivery that failed verification is answered
-`400`: a network or rate-limit error inside `handle` is not a bad delivery, and neither is an
-authentic delivery this SDK cannot read (see [Typed events](#typed-events)).
+`handle()` resolves to `{ status: 200 }` once your function has finished, and to
+`{ status: 400, error }` when the delivery failed verification, without calling your function.
+Everything else rejects, and the rejection should answer `500`: an error thrown by your
+function, a failing store, a deployment fault such as a malformed secret
+(`configuration_invalid`), and an authentic event this SDK cannot read,
+`webhook_event_version_unsupported` or `webhook_event_invalid` (see
+[Typed events](#typed-events)). Express 5 answers `500` for a rejected route handler; on
+Express 4, catch the rejection and pass it to `next`. Nothing here depends on Express: any
+framework that exposes the raw body and the headers works the same way.
 
-The verifier holding the secret is built once and reused: each delivery branches from it
-without changing it, and `verify()` only becomes available once `body()` and `headers()`
+A `2xx` marks the delivery as succeeded and it is never sent again, which is why `handle()`
+resolves only after your function has, and why a network or rate-limit error inside it is not
+answered `400`: the platform retries every delivery not answered `2xx`. Your function also
+receives the verified delivery as its second argument, with `deliveryId`, `signature` and
+`timestamp`.
+
+Log the `error` of a `400`. A wrong but well formed secret, or an `express.json()` mounted
+before the route, rejects every authentic delivery, and the code it carries is the only trace.
+
+The receiver holding the secret is built once and reused: each delivery branches from it
+without changing it, and `handle()` only becomes available once `body()` and `headers()`
 are set. `body()` takes the raw request body, as a string or bytes. The platform signs the exact
 bytes it sends; a body parsed by `express.json()` and serialized again is not guaranteed to
 reproduce them, so a parsed object is refused with `webhook_payload_invalid` rather than
@@ -111,6 +122,77 @@ The secret must be the full `whsec_` value issued for the endpoint. The confiden
 `bup_sec_` credential, an empty value and a truncated one are refused, and neither the
 secret nor either signature appears in any thrown error.
 
+### Deduplicating events
+
+Deliveries are at least once. `deduplicateWith(store)` makes `handle()` run your function at
+most once per event `id`, on a store you keep in your own database:
+
+```ts
+import type { WebhookEventStore } from "@bu-payment/node-sdk";
+
+export const processedEvents: WebhookEventStore = {
+  async claim(eventId) {
+    const inserted = await db.query(
+      "insert into bupayment_events (event_id, claimed_at) values ($1, now()) on conflict do nothing",
+      [eventId],
+    );
+    return inserted.rowCount === 1;
+  },
+  async release(eventId) {
+    await db.query("delete from bupayment_events where event_id = $1", [eventId]);
+  },
+};
+```
+
+`claim` resolves to `true` when this call recorded the id and `false` when it was already
+there, and it must decide that atomically: one insert on a unique key does, so two deliveries
+of one event arriving together cannot both claim it. A read followed by a write does not.
+`handle()` claims only after the delivery is verified, and answers `200` without calling your
+function when the claim fails. When your function throws, `handle()` releases the claim before
+rejecting, so the retry of that delivery runs it again. `release` must therefore delete the
+claim, not mark it. A `claim` that resolves to anything but a boolean, such as a row count or
+Redis' `"OK"`, rejects with `configuration_invalid`. The SDK cannot tell from such an answer
+whether the id was recorded, so it releases nothing: once the store is fixed, delete the rows
+it claimed while it was wrong, which `claimed_at` finds.
+
+- A delivery that arrives while another of the same event is still running is answered `200`
+  at once. If the running one then fails, its own retry carries the event.
+- If `release` fails too, `handle()` rejects with an `AggregateError` holding both errors, and
+  the id stays claimed with nothing applied. The same happens if the process dies between the
+  claim and the end of your function. Keep the claim time, as above, so such rows can be found
+  and deleted, and keep reconciling with the list reads.
+- The event `id` is the same at every endpoint. Endpoints that each need to apply the same
+  event need a store each, or a key that includes the endpoint.
+- Once a store is set, `verify()` is no longer offered, so no delivery can bypass it.
+
+### Verifying without handle
+
+`verify()` returns the verified delivery and leaves the answer to you. `isRejectedDelivery(error)`
+is `true` for exactly the four codes that mean a bad delivery, answered `400`:
+`webhook_signature_missing`, `webhook_signature_invalid`, `webhook_timestamp_expired` and
+`webhook_payload_invalid`.
+
+```ts
+import { isRejectedDelivery, webhookDelivery } from "@bu-payment/node-sdk";
+
+const verifier = webhookDelivery().secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "");
+
+app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
+  let delivery;
+  try {
+    delivery = verifier.body(req.body).headers(req.headers).verify();
+  } catch (error) {
+    if (isRejectedDelivery(error)) {
+      res.sendStatus(400);
+      return;
+    }
+    throw error;
+  }
+  await apply(delivery.event);
+  res.sendStatus(200);
+});
+```
+
 ### What is signed, and what is not
 
 The signature covers the timestamp and the body. It does not cover `x-webhook-id`, which
@@ -119,7 +201,9 @@ trust boundary:
 
 - someone holding a captured delivery can resend it inside the window under a new
   `x-webhook-id`, so a deduplication keyed on `deliveryId` alone lets the replay through.
-  Key replay protection on `signature`, which is signed material and unique per attempt;
+  `deduplicateWith()` keys on the signed event `id`, so a replay of an event already handled
+  answers `200` without running your function. Without it, key replay protection on
+  `signature`, which is signed material and unique per attempt;
 - the platform re-signs every retry, so a retry has a new `signature`. Make the effect of a
   delivery idempotent on what the signed body says: the event `id`, which every retry and
   every endpoint receives unchanged, and for catalogue events the resource and its
@@ -214,8 +298,8 @@ can still be paid: `checkout.completed` then arrives later with `previousStatus`
 
 ### What stays with the application
 
-Deliveries are at least once and unordered. The SDK keeps no state between calls, so the
-replay store, the deduplication on the event `id`, the last `updatedAt` and `occurredAt`
+Deliveries are at least once and unordered. The SDK keeps no state between calls:
+`deduplicateWith()` runs on the store you give it, and the last `updatedAt` and `occurredAt`
 applied per resource and applying the event are the application's, as is reconciling
 periodically with the list reads: a delivery that exhausted its attempts is not sent again
 unless retried. `isStale(candidate, stored)` compares `updatedAt` alone, so it cannot order

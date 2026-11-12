@@ -1,3 +1,5 @@
+import type { WebhookEventStore as EntryStore, HandleableWebhookDelivery } from "../src/index";
+import type { WebhookEventStore, WebhookOutcome } from "../src/webhooks/types";
 import { webhookDelivery } from "../src/webhooks/verification";
 
 const headers = {};
@@ -18,3 +20,48 @@ webhookDelivery()
 
 const verifier = webhookDelivery().secret("whsec_x").toleranceSeconds(60);
 void verifier.body(new Uint8Array()).headers(new Headers()).verify().event;
+
+const store: WebhookEventStore = { claim: async () => true, release: async () => {} };
+const handler = () => {};
+
+// @ts-expect-error a delivery cannot be handled before its secret is set
+void webhookDelivery().body("{}").headers(headers).handle(handler);
+
+// @ts-expect-error a delivery cannot be handled before its raw body is set
+void webhookDelivery().secret("whsec_x").headers(headers).handle(handler);
+
+// @ts-expect-error a delivery cannot be handled before its headers are set
+void webhookDelivery().secret("whsec_x").body("{}").handle(handler);
+
+// @ts-expect-error a deduplicated delivery is handled, so it skips the store if verified alone
+webhookDelivery().secret("whsec_x").deduplicateWith(store).body("{}").headers(headers).verify();
+
+// @ts-expect-error a store must release the claim of a handler that failed
+webhookDelivery().deduplicateWith({ claim: async () => true });
+
+const deduplicated = webhookDelivery().secret("whsec_x").deduplicateWith(store);
+const outcome: Promise<WebhookOutcome> = deduplicated
+  .body("{}")
+  .headers(headers)
+  .handle(async (event, delivery) => {
+    void event.id;
+    void delivery.signature;
+  });
+
+void outcome.then((answer) => {
+  const status: 200 | 400 = answer.status;
+  // @ts-expect-error only a rejected delivery carries the error that rejected it
+  void answer.error;
+  if (answer.status === 400) {
+    void answer.error.code;
+  }
+  return status;
+});
+
+const entryStore: EntryStore = store;
+const receiver: HandleableWebhookDelivery = webhookDelivery()
+  .secret("whsec_x")
+  .deduplicateWith(entryStore)
+  .body("{}")
+  .headers(headers);
+void receiver.handle(handler);

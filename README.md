@@ -296,25 +296,85 @@ changes nothing.
 
 ## Webhook events
 
-`webhookDelivery()` checks the signature and the timestamp, then parses the signed body into
-a typed event. Every delivery is the envelope `{ version: 1, id, type, occurredAt, data }`, and
-`event` is a union discriminated on `type`, so `data` narrows with it:
+`webhookDelivery()` checks the signature and the timestamp, parses the signed body into a typed
+event and, with `handle()`, runs your function on it and tells you which status to answer. Every
+delivery is the envelope `{ version: 1, id, type, occurredAt, data }`, and `event` is a union
+discriminated on `type`, so `data` narrows with it. Pass the raw body, not a parsed one:
 
 ```ts
-const { event } = webhookDelivery().secret(secret).body(req.body).headers(req.headers).verify();
+import express from "express";
+import { webhookDelivery } from "@bu-payment/node-sdk";
+import { processedEvents } from "./processed-events";
 
-switch (event.type) {
-  case "catalogue.product.updated.v1":
-    await products.applyIfNewer(event.data.resource, event.data.updatedAt);
-    break;
-  case "catalogue.price.assigned.v1":
-    await prices.assignIfNewer(event.data.resource, event.occurredAt);
-    break;
-  case "unknown":
-    logger.info({ type: event.receivedType, id: event.id }, "unhandled BuPayment event");
-    break;
-}
+const receiver = webhookDelivery()
+  .secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "")
+  .deduplicateWith(processedEvents);
+
+const app = express();
+
+app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
+  const outcome = await receiver
+    .body(req.body)
+    .headers(req.headers)
+    .handle(async (event) => {
+      switch (event.type) {
+        case "checkout.completed":
+          await orders.markPaid(event.data.checkoutId, event.data.paymentId);
+          break;
+        case "catalogue.product.updated.v1":
+          await products.applyIfNewer(event.data.resource, event.data.updatedAt);
+          break;
+        case "unknown":
+          logger.info({ type: event.receivedType, id: event.id }, "unhandled BuPayment event");
+          break;
+      }
+    });
+  if (outcome.status === 400) {
+    logger.warn({ code: outcome.error.code }, "rejected BuPayment delivery");
+  }
+  res.sendStatus(outcome.status);
+});
 ```
+
+`handle()` resolves to `{ status: 200 }` only after your function has finished, and to
+`{ status: 400, error }` when the delivery failed verification, without calling your function.
+Anything else rejects and should answer `500`, so the platform retries: an error your function
+throws, a failing store, a malformed secret, or an event this SDK cannot read. Express 5 answers
+`500` for a rejected route handler; on Express 4, catch it and pass it to `next`. No framework is
+required: `body()` takes a string or bytes, and `headers()` takes Node's headers or a Fetch
+`Headers`.
+Log the `error` of a `400`: a wrong but well formed secret, or a body parsed before the route,
+rejects every delivery, and its code is the only trace.
+
+`deduplicateWith(store)` runs your function at most once per event `id`. The store lives in your
+database and has two methods:
+
+```ts
+import type { WebhookEventStore } from "@bu-payment/node-sdk";
+
+export const processedEvents: WebhookEventStore = {
+  async claim(eventId) {
+    const inserted = await db.query(
+      "insert into bupayment_events (event_id, claimed_at) values ($1, now()) on conflict do nothing",
+      [eventId],
+    );
+    return inserted.rowCount === 1;
+  },
+  async release(eventId) {
+    await db.query("delete from bupayment_events where event_id = $1", [eventId]);
+  },
+};
+```
+
+`claim` resolves to `true` only for the call that recorded the id, atomically, so two deliveries
+of one event arriving together run your function once; an event already claimed answers `200`
+without running it. When your function throws, `handle()` calls `release` before rejecting, so
+the retry runs it again. If `release` fails as well, `handle()` rejects with an `AggregateError`
+holding both errors and the id stays claimed: `claimed_at` lets you find and delete such rows.
+
+To answer yourself, `verify()` returns the verified delivery instead, and `isRejectedDelivery(error)`
+tells a bad delivery, to answer `400`, from every other failure. `verify()` is not offered once a
+store is set.
 
 | Type | `data.resource` | Advances `data.updatedAt` |
 | --- | --- | --- |
@@ -349,9 +409,10 @@ whose pair is not newer. Every timestamp is ISO 8601 in UTC with milliseconds, a
 `Date.prototype.toISOString` writes it, and the SDK refuses any other form, so two of them
 compare correctly as strings. `occurredAt` is the same in the envelope and in `data`.
 
-Deduplicate on `event.id`, which is signed and identical across endpoints and retries;
-`deliveryId` comes from an unsigned header. The SDK stores none of this: the ordering state, the
-deduplication and applying the event are your application's.
+`deduplicateWith()` keys on `event.id`, which is signed and identical across endpoints and
+retries; `deliveryId` comes from an unsigned header. The SDK keeps no state: the
+deduplication runs on your store, and the ordering state and applying the event are your
+application's.
 
 A type the SDK does not know yet comes back as `type: "unknown"` with the type in `receivedType`
 and the raw `data`, so a new platform event type never throws. An envelope that is not version `1` is

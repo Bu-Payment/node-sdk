@@ -2,7 +2,15 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
 import { parseWebhookEvent } from "./events";
-import type { VerifiedWebhookDelivery, WebhookHeaderReader, WebhookHeaders } from "./types";
+import { handleDelivery } from "./handling";
+import type {
+  VerifiedWebhookDelivery,
+  WebhookEventHandler,
+  WebhookEventStore,
+  WebhookHeaderReader,
+  WebhookHeaders,
+  WebhookOutcome,
+} from "./types";
 
 const DEFAULT_TOLERANCE_SECONDS = 300;
 const ENDPOINT_SECRET = /^whsec_[A-Za-z0-9_-]{32,}$/u;
@@ -19,6 +27,7 @@ interface DeliveryState {
   headers?: WebhookHeaders;
   toleranceSeconds?: number;
   clock?: () => number;
+  store?: WebhookEventStore;
 }
 
 type CompleteDelivery = Required<Pick<DeliveryState, "secret" | "body" | "headers">>;
@@ -29,14 +38,26 @@ interface DeliveryMethods<TState extends DeliveryState> {
   headers(headers: WebhookHeaders): WebhookDeliveryBuilder<TState & { headers: WebhookHeaders }>;
   toleranceSeconds(toleranceSeconds: number): WebhookDeliveryBuilder<TState>;
   clock(clock: () => number): WebhookDeliveryBuilder<TState>;
+  deduplicateWith(
+    store: WebhookEventStore,
+  ): WebhookDeliveryBuilder<TState & { store: WebhookEventStore }>;
 }
 
 export interface VerifiableWebhookDelivery {
   verify(): VerifiedWebhookDelivery;
 }
 
+export interface HandleableWebhookDelivery {
+  handle(handler: WebhookEventHandler): Promise<WebhookOutcome>;
+}
+
+type DeliveryTerminals<TState extends DeliveryState> = TState extends CompleteDelivery
+  ? HandleableWebhookDelivery &
+      (TState extends { store: WebhookEventStore } ? object : VerifiableWebhookDelivery)
+  : object;
+
 export type WebhookDeliveryBuilder<TState extends DeliveryState = DeliveryState> =
-  DeliveryMethods<TState> & (TState extends CompleteDelivery ? VerifiableWebhookDelivery : object);
+  DeliveryMethods<TState> & DeliveryTerminals<TState>;
 
 export function webhookDelivery(): WebhookDeliveryBuilder<Record<never, never>> {
   return deliveryBuilder({});
@@ -52,9 +73,15 @@ function deliveryBuilder<TState extends DeliveryState>(
     headers: (headers: WebhookHeaders) => next({ headers }),
     toleranceSeconds: (toleranceSeconds: number) => next({ toleranceSeconds }),
     clock: (clock: () => number) => next({ clock }),
+    deduplicateWith: (store: WebhookEventStore) => next({ store }),
   };
-  if (state.secret !== undefined && state.body !== undefined && state.headers !== undefined) {
-    builder.verify = () => verify(state as TState & CompleteDelivery);
+  if ("secret" in state && "body" in state && "headers" in state) {
+    const complete = state as TState & CompleteDelivery;
+    builder.handle = (handler: WebhookEventHandler) =>
+      handleDelivery(() => verify(complete), handler, complete.store);
+    if (complete.store === undefined) {
+      builder.verify = () => verify(complete);
+    }
   }
   return Object.freeze(builder) as WebhookDeliveryBuilder<TState>;
 }
@@ -149,6 +176,9 @@ function requiredHeader(headers: WebhookHeaders, name: string): string {
 }
 
 function headerValue(headers: WebhookHeaders, name: string): string | undefined {
+  if (typeof headers !== "object" || headers === null) {
+    return undefined;
+  }
   if (isFetchHeaders(headers)) {
     return headers.get(name) ?? undefined;
   }
