@@ -360,7 +360,7 @@ import { webhookDelivery } from "@bu-payment/node-sdk";
 import { processedEvents } from "./processed-events";
 
 const receiver = webhookDelivery()
-  .secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "")
+  .secret(process.env.BU_PAYMENT_WEBHOOK_SECRET ?? "")
   .deduplicateWith(processedEvents);
 
 const app = express();

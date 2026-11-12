@@ -180,7 +180,7 @@ is `true` for exactly the four codes that mean a bad delivery, answered `400`:
 ```ts
 import { isRejectedDelivery, webhookDelivery } from "@bu-payment/node-sdk";
 
-const verifier = webhookDelivery().secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "");
+const verifier = webhookDelivery().secret(process.env.BU_PAYMENT_WEBHOOK_SECRET ?? "");
 
 app.post("/hooks/bupayment", express.raw({ type: "application/json" }), async (req, res) => {
   let delivery;
