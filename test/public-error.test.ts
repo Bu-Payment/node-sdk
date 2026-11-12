@@ -41,6 +41,7 @@ describe("publicError", () => {
 
   it.each([
     [ErrorCode.CONFIGURATION_INVALID, undefined],
+    [ErrorCode.CONFIGURATION_MISSING, undefined],
     [ErrorCode.APPLICATION_AUTH_REQUIRED, 401],
     [ErrorCode.APPLICATION_AUTH_MALFORMED, 401],
     [ErrorCode.APPLICATION_AUTH_VERSION_UNSUPPORTED, 401],

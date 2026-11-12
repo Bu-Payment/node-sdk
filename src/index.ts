@@ -22,9 +22,10 @@ export type {
 export { paidAsExpected } from "./checkout/paid-as-expected";
 export type * from "./checkout/types";
 export type { BuPaymentClient, ClientOptions } from "./client";
-export { createBuPaymentClient } from "./client";
+export { createBuPaymentClient, createBuPaymentClientFromEnv } from "./client";
 export {
   ApiErrorCode,
+  EnvVariable,
   ErrorCode,
   Header,
   SIGNATURE_ALGORITHM,
@@ -47,6 +48,8 @@ export {
 } from "./core/canonical-request";
 export type { ClientConfig, ClientConfigInput, Environment } from "./core/config";
 export { parseClientConfig } from "./core/config";
+export type { BuPaymentEnv } from "./core/env";
+export { isConfigured } from "./core/env";
 export type { Stamp } from "./core/freshness";
 export { isStale } from "./core/freshness";
 export type { FetchLike, TransportOptions, TransportRequest } from "./core/http";

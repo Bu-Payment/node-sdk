@@ -14,8 +14,20 @@ export const Header = {
   RETRY_AFTER: "Retry-After-application",
 } as const;
 
+export const EnvVariable = {
+  API_URL: "BU_PAYMENT_API_URL",
+  APP_ID: "BU_PAYMENT_APP_ID",
+  KEY_ID: "BU_PAYMENT_KEY_ID",
+  SECRET: "BU_PAYMENT_SECRET",
+  WEBHOOK_SECRET: "BU_PAYMENT_WEBHOOK_SECRET",
+  DESTINATION_KEY: "BU_PAYMENT_DESTINATION_KEY",
+} as const;
+
+export type EnvVariable = (typeof EnvVariable)[keyof typeof EnvVariable];
+
 export const ErrorCode = {
   CONFIGURATION_INVALID: "configuration_invalid",
+  CONFIGURATION_MISSING: "configuration_missing",
   NETWORK_UNAVAILABLE: "network_unavailable",
   REQUEST_CANCELLED: "request_cancelled",
   RESPONSE_INVALID: "response_invalid",
