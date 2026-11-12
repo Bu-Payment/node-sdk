@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   type DeferredSender,
   expectedUpdatedAtOf,
@@ -9,6 +8,7 @@ import {
   stableIdempotencyKey,
   writeRequest,
 } from "../core/builder";
+import { idempotencyDigest } from "../core/idempotency";
 import { defaultPriceRequest } from "./default-price";
 import { pricePath, productPath } from "./paths";
 import type { Price, PriceChange, PriceInterval, Product } from "./types";
@@ -94,8 +94,7 @@ function replacementKeys(): ReplacementKeys {
 function perVersionIdempotencyKey(): ReplacementKeys["moveDefault"] {
   const base = stableIdempotencyKey();
   return (supplied, productVersion) =>
-    supplied ??
-    `${base(undefined)}:${createHash("sha256").update(productVersion).digest("base64url")}`;
+    supplied ?? `${base(undefined)}:${idempotencyDigest(productVersion)}`;
 }
 
 export function priceDraft<TState extends PriceDraftState>(

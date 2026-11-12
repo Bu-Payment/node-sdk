@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
 
@@ -6,6 +6,10 @@ const MAX_LENGTH = 255;
 
 export function generateIdempotencyKey(): string {
   return randomUUID();
+}
+
+export function idempotencyDigest(value: string): string {
+  return createHash("sha256").update(value).digest("base64url");
 }
 
 export function parseIdempotencyKey(value: string): string {
