@@ -7,7 +7,7 @@ Every operation is configured through a fluent, immutable builder and sent only 
 explicit terminal method. Required input is enforced by the type: the terminal does not
 exist until every required field is set.
 
-1. [Getting started](01-getting-started.md): configuration, capabilities, the builder contract.
+1. [Getting started](01-getting-started.md): configuration from the environment, capabilities, the builder contract.
 2. [Catalogue](02-catalogue.md): products, prices, cross-sells, entitlements, and catalogue writes.
 3. [Customers](03-customers.md): App-owned customer records.
 4. [Checkout](04-checkout.md): coupons, tax rates, shipping rates, one-time checkout and its outcomes, amounts in minor units, subscription sessions.

@@ -21,14 +21,53 @@ without it. Installing requires read access to the repository.
 
 ## Configuration
 
+Set the credential in the environment and build the client from it:
+
+```ts
+import { createBuPaymentClientFromEnv } from "@bu-payment/node-sdk";
+
+const client = createBuPaymentClientFromEnv(process.env);
+```
+
+| Variable | Required | Holds |
+| --- | --- | --- |
+| `BU_PAYMENT_API_URL` | yes | The API base URL, such as `https://api.bupayment.com`. |
+| `BU_PAYMENT_APP_ID` | yes | The App identifier. |
+| `BU_PAYMENT_KEY_ID` | yes | The confidential key identifier, `bup_ck_test_...` or `bup_ck_live_...`. |
+| `BU_PAYMENT_SECRET` | yes | The confidential secret, `bup_sec_...`. |
+| `BU_PAYMENT_WEBHOOK_SECRET` | no | The webhook endpoint secret, `whsec_...`, exposed as `client.webhookSecret`. |
+| `BU_PAYMENT_DESTINATION_KEY` | no | The checkout destination `sessionDraft()` uses when `destination()` is not called. |
+
+The variable names are also exported as `EnvVariable`. The environment is passed in, defaulting to
+`process.env`, and read only when the function is called: importing the package reads nothing.
+Values are trimmed, and an empty or blank value counts as missing.
+
+When required variables are missing the client is not built. One `BuPaymentError` with
+`ErrorCode.CONFIGURATION_MISSING` names all of them, in its message and in
+`error.metadata.variables`, and never carries a value. `isConfigured(env)` answers the same
+question without throwing, for a feature that should switch off rather than fail:
+
+```ts
+import { isConfigured } from "@bu-payment/node-sdk";
+
+if (!isConfigured(process.env)) {
+  console.warn("BuPayment is not configured; payments are disabled");
+}
+```
+
+The same settings can be given directly, for a credential that comes from somewhere other than
+the environment:
+
 ```ts
 import { createBuPaymentClient } from "@bu-payment/node-sdk";
 
 const client = createBuPaymentClient({
-  applicationId: process.env.BU_PAYMENT_APP_ID!,
-  keyId: process.env.BU_PAYMENT_KEY_ID!,
-  secret: process.env.BU_PAYMENT_SECRET!,
+  applicationId: credential.applicationId,
+  keyId: credential.keyId,
+  secret: credential.secret,
   apiBaseUrl: "https://api.bupayment.com",
+  webhookSecret: credential.webhookSecret,
+  destinationKey: "default",
 });
 ```
 
@@ -37,6 +76,19 @@ non-printable holder, normalizes the API URL, enforces HTTPS except for loopback
 rejects an explicit Test or Live mismatch. The environment comes from the key, never from a
 separate field. Failures are a `BuPaymentError` with `ErrorCode.CONFIGURATION_INVALID` and never
 echo the secret.
+
+`client.webhookSecret` hands the configured webhook secret to
+`webhookDelivery().secret(client.webhookSecret)` without reading the environment again. It is
+left out of `Object.keys(client)` and `JSON.stringify(client)`, and reading it when no webhook
+secret was configured throws `ErrorCode.CONFIGURATION_MISSING` naming
+`BU_PAYMENT_WEBHOOK_SECRET`.
+
+With a destination configured, a checkout session needs no `destination()` call, and an explicit
+`destination()` still wins. A client built from the environment always offers `create()` without
+`destination()`, because whether the variable is set is only known at run time: when neither is
+there, the awaited `create()` is rejected with `ErrorCode.CONFIGURATION_MISSING` naming
+`BU_PAYMENT_DESTINATION_KEY`, before anything is sent. A client built with `createBuPaymentClient`
+and no `destinationKey` keeps requiring `destination()` at compile time.
 
 ## Commerce builders
 

@@ -21,6 +21,7 @@ try {
 | Code | Raised when |
 | --- | --- |
 | `configuration_invalid` | The client configuration is malformed. |
+| `configuration_missing` | Required environment variables are missing or empty; `metadata.variables` names them. Also raised when an optional setting is used without being configured. |
 | `request_invalid` | The SDK or the API refused the request as built. |
 | `request_cancelled` | The caller's `AbortSignal` fired. |
 | `network_unavailable` | The API could not be reached, the request timed out, or the response was cut off before it was read. |

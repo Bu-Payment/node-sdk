@@ -17,18 +17,51 @@ shipping a confidential secret to a client.
 ## Create the client
 
 ```ts
+import { createBuPaymentClientFromEnv } from "@bu-payment/node-sdk";
+
+const client = createBuPaymentClientFromEnv(process.env);
+```
+
+| Variable | Required | Holds |
+| --- | --- | --- |
+| `BU_PAYMENT_API_URL` | yes | The API base URL, such as `https://api.bupayment.com`. |
+| `BU_PAYMENT_APP_ID` | yes | The App identifier. |
+| `BU_PAYMENT_KEY_ID` | yes | The confidential key identifier, `bup_ck_test_...` or `bup_ck_live_...`. |
+| `BU_PAYMENT_SECRET` | yes | The confidential secret, `bup_sec_...`. |
+| `BU_PAYMENT_WEBHOOK_SECRET` | no | The webhook endpoint secret, exposed as `client.webhookSecret`. |
+| `BU_PAYMENT_DESTINATION_KEY` | no | The default checkout destination of `sessionDraft()`. |
+
+The names are exported as `EnvVariable`. The environment is an argument, defaulting to
+`process.env`, and is read only when the function is called, never when the package is imported.
+Values are trimmed and an empty value counts as missing. Missing required variables are reported
+together, in one `BuPaymentError` with `configuration_missing` whose message and
+`metadata.variables` name every one of them and carry no value. `isConfigured(env)` answers
+whether all required variables are set, without throwing.
+
+Settings that do not come from the environment go to `createBuPaymentClient`:
+
+```ts
 import { createBuPaymentClient } from "@bu-payment/node-sdk";
 
 const client = createBuPaymentClient({
-  applicationId: process.env.BU_PAYMENT_APP_ID!,
-  keyId: process.env.BU_PAYMENT_KEY_ID!,
-  secret: process.env.BU_PAYMENT_SECRET!,
+  applicationId: credential.applicationId,
+  keyId: credential.keyId,
+  secret: credential.secret,
   apiBaseUrl: "https://api.bupayment.com",
+  webhookSecret: credential.webhookSecret,
+  destinationKey: "default",
 });
 ```
 
-The environment is derived from the key identifier, not configured separately. Passing an
-`environment` that disagrees with the key is rejected at creation. The client is frozen.
+`webhookSecret` and `destinationKey` are optional; given empty, they are refused with
+`configuration_invalid`. The environment is derived from the key identifier, not configured
+separately. Passing an `environment` that disagrees with the key is rejected at creation. The
+client is frozen.
+
+`client.webhookSecret` returns the configured webhook secret for
+[verifying deliveries](08-events-and-webhooks.md#verifying-deliveries). It is not an enumerable
+key, so it stays out of `JSON.stringify(client)`, and reading it with none configured throws
+`configuration_missing` naming `BU_PAYMENT_WEBHOOK_SECRET`.
 
 ## The builder contract
 

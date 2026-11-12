@@ -53,11 +53,12 @@ verifies the delivery, runs your function on the event and resolves to the statu
 
 ```ts
 import express from "express";
-import { webhookDelivery } from "@bu-payment/node-sdk";
+import { createBuPaymentClientFromEnv, webhookDelivery } from "@bu-payment/node-sdk";
 import { processedEvents } from "./processed-events";
 
+const client = createBuPaymentClientFromEnv(process.env);
 const receiver = webhookDelivery()
-  .secret(process.env.BUPAYMENT_WEBHOOK_SECRET ?? "")
+  .secret(client.webhookSecret)
   .deduplicateWith(processedEvents);
 
 const app = express();
