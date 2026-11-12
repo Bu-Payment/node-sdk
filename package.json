@@ -57,6 +57,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "prepare": "tsup",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

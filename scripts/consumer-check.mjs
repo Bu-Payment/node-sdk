@@ -18,11 +18,11 @@ const guardMessage = "must never be bundled for a browser";
 const workspace = mkdtempSync(join(tmpdir(), "bu-payment-node-sdk-consumer-"));
 
 try {
-  run("bun", ["run", "build"], packageRoot);
-  run("bun", ["pm", "pack", "--destination", workspace], packageRoot);
+  rmSync(join(packageRoot, "dist"), { recursive: true, force: true });
+  run("npm", ["pack", "--pack-destination", workspace], packageRoot);
   const tarball = readdirSync(workspace).find((entry) => entry.endsWith(".tgz"));
   if (tarball === undefined) {
-    throw new Error("bun pm pack produced no tarball");
+    throw new Error("npm pack produced no tarball");
   }
 
   writeFileSync(
