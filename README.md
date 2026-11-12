@@ -612,6 +612,7 @@ bundler.
 
 ```ts
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import { type BuPaymentClient, createBuPaymentClient } from "@bu-payment/node-sdk";
 
 const secrets = new SecretsManagerClient({});
 
@@ -620,11 +621,11 @@ async function loadClient(): Promise<BuPaymentClient> {
     new GetSecretValueCommand({ SecretId: "bupayment/confidential-credential" }),
   );
   const credential = JSON.parse(response.SecretString ?? "{}");
-  return new BuPaymentClient({
+  return createBuPaymentClient({
     applicationId: credential.applicationId,
     keyId: credential.keyId,
     secret: credential.secret,
-    apiBaseUrl: process.env.BUPAYMENT_API_BASE_URL!,
+    apiBaseUrl: "https://api.bupayment.com",
   });
 }
 ```
