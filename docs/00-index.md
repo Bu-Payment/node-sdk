@@ -18,6 +18,7 @@ exist until every required field is set.
 9. [Pagination](09-pagination.md): cursor pages, the automatic walk and `collect()`.
 10. [Errors](10-errors.md): typed error envelopes, what each code means, and the public view of a failure.
 11. [Sales](11-sales.md): charging a one-time product at the displayed price, with a typed outcome and stock compensation.
+12. [Product mirror](12-product-mirror.md): keeping a local product mirrored in the catalogue, safe to retry.
 
 ---
 

@@ -306,4 +306,4 @@ for a new customer, `customers:write`.
 
 ---
 
-Previous: [Errors](10-errors.md) · Next: [Index](00-index.md)
+Previous: [Errors](10-errors.md) · Next: [Product mirror](12-product-mirror.md)
