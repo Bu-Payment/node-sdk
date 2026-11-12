@@ -9,9 +9,15 @@ built for the publishable key and cannot sign confidential requests.
 
 ## Install
 
+The package is not published to a registry. Install it from GitHub, pinned to a full commit SHA:
+
 ```sh
-bun add @bu-payment/node-sdk
+npm install "github:Bu-Payment/node-sdk#<commit-sha>"
 ```
+
+The repository does not carry build output. npm builds `dist` from source during the install,
+through the package's `prepare` script, so an install with `--ignore-scripts` leaves the package
+without it. Installing requires read access to the repository.
 
 ## Configuration
 

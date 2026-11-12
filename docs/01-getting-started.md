@@ -2,9 +2,14 @@
 
 ## Install
 
+The package is not published to a registry. Install it from GitHub, pinned to a full commit SHA:
+
 ```bash
-bun add @bu-payment/node-sdk
+npm install "github:Bu-Payment/node-sdk#<commit-sha>"
 ```
+
+npm builds `dist` from source during the install, through the package's `prepare` script, so an
+install with `--ignore-scripts` leaves the package without it.
 
 The package is server-only. Importing it in a browser bundle raises an error rather than
 shipping a confidential secret to a client.
