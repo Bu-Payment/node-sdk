@@ -3,23 +3,25 @@ import {
   type ExpectedPriceSettled,
   type ExpectedPriceState,
   type ExpectedUnitAmountMethod,
-  expectedPriceField,
   expectedPriceMethods,
   isExpectedPriceSettled,
 } from "../catalogue/expected-price";
-import { EnvVariable } from "../constants";
 import type { DeferredSender, RequestScope, ScopeMethods } from "../core/builder";
 import { readRequest, scopeMethods, writeRequest } from "../core/builder";
-import { configurationMissing } from "../core/env";
 import { encodePathSegment } from "../core/request-target";
+import { checkoutBody } from "./session-body";
 import type { Checkout } from "./types";
 
 export interface CheckoutSessionState extends RequestScope, ExpectedPriceState {
   priceId?: string;
+  quantity?: number;
+  amount?: number;
+  currency?: string;
+  description?: string;
+  productId?: string;
   customerId?: string;
   customerEmail?: string;
   customerName?: string;
-  quantity?: number;
   destination?: string;
   unconfiguredDestination?: true;
   provider?: string;
@@ -29,12 +31,34 @@ export interface CheckoutSessionState extends RequestScope, ExpectedPriceState {
 
 interface DraftCore<TState extends CheckoutSessionState>
   extends ScopeMethods<CheckoutSessionDraft<TState>> {
-  priceId(priceId: string): CheckoutSessionDraft<TState & { priceId: string }>;
-  quantity(quantity: number): CheckoutSessionDraft<TState>;
   destination(destination: string): CheckoutSessionDraft<TState & { destination: string }>;
   provider(provider: string): CheckoutSessionDraft<TState>;
   reference(reference: string): CheckoutSessionDraft<TState>;
   idempotencyKey(idempotencyKey: string): CheckoutSessionDraft<TState & { idempotencyKey: string }>;
+}
+
+interface CataloguePricing<TState extends CheckoutSessionState> {
+  priceId(priceId: string): CheckoutSessionDraft<TState & { priceId: string }>;
+  quantity(quantity: number): CheckoutSessionDraft<TState & { quantity: number }>;
+}
+
+type CatalogueMethods<TState extends CheckoutSessionState> = CataloguePricing<TState> &
+  ExpectedUnitAmountMethod<CheckoutSessionDraft<TState & { expectedUnitAmount: number }>> &
+  (TState extends { expectedUnitAmount: number }
+    ? ExpectedCurrencyMethod<CheckoutSessionDraft<TState & { expectedCurrency: string }>>
+    : object);
+
+interface AppAmountEntry<TState extends CheckoutSessionState> {
+  amount(amount: number): CheckoutSessionDraft<TState & { amount: number }>;
+}
+
+interface AppAmountDetails<TState extends CheckoutSessionState> {
+  currency(currency: string): CheckoutSessionDraft<TState & { currency: string }>;
+  productId(productId: string): CheckoutSessionDraft<TState & { productId: string }>;
+}
+
+interface AppAmountDescription<TState extends CheckoutSessionState> {
+  description(description: string): CheckoutSessionDraft<TState & { description: string }>;
 }
 
 interface BuyerNaming<TState extends CheckoutSessionState> {
@@ -56,19 +80,34 @@ type Named<TState> = TState extends { customerId: string }
     ? true
     : false;
 
+type CatalogueChosen<TState> = TState extends { priceId: string }
+  ? true
+  : TState extends { quantity: number }
+    ? true
+    : TState extends { expectedUnitAmount: number }
+      ? true
+      : false;
+
+type Priced<TState> = TState extends { priceId: string }
+  ? ExpectedPriceSettled<TState>
+  : TState extends { amount: number; currency: string; description: string }
+    ? true
+    : false;
+
+type Creatable<TState> = TState extends { destination: string; idempotencyKey: string }
+  ? [Named<TState>, Priced<TState>] extends [true, true]
+    ? true
+    : false
+  : false;
+
 export type CheckoutSessionDraft<TState extends CheckoutSessionState = CheckoutSessionState> =
   DraftCore<TState> &
-    ExpectedUnitAmountMethod<CheckoutSessionDraft<TState & { expectedUnitAmount: number }>> &
-    (TState extends { expectedUnitAmount: number }
-      ? ExpectedCurrencyMethod<CheckoutSessionDraft<TState & { expectedCurrency: string }>>
-      : object) &
+    (TState extends { amount: number } ? AppAmountDetails<TState> : CatalogueMethods<TState>) &
+    (CatalogueChosen<TState> extends true ? object : AppAmountEntry<TState>) &
+    (TState extends { currency: string } ? AppAmountDescription<TState> : object) &
     (Named<TState> extends true ? object : BuyerNaming<TState>) &
     (TState extends { customerEmail: string } ? BuyerName<TState> : object) &
-    (TState extends { priceId: string; destination: string; idempotencyKey: string }
-      ? [Named<TState>, ExpectedPriceSettled<TState>] extends [true, true]
-        ? CreatableCheckoutSession
-        : object
-      : object);
+    (Creatable<TState> extends true ? CreatableCheckoutSession : object);
 
 export interface CheckoutSessionReader extends ScopeMethods<CheckoutSessionReader> {
   get(): Promise<Checkout>;
@@ -82,9 +121,7 @@ export function checkoutSessionDraft<TState extends CheckoutSessionState>(
     checkoutSessionDraft(send, { ...state, ...update });
   const builder: Record<string, unknown> = {
     ...scopeMethods(next),
-    priceId: (priceId: string) => next({ priceId }),
-    ...expectedPriceMethods(state, next),
-    quantity: (quantity: number) => next({ quantity }),
+    ...pricingMethods(state, next),
     destination: (destination: string) => next({ destination }),
     provider: (provider: string) => next({ provider }),
     reference: (reference: string) => next({ reference }),
@@ -118,43 +155,44 @@ export function checkoutSessionReader(
   });
 }
 
+function pricingMethods(
+  state: CheckoutSessionState,
+  next: (update: Partial<CheckoutSessionState>) => unknown,
+): Record<string, unknown> {
+  if ("amount" in state) {
+    return {
+      amount: (amount: number) => next({ amount }),
+      currency: (currency: string) => next({ currency }),
+      productId: (productId: string) => next({ productId }),
+      ...("currency" in state
+        ? { description: (description: string) => next({ description }) }
+        : {}),
+    };
+  }
+  const catalogueChosen =
+    "priceId" in state || "quantity" in state || "expectedUnitAmount" in state;
+  return {
+    priceId: (priceId: string) => next({ priceId }),
+    quantity: (quantity: number) => next({ quantity }),
+    ...expectedPriceMethods(state, next),
+    ...(catalogueChosen ? {} : { amount: (amount: number) => next({ amount }) }),
+  };
+}
+
 function isCreatable(state: CheckoutSessionState): boolean {
   return (
-    state.priceId !== undefined &&
     (state.destination !== undefined || state.unconfiguredDestination === true) &&
     state.idempotencyKey !== undefined &&
     (state.customerId !== undefined || state.customerEmail !== undefined) &&
-    isExpectedPriceSettled(state)
+    isPriced(state)
   );
 }
 
-function checkoutBody(state: CheckoutSessionState): Record<string, unknown> {
-  return {
-    priceId: state.priceId,
-    ...expectedPriceField(state),
-    ...buyerField(state),
-    ...(state.quantity === undefined ? {} : { quantity: state.quantity }),
-    destinationKey: state.destination ?? missingDestination(),
-    ...(state.provider === undefined ? {} : { provider: state.provider }),
-    ...(state.reference === undefined ? {} : { reference: state.reference }),
-  };
-}
-
-function missingDestination(): never {
-  throw configurationMissing(
-    "Checkout destination is not configured: call destination() or set BU_PAYMENT_DESTINATION_KEY",
-    [EnvVariable.DESTINATION_KEY],
-  );
-}
-
-function buyerField(state: CheckoutSessionState): Record<string, unknown> {
-  if (state.customerId !== undefined) {
-    return { customerId: state.customerId };
+function isPriced(state: CheckoutSessionState): boolean {
+  if (state.priceId !== undefined) {
+    return isExpectedPriceSettled(state);
   }
-  return {
-    customer: {
-      email: state.customerEmail,
-      ...(state.customerName === undefined ? {} : { name: state.customerName }),
-    },
-  };
+  return (
+    state.amount !== undefined && state.currency !== undefined && state.description !== undefined
+  );
 }

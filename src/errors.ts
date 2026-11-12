@@ -106,6 +106,21 @@ export function requiresHostedCheckout(error: unknown): error is HostedCheckoutR
   );
 }
 
+export type CustomAmountRefusedError = BuPaymentError & {
+  readonly apiError:
+    | typeof ApiErrorCode.CHECKOUT_CUSTOM_AMOUNT_NOT_ALLOWED
+    | typeof ApiErrorCode.CHECKOUT_CUSTOM_AMOUNT_UNSUPPORTED_PROVIDER;
+};
+
+const CUSTOM_AMOUNT_REFUSALS = new Set<string>([
+  ApiErrorCode.CHECKOUT_CUSTOM_AMOUNT_NOT_ALLOWED,
+  ApiErrorCode.CHECKOUT_CUSTOM_AMOUNT_UNSUPPORTED_PROVIDER,
+]);
+
+export function isCustomAmountRefused(error: unknown): error is CustomAmountRefusedError {
+  return error instanceof BuPaymentError && CUSTOM_AMOUNT_REFUSALS.has(error.apiError ?? "");
+}
+
 export type NotFoundError = BuPaymentError & {
   readonly code: typeof ErrorCode.RESOURCE_NOT_FOUND;
 };

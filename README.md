@@ -144,6 +144,31 @@ send the buyer to, for providers that cannot be charged directly; `checkout.sess
 reads it. The outcome arrives as a typed `checkout.*` webhook event. See
 [Checkout](docs/04-checkout.md#one-time-checkout).
 
+A checkout is priced by `priceId()` or by `amount()`, never both. Use `priceId()` for a fixed
+value kept in the catalogue: list prices, anything also sold as a subscription, a catalogue you
+maintain. Use `amount()` for a value your App calculates at the moment of sale, such as a booking:
+
+```ts
+const total = await bookings.priceFor(booking.id);
+
+const checkout = await client.checkout
+  .sessionDraft()
+  .amount(total)
+  .currency("EUR")
+  .description("Room 12, 3 nights")
+  .customerId(customer.id)
+  .idempotencyKey(`${booking.id}-${total}`)
+  .create();
+```
+
+`currency()` follows `amount()` and `description()` follows `currency()`; `productId()` is optional.
+Once `amount()` is called, `priceId()`, `quantity()` and the `expected*` assertions are gone, and
+the other way round. Calculate the amount on your server and never take it from the browser, then
+compare the `amount` and `currency` of `checkout.completed` with the total you recalculate before
+fulfilling. The credential needs the `checkout:custom_amount` capability, and only the `sisp` and
+`trust-my-travel` providers charge an amount. See
+[A price or an amount](docs/04-checkout.md#a-price-or-an-amount).
+
 ## Catalogue writes
 
 A credential with `catalogue:write` creates and changes the catalogue of its own App. BuPayment is
@@ -445,13 +470,17 @@ store is set.
 | `catalogue.price.assigned.v1` | price | no |
 | `catalogue.price.unassigned.v1` | price | no |
 
-`checkout.completed`, `checkout.failed`, `checkout.expired` and `checkout.cancelled` are typed
-too, with `data.checkoutId`, the `reference` sent at creation and, once paid, `paymentId`. See
-[Checkout events](docs/08-events-and-webhooks.md#checkout-events).
+The five checkout events are typed too. `checkout.created` arrives once, when the checkout is
+ready, with its `amount`, `currency`, `amountSource` (`price` or `app_amount`), `description`,
+`productId`, `priceId` (`null` for an amount the App calculated), `quantity`, `customerId` and
+`expiresAt`. `checkout.completed`, `checkout.failed`, `checkout.expired` and `checkout.cancelled`
+are its outcomes, with `data.checkoutId`, the `reference` sent at creation and, once paid,
+`paymentId`. See [Checkout events](docs/08-events-and-webhooks.md#checkout-events).
 
-Four helpers handle them without a request. `checkoutOutcome(event)` reads any of the four into
-one shape, `{ checkoutId, reference, status, paymentId, amount, currency, chargedAmount,
-chargedCurrency }`, with `null` where `checkout.cancelled` carries nothing.
+Four helpers handle the outcomes without a request. `checkoutOutcome(event)` reads any of the four
+outcome events into one shape, `{ checkoutId, reference, status, paymentId, amount, currency, chargedAmount,
+chargedCurrency }`, with `null` where `checkout.cancelled` carries nothing. It does not accept
+`checkout.created`, which announces a checkout rather than settling one: narrow the event first.
 `laterCheckoutStatus(current, incoming)` answers the status that prevails when events arrive out
 of order (`completed` over `failed`, `cancelled`, `expired`, `processing` and `pending`).
 `paidAsExpected(event)` takes only a `checkout.completed` and compares its canonical amount and
