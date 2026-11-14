@@ -1,7 +1,7 @@
 import type { Price, PriceInterval } from "../catalogue/types";
 import { ErrorCode } from "../constants";
 import { BuPaymentError } from "../errors";
-import { assertCheckoutData, CHECKOUT_EVENT_STATUSES } from "./checkout-events";
+import { assertCheckoutData, isCheckoutEventType } from "./checkout-events";
 import {
   booleanField,
   fieldRejecter,
@@ -76,7 +76,7 @@ export function parseWebhookEvent(payload: JsonObject): WebhookEvent {
     assertCatalogueData(payload.data, CATALOGUE_EVENT_RESOURCES[type], occurredAt, rejectField);
     return { version: 1, id, type, occurredAt, data: payload.data } as CatalogueEvent;
   }
-  if (isKey(CHECKOUT_EVENT_STATUSES, type)) {
+  if (isCheckoutEventType(type)) {
     assertCheckoutData(payload.data, type, rejectField);
     return { version: 1, id, type, occurredAt, data: payload.data } as CheckoutEvent;
   }

@@ -68,12 +68,14 @@ export { createCustomersClient } from "./customers/client";
 export type * from "./customers/types";
 export type {
   BuPaymentErrorOptions,
+  CustomAmountRefusedError,
   HostedCheckoutRequiredError,
   NotFoundError,
   PriceChangedError,
 } from "./errors";
 export {
   BuPaymentError,
+  isCustomAmountRefused,
   isNotFound,
   isOutcomeUncertain,
   isPriceChanged,

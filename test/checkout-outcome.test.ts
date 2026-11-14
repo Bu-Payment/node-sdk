@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkoutOutcome, isPayableCheckout, laterCheckoutStatus } from "../src/checkout/outcome";
 import type { CheckoutStatus } from "../src/checkout/types";
-import type { CheckoutEvent } from "../src/webhooks/types";
+import type { CheckoutOutcomeEvent } from "../src/webhooks/types";
 import checkoutEvents from "./fixtures/checkout-events.json";
 import { deliver } from "./support/webhook-events";
 
@@ -22,7 +22,7 @@ const PAIRS = ASCENDING.flatMap((current, currentRank) =>
 );
 
 const [COMPLETED, FAILED, EXPIRED, CANCELLED] = checkoutEvents.map(
-  (envelope) => deliver(envelope).event as CheckoutEvent,
+  (envelope) => deliver(envelope).event as CheckoutOutcomeEvent,
 );
 
 describe("laterCheckoutStatus", () => {
@@ -51,7 +51,7 @@ describe("isPayableCheckout", () => {
 
 describe("checkoutOutcome", () => {
   it("reads a completed checkout with its payment and canonical amount", () => {
-    expect(checkoutOutcome(COMPLETED as CheckoutEvent)).toEqual({
+    expect(checkoutOutcome(COMPLETED as CheckoutOutcomeEvent)).toEqual({
       checkoutId: "checkout_123",
       reference: "order-1042",
       status: "completed",
@@ -64,7 +64,7 @@ describe("checkoutOutcome", () => {
   });
 
   it("keeps the converted charge of a failed checkout", () => {
-    expect(checkoutOutcome(FAILED as CheckoutEvent)).toMatchObject({
+    expect(checkoutOutcome(FAILED as CheckoutOutcomeEvent)).toMatchObject({
       status: "failed",
       reference: null,
       paymentId: null,
@@ -76,7 +76,7 @@ describe("checkoutOutcome", () => {
   });
 
   it("reads an expired checkout with no amount as nulls", () => {
-    expect(checkoutOutcome(EXPIRED as CheckoutEvent)).toMatchObject({
+    expect(checkoutOutcome(EXPIRED as CheckoutOutcomeEvent)).toMatchObject({
       status: "expired",
       amount: null,
       currency: null,
@@ -84,7 +84,7 @@ describe("checkoutOutcome", () => {
   });
 
   it("fills the fields a cancellation does not carry with null", () => {
-    const outcome = checkoutOutcome(CANCELLED as CheckoutEvent);
+    const outcome = checkoutOutcome(CANCELLED as CheckoutOutcomeEvent);
     expect(outcome).toEqual({
       checkoutId: "checkout_126",
       reference: "order-1044",
@@ -100,7 +100,7 @@ describe("checkoutOutcome", () => {
 
   it("gives every event the same keys and freezes the result", () => {
     const outcomes = [COMPLETED, FAILED, EXPIRED, CANCELLED].map((event) =>
-      checkoutOutcome(event as CheckoutEvent),
+      checkoutOutcome(event as CheckoutOutcomeEvent),
     );
     const keys = Object.keys(outcomes[0] as object).sort();
     for (const outcome of outcomes) {
@@ -110,8 +110,8 @@ describe("checkoutOutcome", () => {
   });
 
   it("leaves out the provider, quantity and customer", () => {
-    expect(checkoutOutcome(COMPLETED as CheckoutEvent)).not.toHaveProperty("provider");
-    expect(checkoutOutcome(COMPLETED as CheckoutEvent)).not.toHaveProperty("quantity");
-    expect(checkoutOutcome(COMPLETED as CheckoutEvent)).not.toHaveProperty("customerId");
+    expect(checkoutOutcome(COMPLETED as CheckoutOutcomeEvent)).not.toHaveProperty("provider");
+    expect(checkoutOutcome(COMPLETED as CheckoutOutcomeEvent)).not.toHaveProperty("quantity");
+    expect(checkoutOutcome(COMPLETED as CheckoutOutcomeEvent)).not.toHaveProperty("customerId");
   });
 });

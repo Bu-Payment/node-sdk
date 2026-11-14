@@ -266,17 +266,26 @@ Payment and subscription events are not typed yet and arrive as `"unknown"`.
 
 #### Checkout events
 
-The four outcomes of a [one-time checkout](04-checkout.md#one-time-checkout) are typed. Their
-names carry no version suffix: subscribe to them exactly as written.
+The five events of a [one-time checkout](04-checkout.md#one-time-checkout) are typed: its creation
+and its four outcomes. Their names carry no version suffix: subscribe to them exactly as written.
 
 | Type | Emitted when |
 | --- | --- |
+| `checkout.created` | The checkout is ready for the buyer; sent once. |
 | `checkout.completed` | The checkout is paid; `data.paymentId` names the payment. |
 | `checkout.failed` | The provider reports the payment failed. |
 | `checkout.expired` | The checkout reached its expiry unpaid. |
 | `checkout.cancelled` | The checkout was cancelled. |
 
-The first three share one `data`: `checkoutId`, `reference` (the one sent at creation, or
+`checkout.created` carries `checkoutId`, `reference` (or `null`), `amount` and `currency` (the
+total, in minor units), `amountSource`, `description`, `productId`, `priceId`, `quantity`,
+`customerId` and `expiresAt`. `amountSource` is `price` for a checkout priced by `priceId()`, with
+`priceId` set and `description` `null`, and `app_amount` for one priced by `amount()`, with
+`priceId` `null` and the `description` and `productId` that were sent; narrowing on `amountSource`
+narrows `priceId` to `string` or `null`. An event whose `priceId` contradicts its `amountSource` is
+refused with `webhook_event_invalid`.
+
+The three terminal outcomes share one `data`: `checkoutId`, `reference` (the one sent at creation, or
 `null`), `status` (narrowed to the event's own status), `previousStatus`, `paymentId`,
 `provider`, `providerCheckoutId`, `amount`, `currency`, `chargedAmount`, `chargedCurrency`,
 `quantity` and `customerId`. `checkout.cancelled` carries `checkoutId`, `reference`,
@@ -285,6 +294,9 @@ The first three share one `data`: `checkoutId`, `reference` (the one sent at cre
 
 ```ts
 switch (event.type) {
+  case "checkout.created":
+    await orders.recordCheckout(event.data.reference, event.data.checkoutId, event.data.expiresAt);
+    break;
   case "checkout.completed":
     await orders.markPaid(event.data.checkoutId, event.data.paymentId);
     break;

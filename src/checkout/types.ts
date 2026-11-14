@@ -92,14 +92,20 @@ export type CheckoutStatus =
   | "expired"
   | "cancelled";
 
+export type CheckoutAmountSource = "price" | "app_amount";
+
 export interface Checkout {
   id: string;
   status: CheckoutStatus;
   provider: string | null;
   checkoutUrl?: string;
   reference: string | null;
+  amountSource: CheckoutAmountSource;
   amount: number | null;
   currency: string | null;
+  description: string | null;
+  productId: string | null;
+  priceId: string | null;
   chargedAmount: number | null;
   chargedCurrency: string | null;
   quantity: number;

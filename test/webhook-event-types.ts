@@ -40,6 +40,22 @@ switch (verifiedEvent.type) {
     // @ts-expect-error a cancellation carries no payment
     verifiedEvent.data.paymentId;
     break;
+  case "checkout.created":
+    exactly<number>()(verifiedEvent.data.amount);
+    exactly<"price" | "app_amount">()(verifiedEvent.data.amountSource);
+    exactly<string | null>()(verifiedEvent.data.priceId);
+    exactly<string | null>()(verifiedEvent.data.productId);
+    exactly<string | null>()(verifiedEvent.data.description);
+    exactly<string>()(verifiedEvent.data.expiresAt);
+    if (verifiedEvent.data.amountSource === "price") {
+      exactly<string>()(verifiedEvent.data.priceId);
+    }
+    if (verifiedEvent.data.amountSource === "app_amount") {
+      exactly<null>()(verifiedEvent.data.priceId);
+    }
+    // @ts-expect-error a created checkout carries no payment yet
+    verifiedEvent.data.paymentId;
+    break;
   case "checkout.failed":
   case "checkout.expired":
     exactly<number>()(verifiedEvent.data.quantity);

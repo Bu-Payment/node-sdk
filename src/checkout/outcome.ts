@@ -1,7 +1,7 @@
 import type {
   CheckoutCancelledEvent,
-  CheckoutEvent,
-  CheckoutEventType,
+  CheckoutOutcomeEvent,
+  CheckoutOutcomeEventType,
   CheckoutTerminalEvent,
   CheckoutTerminalStatus,
 } from "../webhooks/types";
@@ -32,8 +32,8 @@ const STATUS_PRECEDENCE: Readonly<Record<CheckoutStatus, number>> = {
 };
 
 type OutcomeReaders = {
-  readonly [TType in CheckoutEventType]: (
-    event: Extract<CheckoutEvent, { type: TType }>,
+  readonly [TType in CheckoutOutcomeEventType]: (
+    event: Extract<CheckoutOutcomeEvent, { type: TType }>,
   ) => CheckoutOutcome;
 };
 
@@ -55,8 +55,8 @@ export function isPayableCheckout(status: CheckoutStatus): status is PayableChec
   return status === "pending" || status === "processing";
 }
 
-export function checkoutOutcome(event: CheckoutEvent): CheckoutOutcome {
-  const read = OUTCOME_READERS[event.type] as (event: CheckoutEvent) => CheckoutOutcome;
+export function checkoutOutcome(event: CheckoutOutcomeEvent): CheckoutOutcome {
+  const read = OUTCOME_READERS[event.type] as (event: CheckoutOutcomeEvent) => CheckoutOutcome;
   return Object.freeze(read(event));
 }
 

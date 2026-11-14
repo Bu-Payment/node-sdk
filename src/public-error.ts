@@ -1,5 +1,5 @@
 import { ApiErrorCode, ErrorCode } from "./constants";
-import { BuPaymentError } from "./errors";
+import { BuPaymentError, isCustomAmountRefused } from "./errors";
 
 export interface PublicError {
   status: number;
@@ -29,7 +29,11 @@ export function publicError(error: unknown): PublicError {
   if (!(error instanceof BuPaymentError)) {
     return { status: 500, code: ErrorCode.OPERATION_FAILED, message: REQUEST_FAILED };
   }
-  if (MERCHANT_SIDE_CODES.has(error.code) || isUnattributedRefusal(error)) {
+  if (
+    MERCHANT_SIDE_CODES.has(error.code) ||
+    isCustomAmountRefused(error) ||
+    isUnattributedRefusal(error)
+  ) {
     return { status: 502, code: ErrorCode.OPERATION_FAILED, message: PAYMENT_FAILED };
   }
   return { status: publicStatus(error.status), code: error.code, message: PAYMENT_FAILED };
